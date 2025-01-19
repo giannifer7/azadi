@@ -1,0 +1,32 @@
+# Workspace Cargo.toml
+
+[workspace]
+resolver = "2"
+members = [
+    "crates/azadi-macros",         # Core macro processing library
+    "crates/azadi-noweb",          # Literate programming system (future)
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Gianni Ferrarotti <gianni.ferrarotti@gmail.com>"]
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+# Shared dependencies
+clap = { version = "4.4", features = ["derive"] }
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1.9"
+lazy_static = "1.4"
+chrono = "0.4"
+# pyo3 = { version = "0.23.4", features = ["extension-module"] }
+# pyo3-macros = "0.23.4"
+# pyo3-build-config = "0.23.4"
+# pyo3-ffi = "0.23.4"
+# pyo3-macros-backend = "0.23.4"
+
+# Internal crate dependencies
+azadi-macros = { path = "crates/azadi-macros" }

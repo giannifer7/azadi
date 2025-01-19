@@ -1,0 +1,17 @@
+/target
+
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+.venv
+
+.mypy_cache
+.pytest_cache
+.coverage
+coverage_report/
+
+_azadi_work/
