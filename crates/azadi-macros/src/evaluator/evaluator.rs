@@ -164,7 +164,7 @@ impl Evaluator {
         Ok(out)
     }
 
-    fn node_text(&self, node: &ASTNode) -> String {
+    pub fn node_text(&self, node: &ASTNode) -> String {
         let src_idx = node.token.src as usize;
         if src_idx >= self.source_files.len() {
             println!("node_text: invalid src index");

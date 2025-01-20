@@ -41,11 +41,11 @@ fn test_def_macro_comma_errors() {
 
 #[test]
 fn test_def_macro_other_errors() {
-    // let result = process_string_defaults("%def()");
-    // assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
-    //
-    // let result = process_string_defaults("%def(foo)");
-    // assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
+    let result = process_string_defaults("%def()");
+    assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
+
+    let result = process_string_defaults("%def(foo)");
+    assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
 
     let result = process_string_defaults("%def(123, body)");
     assert!(matches!(result, Err(EvalError::InvalidUsage(_))));

@@ -1,7 +1,7 @@
 // <[@file crates/azadi-macros/src/evaluator/builtins.rs]>=
-// azadi/crates/azadi-macros/src/evaluator/builtins.rs
+// crates/azadi-macros/src/evaluator/builtins.rs
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::evaluator::{EvalError, EvalResult, Evaluator, MacroDefinition};
 use crate::types::{ASTNode, NodeKind};
@@ -24,107 +24,128 @@ pub fn default_builtins() -> HashMap<String, BuiltinFn> {
     map
 }
 
-/// %def(name, param1, param2, ..., body)
-fn builtin_def(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
-    if !node.parts.iter().all(|child| child.kind == NodeKind::Param) {
-        return Err(EvalError::InvalidUsage(
-            "All parts in `%def(...)` must be Param nodes".to_string(),
-        ));
+/// Helper: Checks that a Param node contains exactly one identifier child
+/// (ignoring spaces/comments), then returns that identifier’s text.
+fn single_ident_param(eval: &Evaluator, param_node: &ASTNode, desc: &str) -> EvalResult<String> {
+    // Must be a `Param` node
+    if param_node.kind != NodeKind::Param {
+        return Err(EvalError::InvalidUsage(format!(
+            "{desc} must be a Param node"
+        )));
     }
-    let parts = &node.parts;
-    if parts.len() < 2 {
-        return Err(EvalError::InvalidUsage(
-            "def requires at least (name, body)".into(),
-        ));
-    }
-
-    let name_param = &parts[0];
-    let macro_name = eval.evaluate(name_param)?.trim().to_string();
-
-    if macro_name.is_empty() {
-        return Err(EvalError::InvalidUsage("def: empty macro name".into()));
+    // In your AST, `param_node.name != None` means there's a "name=" portion;
+    // we disallow that here, requiring a single plain identifier.
+    if param_node.name.is_some() {
+        return Err(EvalError::InvalidUsage(format!(
+            "{desc} must be a single identifier (found an '=' style param?)"
+        )));
     }
 
-    if !macro_name
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_')
-    {
-        return Err(EvalError::InvalidUsage(
-            "def: macro name must be a valid identifier".into(),
-        ));
+    // Filter out space/comment children
+    let nonspace: Vec<_> = param_node
+        .parts
+        .iter()
+        .filter(|child| {
+            !matches!(
+                child.kind,
+                NodeKind::Space | NodeKind::LineComment | NodeKind::BlockComment
+            )
+        })
+        .collect();
+
+    // Must have exactly one child, and that child must be an Ident
+    if nonspace.len() != 1 {
+        return Err(EvalError::InvalidUsage(format!(
+            "{desc} must be a single identifier"
+        )));
+    }
+    let ident_node = &nonspace[0];
+    if ident_node.kind != NodeKind::Ident {
+        return Err(EvalError::InvalidUsage(format!(
+            "{desc} must be a single identifier"
+        )));
     }
 
-    let body_node = parts.last().unwrap();
-    let param_nodes = &parts[1..(parts.len() - 1)];
-
-    let mut param_list = Vec::new();
-    for pn in param_nodes {
-        let p = eval.evaluate(pn)?.trim().to_string();
-        if p.is_empty() {
-            return Err(EvalError::InvalidUsage(
-                "def: parameters cannot be empty".into(),
-            ));
-        }
-
-        if !p.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
-            return Err(EvalError::InvalidUsage(
-                "def: parameters must be valid identifiers".into(),
-            ));
-        }
-
-        if param_list.contains(&p) {
-            return Err(EvalError::InvalidUsage(
-                "def: duplicate parameter name".into(),
-            ));
-        }
-        param_list.push(p);
+    // Read raw text from that Ident node:
+    let text = eval.node_text(ident_node);
+    if text.trim().is_empty() {
+        return Err(EvalError::InvalidUsage(format!("{desc} cannot be empty")));
     }
-
-    let definition = MacroDefinition {
-        name: macro_name,
-        params: param_list,
-        body: body_node.clone(),
-        is_python: false,
-    };
-    eval.define_macro(definition);
-    Ok("".to_string())
+    Ok(text)
 }
 
-/// `%pydef(...)` => same as `%def`, but is_python=true
-fn builtin_pydef(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
-    if !node.parts.iter().all(|child| child.kind == NodeKind::Param) {
-        return Err(EvalError::InvalidUsage(
-            "All parts in `%def(...)` must be Param nodes".to_string(),
-        ));
+struct DefMacroConfig {
+    min_params_error: String,
+    name_param_context: String,
+    formal_param_context: String,
+    duplicate_param_error: String,
+    is_python: bool,
+}
+
+fn define_macro(
+    eval: &mut Evaluator,
+    node: &ASTNode,
+    config: DefMacroConfig,
+) -> EvalResult<String> {
+    if node.parts.len() < 2 {
+        return Err(EvalError::InvalidUsage(config.min_params_error));
     }
-    let parts = &node.parts;
-    if parts.len() < 2 {
-        return Err(EvalError::InvalidUsage(
-            "pydef requires (name, ...params..., body)".into(),
-        ));
-    }
-    let macro_name = eval.evaluate(&parts[0])?;
-    if macro_name.is_empty() {
-        return Err(EvalError::InvalidUsage("pydef: empty macro name".into()));
-    }
-    let body_node = parts.last().unwrap();
-    let param_nodes = &parts[1..(parts.len() - 1)];
-    let mut param_list = Vec::new();
-    for pn in param_nodes {
-        let p = eval.evaluate(pn)?;
-        if p.is_empty() {
-            return Err(EvalError::InvalidUsage("pydef: empty param".into()));
-        }
-        param_list.push(p);
-    }
-    let definition = MacroDefinition {
+
+    let macro_name = single_ident_param(eval, &node.parts[0], &config.name_param_context)?;
+    let body_node = node.parts.last().unwrap().clone();
+
+    let mut seen = HashSet::new();
+    let param_list = node.parts[1..(node.parts.len() - 1)].iter().try_fold(
+        Vec::new(),
+        |mut acc, param_node| {
+            let param_name = single_ident_param(eval, param_node, &config.formal_param_context)?;
+            if !seen.insert(param_name.clone()) {
+                return Err(EvalError::InvalidUsage(format!(
+                    "{}: parameter '{param_name}' already used",
+                    config.duplicate_param_error
+                )));
+            }
+            acc.push(param_name);
+            Ok(acc)
+        },
+    )?;
+
+    let mac = MacroDefinition {
         name: macro_name,
         params: param_list,
-        body: body_node.clone(),
-        is_python: true,
+        body: body_node,
+        is_python: config.is_python,
     };
-    eval.define_macro(definition);
-    Ok("".to_string())
+    eval.define_macro(mac);
+    Ok("".into())
+}
+
+pub fn builtin_def(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    define_macro(
+        eval,
+        node,
+        DefMacroConfig {
+            min_params_error: "def requires at least (name, body)".into(),
+            name_param_context: "macro name".into(),
+            formal_param_context: "formal parameter".into(),
+            duplicate_param_error: "def".into(),
+            is_python: false,
+        },
+    )
+}
+
+pub fn builtin_pydef(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    define_macro(
+        eval,
+        node,
+        DefMacroConfig {
+            min_params_error: "pydef requires at least (name, body)".into(),
+            name_param_context: "pydef name".into(),
+            formal_param_context: "pydef parameter".into(),
+            duplicate_param_error: "pydef".into(),
+            is_python: true,
+        },
+    )
 }
 
 /// `%include(filename)`
