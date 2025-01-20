@@ -124,7 +124,13 @@ impl Parser {
         }
 
         // Start with a "Block" node at the root
-        let root_idx = self.create_node(NodeKind::Block, tokens[0].src, tokens[0].clone());
+        let dummy = Token {
+            kind: TokenKind::Text,
+            src: tokens[0].src,
+            pos: 0,
+            length: 0,
+        };
+        let root_idx = self.create_node(NodeKind::Block, tokens[0].src, dummy);
         self.stack.push((ParserState::Block, root_idx));
 
         for token in tokens {
@@ -206,7 +212,13 @@ impl Parser {
                     // Start a Macro node + a Param node
                     let macro_idx = self.create_add_node(NodeKind::Macro, token.src, token.clone());
                     self.stack.push((ParserState::Macro, macro_idx));
-                    let param_idx = self.create_add_node(NodeKind::Param, token.src, token);
+                    let param_token = Token {
+                        kind: TokenKind::Text,
+                        src: token.src,
+                        pos: token.pos,
+                        length: 0, // just a placeholder
+                    };
+                    let param_idx = self.create_add_node(NodeKind::Param, token.src, param_token);
                     self.stack.push((ParserState::Macro, param_idx));
                 }
                 TokenKind::CommentOpen => {

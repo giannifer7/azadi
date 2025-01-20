@@ -74,8 +74,7 @@ pub struct ASTNode {
 }
 
 impl TryFrom<i32> for TokenKind {
-    type Error = String; // or ParserError, if you prefer
-
+    type Error = String;
     fn try_from(value: i32) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(TokenKind::Text),

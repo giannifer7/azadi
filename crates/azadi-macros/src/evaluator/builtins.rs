@@ -24,28 +24,62 @@ pub fn default_builtins() -> HashMap<String, BuiltinFn> {
     map
 }
 
-/// `%def(name, param1, param2, ..., body)`
+/// %def(name, param1, param2, ..., body)
 fn builtin_def(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    if !node.parts.iter().all(|child| child.kind == NodeKind::Param) {
+        return Err(EvalError::InvalidUsage(
+            "All parts in `%def(...)` must be Param nodes".to_string(),
+        ));
+    }
     let parts = &node.parts;
     if parts.len() < 2 {
         return Err(EvalError::InvalidUsage(
-            "def requires (name, ...params..., body)".into(),
+            "def requires at least (name, body)".into(),
         ));
     }
-    let macro_name = eval.evaluate(&parts[0])?;
+
+    let name_param = &parts[0];
+    let macro_name = eval.evaluate(name_param)?.trim().to_string();
+
     if macro_name.is_empty() {
         return Err(EvalError::InvalidUsage("def: empty macro name".into()));
     }
+
+    if !macro_name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_')
+    {
+        return Err(EvalError::InvalidUsage(
+            "def: macro name must be a valid identifier".into(),
+        ));
+    }
+
     let body_node = parts.last().unwrap();
     let param_nodes = &parts[1..(parts.len() - 1)];
+
     let mut param_list = Vec::new();
     for pn in param_nodes {
-        let p = eval.evaluate(pn)?;
+        let p = eval.evaluate(pn)?.trim().to_string();
         if p.is_empty() {
-            return Err(EvalError::InvalidUsage("def: empty param".into()));
+            return Err(EvalError::InvalidUsage(
+                "def: parameters cannot be empty".into(),
+            ));
+        }
+
+        if !p.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            return Err(EvalError::InvalidUsage(
+                "def: parameters must be valid identifiers".into(),
+            ));
+        }
+
+        if param_list.contains(&p) {
+            return Err(EvalError::InvalidUsage(
+                "def: duplicate parameter name".into(),
+            ));
         }
         param_list.push(p);
     }
+
     let definition = MacroDefinition {
         name: macro_name,
         params: param_list,
@@ -58,6 +92,11 @@ fn builtin_def(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
 
 /// `%pydef(...)` => same as `%def`, but is_python=true
 fn builtin_pydef(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    if !node.parts.iter().all(|child| child.kind == NodeKind::Param) {
+        return Err(EvalError::InvalidUsage(
+            "All parts in `%def(...)` must be Param nodes".to_string(),
+        ));
+    }
     let parts = &node.parts;
     if parts.len() < 2 {
         return Err(EvalError::InvalidUsage(

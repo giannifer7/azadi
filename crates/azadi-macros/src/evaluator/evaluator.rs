@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -269,6 +270,7 @@ impl Evaluator {
         None
     }
 
+    /*
     pub fn parse_string(&mut self, text: &str, path: &PathBuf) -> Result<ASTNode, EvalError> {
         let src = self
             .add_source_if_not_present(path.clone())
@@ -279,6 +281,32 @@ impl Evaluator {
             src as i32,
         )
         .map_err(|e| EvalError::ParseError(e))
+    }
+    */
+
+    pub fn parse_string(&mut self, text: &str, path: &PathBuf) -> Result<ASTNode, EvalError> {
+        println!(
+            "parse_string: called with text: {:?}, path: {:?}",
+            text, path
+        );
+        let src = match fs::metadata(path) {
+            Ok(md) if md.is_file() => {
+                // The file actually exists -> read from disk
+                self.add_source_if_not_present(path.clone())?
+            }
+            _ => {
+                // File does not exist: store the in-memory string
+                self.add_source_bytes(text.as_bytes().to_vec(), path.clone())
+            }
+        };
+        println!("parse_string: added source, src index: {}", src);
+        let result = crate::evaluator::lexer_parser::lex_parse_content(
+            text,
+            self.config.special_char,
+            src as i32,
+        );
+        println!("parse_string: lex_parse_content result: {:?}", result);
+        result.map_err(|e| EvalError::ParseError(e))
     }
 
     fn find_file(&self, filename: &str) -> EvalResult<PathBuf> {

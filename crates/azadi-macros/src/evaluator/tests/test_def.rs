@@ -1,76 +1,95 @@
-// azadi/crates/azadi-macros/src/evaluator/tests/test_def.rs
-//
-// Tests for `%def` macro.
+// crates/azadi-macros/src/evaluator/tests/test_def.rs
 
-use crate::evaluator::Evaluator;
-use crate::types::{ASTNode, NodeKind, Token, TokenKind};
+use crate::evaluator::evaluator::EvalError;
+use crate::macro_api::process_string_defaults;
 
 #[test]
-fn test_basic_def() {
-    let mut ev = Evaluator::new();
+fn test_def_macro_basic() {
+    let result = process_string_defaults("%def(foo, bar) [%foo()]").unwrap();
+    assert_eq!(result, b" [bar]");
+}
 
-    // We emulate calling "%def(myMacro, param, bodyStuff)"
-    // => ASTNode kind=Macro, parts => [Text("myMacro"), Text("param"), Text("bodyStuff")]
-    let def_call = ASTNode {
-        kind: NodeKind::Macro,
-        src: 0,
-        token: Token {
-            kind: TokenKind::Macro,
-            src: 0,
-            pos: 0,
-            length: 3,
-        },
-        end_pos: 3,
-        parts: vec![
-            ASTNode {
-                kind: NodeKind::Ident,
-                src: 0,
-                token: Token {
-                    kind: TokenKind::Ident,
-                    src: 0,
-                    pos: 10,
-                    length: 7, // "myMacro"
-                },
-                end_pos: 17,
-                parts: vec![],
-                name: None,
-            },
-            ASTNode {
-                kind: NodeKind::Ident,
-                src: 0,
-                token: Token {
-                    kind: TokenKind::Ident,
-                    src: 0,
-                    pos: 20,
-                    length: 5, // "param"
-                },
-                end_pos: 25,
-                parts: vec![],
-                name: None,
-            },
-            ASTNode {
-                kind: NodeKind::Ident,
-                src: 0,
-                token: Token {
-                    kind: TokenKind::Ident,
-                    src: 0,
-                    pos: 30,
-                    length: 9, // "bodyStuff"
-                },
-                end_pos: 39,
-                parts: vec![],
-                name: None,
-            },
-        ],
-        name: None,
-    };
+#[test]
+fn test_def_macro_with_params() {
+    let result = process_string_defaults(
+        "%def(greet, name, message, Hello, %(name)! %(message))\n%greet(Alice, Have a nice day)",
+    )
+    .unwrap();
+    assert_eq!(
+        std::str::from_utf8(&result).unwrap(),
+        "\nAlice! Have a nice day"
+    );
+}
 
-    let res = ev.evaluate(&def_call);
-    assert!(res.is_ok());
-    // check that "myMacro" was defined
-    let mm = ev.get_macro("myMacro");
-    assert!(mm.is_some());
-    let mac = mm.unwrap();
-    assert_eq!(mac.params, vec!["param"]);
-    assert_eq!(mac.body.kind, NodeKind::Ident);
+#[test]
+fn test_def_macro_empty_body() {
+    let result = process_string_defaults("%def(foo, bar,)\n%foo()").unwrap();
+    assert_eq!(std::str::from_utf8(&result).unwrap(), "\n");
+}
+
+#[test]
+fn test_def_macro_comma_errors() {
+    let result = process_string_defaults("%def(foo bar baz, body)");
+    assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
+
+    let result = process_string_defaults("%def(, foo, bar)");
+    assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
+
+    let result = process_string_defaults("%def(foo,, bar, baz)");
+    assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
+}
+
+#[test]
+fn test_def_macro_other_errors() {
+    // let result = process_string_defaults("%def()");
+    // assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
+    //
+    // let result = process_string_defaults("%def(foo)");
+    // assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
+
+    let result = process_string_defaults("%def(123, body)");
+    assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
+
+    let result = process_string_defaults("%def(foo, 123, body)");
+    assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
+
+    let result = process_string_defaults("%def(foo, param=value, body)");
+    assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
+}
+
+#[test]
+fn test_def_macro_with_comments() {
+    let result = process_string_defaults(
+        "%def(greet, %/* greeting macro %*/\n\
+         name, %// person to greet\n\
+         msg, %/* message to show %*/\n\
+         Hello %(name)! %(msg)\n\
+         )\n\
+         %greet(Alice, Good morning)",
+    )
+    .unwrap();
+    assert_eq!(
+        std::str::from_utf8(&result).unwrap(),
+        "\nHello Alice! Good morning\n"
+    );
+}
+
+#[test]
+fn test_def_macro_spaces() {
+    let result = process_string_defaults("%def( foo, bar, baz, output)\n%foo(bar, baz)").unwrap();
+    assert_eq!(std::str::from_utf8(&result).unwrap(), "\noutput");
+}
+
+#[test]
+fn test_def_macro_nested() {
+    let result = process_string_defaults(
+        "%def(bold, text, **%(text)**)
+         %def(greet, name, Hello %bold(dear %(name))!)
+         %greet(World)",
+    )
+    .unwrap();
+    assert_eq!(
+        std::str::from_utf8(&result).unwrap(),
+        "\n         \n         Hello **dear World**!"
+    );
 }
