@@ -15,3 +15,5 @@ wheels/
 coverage_report/
 
 _azadi_work/
+
+tarpaulin-report.html

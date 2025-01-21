@@ -7,6 +7,15 @@ use std::path::PathBuf;
 use azadi_macros::evaluator::EvalError;
 use azadi_macros::macro_api::process_files_from_config;
 
+/// Returns the default path separator based on the platform
+fn default_pathsep() -> String {
+    if cfg!(windows) {
+        ";".to_string()
+    } else {
+        ":".to_string()
+    }
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "azadi-macro-cli", about = "Azadi macros translator (Rust)")]
 struct Args {
@@ -26,8 +35,8 @@ struct Args {
     #[arg(long = "include", default_value = ".")]
     include: String,
 
-    /// Path separator (usually ':')
-    #[arg(long = "pathsep", default_value = ":")]
+    /// Path separator (usually ':' on Unix, ';' on Windows)
+    #[arg(long = "pathsep", default_value_t = default_pathsep())]
     pathsep: String,
 
     /// If set, python macros are considered

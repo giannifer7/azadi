@@ -6,6 +6,10 @@ use thiserror::Error;
 use super::builtins::{default_builtins, BuiltinFn};
 use crate::types::{ASTNode, NodeKind};
 
+/// Custom type to signal termination (not an error).
+#[derive(Debug)]
+pub struct Terminate;
+
 #[derive(Debug, Error)]
 pub enum EvalError {
     #[error("Undefined macro: {0}")]
@@ -28,6 +32,9 @@ pub enum EvalError {
 
     #[error("Parse error: {0}")]
     ParseError(String),
+
+    #[error("Terminate execution")]
+    Terminate(Terminate),
 
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
@@ -128,6 +135,10 @@ impl Evaluator {
 
     pub fn get_backup_dir_path(&self) -> PathBuf {
         self.config.backup_dir.clone()
+    }
+
+    pub fn get_special_char(&self) -> Vec<u8> {
+        vec![self.config.special_char as u8]
     }
 
     pub fn evaluate(&mut self, node: &ASTNode) -> EvalResult<String> {
@@ -270,25 +281,11 @@ impl Evaluator {
         None
     }
 
-    /*
     pub fn parse_string(&mut self, text: &str, path: &PathBuf) -> Result<ASTNode, EvalError> {
-        let src = self
-            .add_source_if_not_present(path.clone())
-            .map_err(|e| EvalError::IoError(e))?;
-        crate::evaluator::lexer_parser::lex_parse_content(
-            text,
-            self.config.special_char,
-            src as i32,
-        )
-        .map_err(|e| EvalError::ParseError(e))
-    }
-    */
-
-    pub fn parse_string(&mut self, text: &str, path: &PathBuf) -> Result<ASTNode, EvalError> {
-        println!(
+        /*println!(
             "parse_string: called with text: {:?}, path: {:?}",
             text, path
-        );
+        );*/
         let src = match fs::metadata(path) {
             Ok(md) if md.is_file() => {
                 // The file actually exists -> read from disk
@@ -299,13 +296,13 @@ impl Evaluator {
                 self.add_source_bytes(text.as_bytes().to_vec(), path.clone())
             }
         };
-        println!("parse_string: added source, src index: {}", src);
+        //println!("parse_string: added source, src index: {}", src);
         let result = crate::evaluator::lexer_parser::lex_parse_content(
             text,
             self.config.special_char,
             src as i32,
         );
-        println!("parse_string: lex_parse_content result: {:?}", result);
+        //println!("parse_string: lex_parse_content result: {:?}", result);
         result.map_err(|e| EvalError::ParseError(e))
     }
 

@@ -3,13 +3,16 @@
 
 use std::collections::{HashMap, HashSet};
 
-use super::evaluator::{EvalError, EvalResult, Evaluator, MacroDefinition};
+use super::evaluator::{EvalError, EvalResult, Evaluator, MacroDefinition, Terminate};
 use crate::types::{ASTNode, NodeKind};
+
+//use std::path::Path;
+//use std::io;
 
 /// Type for a builtin macro function: (Evaluator, node) -> String
 pub type BuiltinFn = fn(&mut Evaluator, &ASTNode) -> EvalResult<String>;
 
-/// Return the default builtins (def, pydef, include, if, equal, eval, here, upper, lower).
+/// Return the default builtins (def, pydef, include, if, equal, eval, here, capitalize, decapitalize).
 pub fn default_builtins() -> HashMap<String, BuiltinFn> {
     let mut map = HashMap::new();
     map.insert("def".to_string(), builtin_def as BuiltinFn);
@@ -19,8 +22,11 @@ pub fn default_builtins() -> HashMap<String, BuiltinFn> {
     map.insert("equal".to_string(), builtin_equal as BuiltinFn);
     map.insert("eval".to_string(), builtin_eval as BuiltinFn);
     map.insert("here".to_string(), builtin_here as BuiltinFn);
-    map.insert("upper".to_string(), builtin_upper as BuiltinFn);
-    map.insert("lower".to_string(), builtin_lower as BuiltinFn);
+    map.insert("capitalize".to_string(), builtin_capitalize as BuiltinFn);
+    map.insert(
+        "decapitalize".to_string(),
+        builtin_decapitalize as BuiltinFn,
+    );
     map
 }
 
@@ -204,7 +210,8 @@ fn builtin_eval(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
         return Err(EvalError::InvalidUsage("eval requires macroName".into()));
     }
     let macro_name = eval.evaluate(&parts[0])?;
-    if macro_name.trim().is_empty() {
+    let macro_name = macro_name.trim();
+    if macro_name.is_empty() {
         return Ok("".into());
     }
     let rest = if parts.len() > 1 {
@@ -223,25 +230,40 @@ fn builtin_eval(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     eval.evaluate_macro_call(&call_node, &macro_name)
 }
 
-/// `%here(...)`: modifies the current file at the node's position
+/// `%here(...)`: Modifies the current file at the node's position by inserting the evaluated content.
+/// Terminates execution after modifying the file.
 fn builtin_here(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    // If the node has no parts, return an empty string
     if node.parts.is_empty() {
         return Ok("".into());
     }
-    let expansion = eval.evaluate(&node.parts[0])?;
+
+    // Evaluate the content inside the `%here` macro
+    let expansion = builtin_eval(eval, node)?;
+
+    // Get the current file path and the node's position/length
     let path = eval.get_current_file_path();
-    let insertion_pos = node.token.pos;
+    let start_pos = node.token.pos; // Start position of %here(...)
+
+    // Prepare the first triplet: prepend the special character before %here
+    let prepend_triplet = (start_pos, eval.get_special_char(), false);
+
+    // Prepare the second triplet: append the expansion after %here(...)
+    let append_triplet = (node.end_pos, expansion.into_bytes(), true);
+
+    // Call `modify_source` with both triplets and backup directory
     super::source_utils::modify_source(
         &path,
-        &[(insertion_pos, expansion.into_bytes(), false)],
+        &[prepend_triplet, append_triplet],
         Some(&eval.get_backup_dir_path()),
-    )
-    .map_err(|e| EvalError::Runtime(format!("`here` macro error: {}", e)))?;
-    Ok("".into())
+    )?;
+
+    // Terminate execution by returning a special "termination" signal
+    Err(EvalError::Terminate(Terminate))
 }
 
-/// `%upper(...)` => uppercase first letter
-fn builtin_upper(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+/// `%capitalize(...)` => uppercase first letter
+fn builtin_capitalize(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     if node.parts.is_empty() {
         return Ok("".into());
     }
@@ -254,8 +276,8 @@ fn builtin_upper(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     Ok(format!("{}{}", first, chars.collect::<String>()))
 }
 
-/// `%lower(...)` => lowercase first letter
-fn builtin_lower(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+/// `%decapitalize(...)` => lowercase first letter
+fn builtin_decapitalize(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     if node.parts.is_empty() {
         return Ok("".into());
     }
