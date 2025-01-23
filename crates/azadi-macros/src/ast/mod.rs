@@ -1,8 +1,15 @@
 // src/ast/mod.rs
 
+//use crate::evaluator::{lex_parse_content, EvalError};
 use crate::parser::Parser;
 use crate::types::{ASTNode, NodeKind, Token};
+//use std::fs::File;
+//use std::io::Write;
+//use std::path::PathBuf;
 use thiserror::Error;
+pub mod serialization;
+
+pub use serialization::{dump_macro_ast, serialize_ast_nodes};
 
 const NOT_FOUND: i32 = -1;
 

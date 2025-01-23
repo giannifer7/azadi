@@ -3,6 +3,7 @@
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::types::ASTNode;
+
 pub fn lex_parse_content(source: &str, special_char: char, src: i32) -> Result<ASTNode, String> {
     use std::sync::mpsc::channel;
     let (tx, rx) = channel();
@@ -27,7 +28,7 @@ pub fn lex_parse_content(source: &str, special_char: char, src: i32) -> Result<A
         .map_err(|e| format!("Parse error: {:?}", e))?;
 
     let ast = parser
-        .build_ast()
+        .process_ast(source.as_bytes())
         .map_err(|e| format!("AST build error: {:?}", e))?;
 
     Ok(ast)

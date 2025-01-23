@@ -40,6 +40,15 @@ pub fn process_file(
     Ok(())
 }
 
+pub fn process_file_from_config(
+    input_file: &Path,
+    output_file: &Path,
+    config: EvalConfig,
+) -> Result<(), EvalError> {
+    let mut evaluator = Evaluator::new(config);
+    process_file(input_file, output_file, &mut evaluator)
+}
+
 pub fn process_files(
     inputs: &[PathBuf],
     output_dir: &Path,

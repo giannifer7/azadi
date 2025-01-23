@@ -177,17 +177,25 @@ impl Evaluator {
 
     pub fn node_text(&self, node: &ASTNode) -> String {
         let src_idx = node.token.src as usize;
+
         if src_idx >= self.source_files.len() {
-            println!("node_text: invalid src index");
+            eprintln!("node_text: invalid src index");
             return "".into();
         }
         let source = &self.source_files[src_idx];
+
         let start = node.token.pos;
         let end = node.token.pos + node.token.length;
-        if end > source.len() || start >= source.len() {
-            println!("node_text: out of range");
+        if end > source.len() || start > source.len() {
+            eprintln!(
+                "node_text: out of range - start: {}, end: {}, source len: {}",
+                start,
+                end,
+                source.len()
+            );
             return "".into();
         }
+
         use crate::types::TokenKind::*;
         let slice = match node.token.kind {
             BlockOpen | BlockClose | Macro => {
@@ -200,6 +208,13 @@ impl Evaluator {
             Var => {
                 if end > start + 3 {
                     &source[(start + 2)..(end - 1)]
+                } else {
+                    &source[start..end]
+                }
+            }
+            Special => {
+                if end > start + 1 {
+                    &source[start..(end - 1)]
                 } else {
                     &source[start..end]
                 }
@@ -282,27 +297,24 @@ impl Evaluator {
     }
 
     pub fn parse_string(&mut self, text: &str, path: &PathBuf) -> Result<ASTNode, EvalError> {
-        /*println!(
-            "parse_string: called with text: {:?}, path: {:?}",
-            text, path
-        );*/
         let src = match fs::metadata(path) {
             Ok(md) if md.is_file() => {
                 // The file actually exists -> read from disk
+                //eprintln!("parse_string: path exists as file, reading from disk");
                 self.add_source_if_not_present(path.clone())?
             }
             _ => {
                 // File does not exist: store the in-memory string
+                //eprintln!("parse_string: using in-memory string");
                 self.add_source_bytes(text.as_bytes().to_vec(), path.clone())
             }
         };
-        //println!("parse_string: added source, src index: {}", src);
+
         let result = crate::evaluator::lexer_parser::lex_parse_content(
             text,
             self.config.special_char,
             src as i32,
         );
-        //println!("parse_string: lex_parse_content result: {:?}", result);
         result.map_err(|e| EvalError::ParseError(e))
     }
 

@@ -133,6 +133,11 @@ impl SafeFileWriter {
         let finalp = self.canonical_path(p)?;
         let oldp = self.old_dir.join(p);
 
+        // Create parent directories for final path
+        if let Some(parent) = finalp.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
         // backup
         if self.config.backup_enabled {
             let _ = fs::copy(&privp, &oldp);

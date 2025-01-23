@@ -1,0 +1,17 @@
+[package]
+name = "azadi-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "CLI tool for Azadi macro and noweb pipeline"
+
+[dependencies]
+azadi-macros = { workspace = true }
+azadi-noweb = { workspace = true }
+clap.workspace = true
+thiserror.workspace = true
+
+[[bin]]
+name = "azadi"
+path = "src/main.rs"

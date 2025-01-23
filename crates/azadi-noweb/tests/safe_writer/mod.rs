@@ -31,3 +31,21 @@ fn test_modification_detection() -> Result<(), AzadiError> {
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }
+
+#[test]
+fn test_nested_directory_creation() -> Result<(), AzadiError> {
+    let (_temp, mut writer) = create_test_writer();
+
+    // Try to write to a deeply nested path
+    let test_file = PathBuf::from("deep/nested/path/test.txt");
+    write_file(&mut writer, &test_file, "Test content")?;
+
+    // Verify file exists in final location
+    let final_path = writer.get_gen_base().join(&test_file);
+    assert!(final_path.exists(), "File should exist in final location");
+
+    let content = fs::read_to_string(final_path)?;
+    assert_eq!(content, "Test content");
+
+    Ok(())
+}

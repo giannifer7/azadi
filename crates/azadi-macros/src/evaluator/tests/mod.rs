@@ -6,5 +6,6 @@ mod test_eval;
 mod test_here;
 mod test_if;
 mod test_include;
+mod test_macro_api;
 mod test_macros;
 mod test_var;
