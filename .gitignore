@@ -14,6 +14,9 @@ wheels/
 .coverage
 coverage_report/
 
-_azadi_work/
+_azadi_work
 
 tarpaulin-report.html
+
+.idea
+

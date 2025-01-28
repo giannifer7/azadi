@@ -25,10 +25,10 @@ struct Args {
     comment_markers: String,
 
     #[arg(long, default_value = "_azadi_work")]
-    _priv_dir: PathBuf,
+    work_dir: PathBuf,
 
     #[arg(long, default_value = "gen")]
-    gen: PathBuf,
+    gen_dir: PathBuf,
 
     #[arg(long)]
     chunks: Option<String>,
@@ -62,7 +62,7 @@ fn run(args: Args) -> Result<(), AzadiError> {
         .map(|s| s.trim().to_string())
         .collect();
 
-    let safe_writer = SafeFileWriter::new(&args.gen);
+    let safe_writer = SafeFileWriter::new(&args.gen_dir, &args.work_dir);
     let mut clip = Clip::new(
         safe_writer,
         &args.open_delim,

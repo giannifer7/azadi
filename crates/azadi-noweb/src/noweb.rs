@@ -174,7 +174,7 @@ impl ChunkStore {
 
                 let is_replace = line.contains("@replace");
                 let is_file = line.contains("@file");
-                // If line has @file, chunk name should be "@file something"
+                // If line has @file, chunk name becomes "@file something"
                 let full_name = if is_file {
                     format!("@file {}", base_name)
                 } else {
@@ -182,39 +182,12 @@ impl ChunkStore {
                 };
 
                 if self.validate_chunk_name(&full_name, line) {
-                    // If this is a file chunk, check for existing definitions
-                    // unless @replace is present
-                    if full_name.starts_with("@file ") {
-                        if self.chunks.contains_key(&full_name) && !is_replace {
-                            let location = ChunkLocation {
-                                file_idx,
-                                line: line_no as usize,
-                            };
-                            let _err_msg = format!(
-                                "Chunk error: {}",
-                                AzadiError::FileChunkRedefinition {
-                                    file_chunk: full_name.clone(),
-                                    file_name: self
-                                        .file_names
-                                        .get(file_idx)
-                                        .cloned()
-                                        .unwrap_or_default(),
-                                    line: location.line,
-                                }
-                            );
-                            self.chunks.remove(&full_name);
-                            continue;
-                        }
-                        if is_replace {
-                            // remove old definition
-                            self.chunks.remove(&full_name);
-                        }
-                    } else if is_replace {
-                        // normal chunk with @replace
+                    // If @replace is present, remove old definition (file chunk or not)
+                    if is_replace {
                         self.chunks.remove(&full_name);
                     }
 
-                    // Now define the chunk
+                    // Now define/append the new chunk definition
                     let rc = self
                         .chunks
                         .entry(full_name.clone())
@@ -256,6 +229,7 @@ impl ChunkStore {
         // Update file_chunks array
         let mut fc = Vec::new();
         for (name, _) in &self.chunks {
+            // any @file line is normalized to one space after @file, so starts_with("@file ") is intentional.
             if name.starts_with("@file ") {
                 fc.push(name.clone());
             }
@@ -417,6 +391,20 @@ impl ChunkStore {
             line: 0,
         };
         self.expand_with_depth(chunk_name, indent, 0, &mut seen, loc, false)
+    }
+
+    /// Expand from top-level but reversed (i.e., definitions are processed in reverse order).
+    pub fn expand_reversed(
+        &self,
+        chunk_name: &str,
+        indent: &str,
+    ) -> Result<Vec<String>, AzadiError> {
+        let mut seen = Vec::new();
+        let loc = ChunkLocation {
+            file_idx: 0,
+            line: 0,
+        };
+        self.expand_with_depth(chunk_name, indent, 0, &mut seen, loc, true)
     }
 
     /// For tests or direct usage: get chunk content with no indentation.
@@ -592,4 +580,10 @@ impl Clip {
         Ok(())
     }
 }
+
+// The code is actually safe and consistent. Even though the regex accepts @file followed by tabs or multiple spaces,
+// once a match is found, the code turns the chunk name into @file {base_name} with exactly one space,
+// so we never store a chunk as @file\t something in chunk_store.
+// Checking starts_with("@file ") works fine, because by the time we store, all @file lines become "@file <chunkname>".
+
 // $$

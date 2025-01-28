@@ -1,13 +1,10 @@
+// <[@file src/safe_writer.rs]>=
 // src/safe_writer.rs
-//
-// Full rewriting logic.
-// Marked unused imports with underscores or removed them.
 
 use chrono::{DateTime, Local};
 use std::fs;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
 
 use crate::AzadiError;
 
@@ -32,6 +29,7 @@ impl Default for SafeWriterConfig {
 
 pub struct SafeFileWriter {
     pub gen_base: PathBuf,
+    pub work_dir: PathBuf,
     private_dir: PathBuf,
     old_dir: PathBuf,
     old_timestamp: Option<DateTime<Local>>,
@@ -39,36 +37,31 @@ pub struct SafeFileWriter {
 }
 
 impl SafeFileWriter {
-    pub fn new<P: AsRef<Path>>(base: P) -> Self {
+    // Common initialization logic
+    fn initialize<P: AsRef<Path>>(base: P, work_dir: P, config: SafeWriterConfig) -> Self {
         let b = base.as_ref().to_path_buf();
-        let privp = b.join("_private_");
-        let oldp = b.join("__old__");
+        let w = work_dir.as_ref().to_path_buf();
+        let privp = w.join("__private__");
+        let oldp = w.join("__old__");
         fs::create_dir_all(&b).ok();
         fs::create_dir_all(&privp).ok();
         fs::create_dir_all(&oldp).ok();
         Self {
             gen_base: b,
-            private_dir: privp,
-            old_dir: oldp,
-            old_timestamp: None,
-            config: SafeWriterConfig::default(),
-        }
-    }
-
-    pub fn with_config<P: AsRef<Path>>(base: P, config: SafeWriterConfig) -> Self {
-        let b = base.as_ref().to_path_buf();
-        let privp = b.join("_private_");
-        let oldp = b.join("__old__");
-        fs::create_dir_all(&b).ok();
-        fs::create_dir_all(&privp).ok();
-        fs::create_dir_all(&oldp).ok();
-        Self {
-            gen_base: b,
+            work_dir: w,
             private_dir: privp,
             old_dir: oldp,
             old_timestamp: None,
             config,
         }
+    }
+
+    pub fn new<P: AsRef<Path>>(base: P, work_dir: P) -> Self {
+        Self::initialize(base, work_dir, SafeWriterConfig::default())
+    }
+
+    pub fn with_config<P: AsRef<Path>>(base: P, work_dir: P, config: SafeWriterConfig) -> Self {
+        Self::initialize(base, work_dir, config)
     }
 
     pub fn get_config(&self) -> &SafeWriterConfig {
@@ -80,6 +73,10 @@ impl SafeFileWriter {
 
     pub fn get_gen_base(&self) -> &PathBuf {
         &self.gen_base
+    }
+
+    pub fn get_work_dir(&self) -> &PathBuf {
+        &self.work_dir
     }
 
     fn check_path(&self, path: &Path) -> Result<(), AzadiError> {
@@ -110,9 +107,9 @@ impl SafeFileWriter {
     pub fn before_write<P: AsRef<Path>>(&mut self, file_name: P) -> Result<PathBuf, AzadiError> {
         let p = file_name.as_ref();
         self.check_path(p)?;
-        let finalp = self.private_dir.join(p);
-        let oldp = self.old_dir.join(p);
 
+        // Use oldp from our backup folder instead of finalp in gen_base.
+        let oldp = self.old_dir.join(p);
         if oldp.is_file() {
             let meta = fs::metadata(&oldp)?;
             let systime = meta.modified()?;
@@ -120,58 +117,70 @@ impl SafeFileWriter {
         } else {
             self.old_timestamp = None;
         }
-        if let Some(dir) = finalp.parent() {
+
+        let private_path = self.private_dir.join(p);
+        if let Some(dir) = private_path.parent() {
             fs::create_dir_all(dir).ok();
         }
-        Ok(finalp)
+        Ok(private_path)
     }
 
     pub fn after_write<P: AsRef<Path>>(&self, file_name: P) -> Result<(), AzadiError> {
         let p = file_name.as_ref();
         self.check_path(p)?;
+
+        // 1. Calculate paths
         let privp = self.private_dir.join(p);
         let finalp = self.canonical_path(p)?;
         let oldp = self.old_dir.join(p);
 
-        // Create parent directories for final path
-        if let Some(parent) = finalp.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        // backup
-        if self.config.backup_enabled {
-            let _ = fs::copy(&privp, &oldp);
-        }
-
-        // modification check
-        if self.config.modification_check && finalp.is_file() {
+        // 2. Check if the final file was externally modified
+        //    (Only if modification_check is true and finalp currently exists)
+        if self.config.modification_check && finalp.exists() {
             let meta = fs::metadata(&finalp)?;
-            let st: SystemTime = meta.modified()?;
-            let out_ts: DateTime<Local> = st.into();
+            let st = meta.modified()?;
+            let out_ts = DateTime::<Local>::from(st);
+
             if let Some(old_ts) = self.old_timestamp {
+                // If finalp mod-time is newer AND we do not allow overwrites => bail
                 if out_ts > old_ts && !self.config.allow_overwrites {
-                    return Err(AzadiError::ModifiedExternally(format!(
-                        "{}",
-                        finalp.display()
-                    )));
+                    return Err(AzadiError::ModifiedExternally(finalp.display().to_string()));
                 }
             }
         }
 
-        // rewrite if different
+        // 3. Backup finalp if it currently exists
+        //    (only do this if backup_enabled)
+        if self.config.backup_enabled && finalp.exists() {
+            fs::copy(&finalp, &oldp)?;
+            fs::remove_file(&finalp)?;
+        }
+
+        // 4. Ensure finalp's parent directories exist
+        if let Some(dir) = finalp.parent() {
+            fs::create_dir_all(dir)?;
+        }
+
+        // 5. Copy private → final if finalp is missing, otherwise compare & replace if different
         if !finalp.exists() {
             fs::copy(&privp, &finalp)?;
-            return Ok(());
+            fs::remove_file(&privp)?;
+        } else {
+            // Compare file contents
+            let mut sfile = BufReader::new(fs::File::open(&privp)?);
+            let mut dfile = BufReader::new(fs::File::open(&finalp)?);
+            let mut sbuf = Vec::new();
+            let mut dbuf = Vec::new();
+            sfile.read_to_end(&mut sbuf)?;
+            dfile.read_to_end(&mut dbuf)?;
+
+            if sbuf != dbuf {
+                fs::copy(&privp, &finalp)?;
+            }
+            fs::remove_file(&privp)?;
         }
-        let mut sfile = BufReader::new(fs::File::open(&privp)?);
-        let mut dfile = BufReader::new(fs::File::open(&finalp)?);
-        let mut sbuf = Vec::new();
-        let mut dbuf = Vec::new();
-        sfile.read_to_end(&mut sbuf)?;
-        dfile.read_to_end(&mut dbuf)?;
-        if sbuf != dbuf {
-            fs::copy(&privp, &finalp)?;
-        }
+
         Ok(())
     }
 }
+// $$

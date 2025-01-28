@@ -1,3 +1,5 @@
+// <[@file tests/cli/mod.rs]>=
+// tests/cli/mod.rs
 // tests/main_tests.rs
 use assert_cmd::assert::OutputAssertExt;
 use assert_cmd::prelude::CommandCargoExt;
@@ -20,6 +22,9 @@ fn test_no_arguments_fails() -> Result<(), Box<dyn std::error::Error>> {
 fn test_basic_chunk_extraction() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempdir()?;
     let input_file = dir.path().join("input.nw");
+    let gen_dir = tempdir()?; // Create a separate tempdir for gen
+    let work_dir = tempdir()?; // Create a separate tempdir for work_dir
+
     {
         let mut file = fs::File::create(&input_file)?;
         writeln!(file, "<<@file test.txt>>=")?;
@@ -29,10 +34,14 @@ fn test_basic_chunk_extraction() -> Result<(), Box<dyn std::error::Error>> {
 
     // run the command => writes test.txt to gen by default
     let mut cmd = Command::cargo_bin("azadi-noweb")?;
-    cmd.arg("--gen").arg(dir.path().join("gen")).arg(input_file);
+    cmd.arg("--gen-dir")
+        .arg(gen_dir.path())
+        .arg("--work-dir")
+        .arg(work_dir.path())
+        .arg(input_file);
     cmd.assert().success();
 
-    let output_path = dir.path().join("gen/test.txt");
+    let output_path = gen_dir.path().join("test.txt");
     let output_content = fs::read_to_string(output_path)?;
     assert_eq!(output_content, "Hello, world!\n");
     Ok(())
@@ -42,6 +51,9 @@ fn test_basic_chunk_extraction() -> Result<(), Box<dyn std::error::Error>> {
 fn test_extract_specific_chunk_to_stdout() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempdir()?;
     let input_file = dir.path().join("input.nw");
+    let gen_dir = tempdir()?; // Create a separate tempdir for gen
+    let work_dir = tempdir()?;
+
     {
         let mut f = fs::File::create(&input_file)?;
         writeln!(f, "<<chunk1>>=")?;
@@ -53,8 +65,10 @@ fn test_extract_specific_chunk_to_stdout() -> Result<(), Box<dyn std::error::Err
     }
 
     let mut cmd = Command::cargo_bin("azadi-noweb")?;
-    cmd.arg("--gen")
-        .arg(dir.path().join("gen"))
+    cmd.arg("--gen-dir")
+        .arg(gen_dir.path())
+        .arg("--work-dir")
+        .arg(work_dir.path())
         .arg("--chunks")
         .arg("chunk2")
         .arg(input_file);
@@ -64,3 +78,4 @@ fn test_extract_specific_chunk_to_stdout() -> Result<(), Box<dyn std::error::Err
         .stdout(predicate::str::contains("Chunk 2 content"));
     Ok(())
 }
+// $$

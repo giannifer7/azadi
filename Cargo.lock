@@ -105,6 +105,10 @@ dependencies = [
  "azadi-macros",
  "azadi-noweb",
  "clap",
+ "pretty_assertions",
+ "serde",
+ "serde_json",
+ "tempfile",
  "thiserror",
 ]
 
