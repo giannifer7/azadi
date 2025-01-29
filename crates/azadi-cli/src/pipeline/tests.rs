@@ -48,7 +48,7 @@ mod tests {
         let full_path = temp.path().join(test_file);
         fs::write(
             &full_path,
-            "%def(code, <[test.rs]>=\nfn main() {}\n$$)\n%code()",
+            "%def(code, %{<[test.rs]>=\nfn main() {}\n$$%})\n%code()",
         )?;
 
         let args = Args {

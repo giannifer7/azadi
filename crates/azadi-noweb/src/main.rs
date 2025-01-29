@@ -62,7 +62,7 @@ fn run(args: Args) -> Result<(), AzadiError> {
         .map(|s| s.trim().to_string())
         .collect();
 
-    let safe_writer = SafeFileWriter::new(&args.gen_dir, &args.work_dir);
+    let safe_writer = SafeFileWriter::new(&args.gen_dir, &args.work_dir, true);
     let mut clip = Clip::new(
         safe_writer,
         &args.open_delim,

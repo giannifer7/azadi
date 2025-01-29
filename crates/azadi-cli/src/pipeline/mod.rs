@@ -345,7 +345,7 @@ pub fn run_pipeline(args: Args) -> Result<(), PipelineError> {
         backup_dir: args.work_dir.clone(),
     };
 
-    let safe_writer = SafeFileWriter::new(&args.output_dir, &args.work_dir);
+    let safe_writer = SafeFileWriter::new(&args.output_dir, &args.work_dir, true);
     let comment_markers: Vec<String> = args
         .comment_markers
         .split(',')
