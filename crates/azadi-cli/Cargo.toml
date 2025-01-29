@@ -17,6 +17,8 @@ serde_json = { workspace = true }
 [dev-dependencies]
 tempfile = "3.8"
 pretty_assertions = "1.4"
+assert_cmd = "2.0"
+escargot = "0.5"
 
 [[bin]]
 name = "azadi"

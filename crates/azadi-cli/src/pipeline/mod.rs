@@ -173,13 +173,19 @@ pub fn is_stdio_path(path: &PathBuf) -> bool {
     path.to_str() == Some("-")
 }
 
+fn append_dot_txt(original: &PathBuf) -> PathBuf {
+    // original.file_name() must be Some(...) if the path is not "-"
+    let base_name = original.file_name().unwrap().to_string_lossy();
+
+    let new_name = format!("{}.txt", base_name);
+    original.with_file_name(new_name)
+}
+
 pub fn get_macro_output_path(input: &PathBuf, macro_dir: &PathBuf) -> PathBuf {
     if is_stdio_path(input) {
         PathBuf::from("-")
     } else {
-        macro_dir
-            .join(input.file_name().unwrap())
-            .with_extension("txt")
+        macro_dir.join(append_dot_txt(input).file_name().unwrap())
     }
 }
 
