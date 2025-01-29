@@ -1,0 +1,18 @@
+:stylesheet: dracula.css
+:source-highlighter: pygments
+
+= TODO
+
+ * read options from a toml file (azadi.toml, pyproject.toml, Cargo.toml)
+ * read options from environment variables
+ * read variables from: command line (multiple -D options), env var, config file
+ * add macros:
+    * %set(var_name, value) to set the variable var_name to value
+    * %export(var_or_macro) to move the var (parameter) or macro to the enclosing scope
+    * %to_snake_case(someVarName) -> some_var_name
+    * %to_camel_case(some_var_name) -> someVarName
+    * %to_screaming_snake_case(someVarName) -> SOME_VAR_NAME
+ * implement %pydef
+ * change %def to %fn?
+ * write examples (implement the evaluator in python?)
+ * write readme / manual

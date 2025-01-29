@@ -20,3 +20,6 @@ tarpaulin-report.html
 
 .idea
 
+.hist.txt
+hist-search.txt
+
