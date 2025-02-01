@@ -22,3 +22,33 @@ azadi - input.txt --dump-ast
 # Pipe through tools
 cat input.txt | azadi - --dump-ast | jq .
 '''
+
+
+azadi.toml:
+
+'''toml
+# Most specific config
+input_dir = "src"
+output_dir = "gen"
+special = "%"
+'''
+
+pyproject.toml:
+
+'''toml
+[tool.azadi]
+work_dir = "_work"
+open_delim = "<["
+close_delim = "]>"
+'''
+
+Cargo.toml:
+
+'''toml
+[package.metadata.azadi]
+comment_markers = "#,//"
+chunk_end = "$$"
+'''
+
+
+

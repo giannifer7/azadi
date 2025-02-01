@@ -1,5 +1,5 @@
+:source-highlighter: highlightjs
 :stylesheet: dracula.css
-:source-highlighter: pygments
 
 = TODO
 
@@ -14,5 +14,6 @@
     * %to_screaming_snake_case(someVarName) -> SOME_VAR_NAME
  * implement %pydef
  * change %def to %fn?
- * write examples (implement the evaluator in python?)
- * write readme / manual
+ * add an utility to escape files (doubling %)
+ * accept http/https in includes/source files
+

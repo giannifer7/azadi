@@ -1,0 +1,365 @@
+:source-dir: ../
+--:stylesheet: chats/dracula.css
+--:source-highlighter: highlightjs
+
+= Azadi Project Architecture Discussion
+
+== Project Structure Problem
+
+[quote, Gianni]
+Currently, our project has three executables:
+
+* `azadi` (main command line tool)
+* `azadi-macro` (macro expansion tool)
+* `azadi-noweb` (literate programming tool)
+
+I'm considering consolidating these into just the main executable. However, this may not be ideal - the Unix philosophy encourages small, focused tools that can be combined with pipes.
+
+Each specialized tool could then be:
+
+[source,bash]
+----
+# Used independently
+cat input.txt | azadi-macro > macro.txt
+cat macro.txt | azadi-noweb > output.txt
+
+# Or chained together
+cat input.txt | azadi-macro | azadi-noweb > output.txt
+----
+
+What approach would you recommend?
+
+[quote, Claude]
+The Unix philosophy approach has several advantages:
+
+=== Separation of Concerns
+
+* `azadi-macro`: Handles only macro expansion
+* `azadi-noweb`: Handles only literate programming chunks
+* `azadi`: Main binary that can orchestrate both but also allows independent use
+
+=== Benefits of Separate Binaries
+
+* Users can pipe macro output through other tools before noweb processing
+* Each tool is simpler to test and maintain
+* Tools can be used independently when only one function is needed
+* Easier debugging by examining intermediate results
+
+=== Real-world Example
+
+[source,bash]
+----
+# Current flexibility with separate tools
+cat input.txt | azadi-macro | sed 's/foo/bar/' | azadi-noweb > output.txt
+
+# vs monolithic approach
+azadi input.txt > output.txt  # Less flexible
+----
+
+=== Testing Advantages
+
+* Each tool can be tested in isolation
+* Integration tests can test various combinations
+* Easier to mock components for testing
+
+=== Recommendation
+
+. Keep all three binaries
+. Make azadi the high-level tool that most users will use
+. Keep azadi-macro and azadi-noweb as lower-level tools for power users
+. Document each tool's specific purpose and how they can be combined
+
+This gives users the flexibility of the Unix philosophy while still providing a convenient all-in-one solution.
+
+Would you like me to show how to structure the code to better support this approach?
+
+[quote, Gianni]
+Yes, please. Also I'd like the programs to be more consistent in style and conventions.
+VERY consistent, I mean.
+
+* azadi/crates/azadi-macros/src/bin/macro_cli.rs
+* azadi/crates/azadi-noweb/src/main.rs
+* azadi/crates/azadi-cli/src/main.rs
+
+should be named and placed in a more uniform manner.
+
+[quote, Claude]
+Absolutely! Let's reorganize the project structure to be more consistent. Here's my suggestion:
+
+==== Rename and Reorganize
+
+[source,text]
+----
+azadi/
+├── crates/
+│   ├── azadi/             # Main orchestration crate (was azadi-cli)
+│   │   ├── src/
+│   │   │   ├── lib.rs
+│   │   │   ├── main.rs    # Main azadi binary
+│   │   │   ├── options.rs
+│   │   │   └── pipeline/
+│   ├── azadi-macro/       # Macro processing crate (was azadi-macros)
+│   │   ├── src/
+│   │   │   ├── lib.rs
+│   │   │   ├── main.rs    # azadi-macro binary
+│   │   │   └── ...
+│   └── azadi-noweb/       # Noweb processing crate
+│       ├── src/
+│       │   ├── lib.rs
+│       │   ├── main.rs    # azadi-noweb binary
+│       │   └── ...
+----
+
+==== Consistent Binary Naming
+
+* `azadi`
+* `azadi-macro`
+* `azadi-noweb`
+
+Would you like me to show:
+
+. How to reorganize the files?
+. How to make their CLIs consistent?
+. How to make their error handling consistent?
+
+Pick which aspect you'd like to tackle first!
+
+[quote, Gianni]
+I also want the project to be used as a library, and exposed to Python via PyO3.
+So I want the main programs and command line options to be really separated and calling a high level API that I can reuse from other languages or crates.
+
+[quote, Claude]
+Great idea! Let's design a clean architecture with clear separation between the core API and CLI layers.
+
+==== Proposed Structure
+
+[source,text]
+----
+azadi/
+├── crates/
+│   ├── azadi-core/          # Core library with high-level API
+│   │   ├── src/
+│   │   │   ├── lib.rs       # Main API entry point
+│   │   │   ├── macro.rs     # Macro processing API
+│   │   │   ├── noweb.rs     # Noweb processing API
+│   │   │   ├── pipeline.rs  # Combined pipeline API
+│   │   │   └── error.rs     # Common error types
+│   │
+│   ├── azadi-cli/           # Command-line interface crates
+│   │   ├── azadi/           # Main CLI
+│   │   │   ├── src/
+│   │   │   │   ├── main.rs
+│   │   │   │   └── options.rs
+│   │   ├── azadi-macro/     # Macro CLI
+│   │   │   ├── src/
+│   │   │   │   ├── main.rs
+│   │   │   │   └── options.rs
+│   │   └── azadi-noweb/     # Noweb CLI
+│   │       ├── src/
+│   │       │   ├── main.rs
+│   │       │   └── options.rs
+│   │
+│   └── azadi-python/        # Python bindings
+│       ├── src/
+│       │   ├── lib.rs
+│       │   └── api.rs
+│       └── pyproject.toml
+----
+
+==== Core API Implementation
+
+[source,rust]
+----
+// <[@file azadi-core/src/lib.rs]>=
+// azadi-core/src/lib.rs
+use std::path::Path;
+use thiserror::Error;
+
+pub mod macro_;
+pub mod noweb;
+pub mod pipeline;
+pub mod error;
+
+pub use error::Error;
+
+/// High-level configuration for all operations
+#[derive(Debug, Clone)]
+pub struct Config {
+    pub input_files: Vec<String>,
+    pub output_dir: String,
+    pub work_dir: String,
+    pub syntax: SyntaxConfig,
+    pub features: FeatureFlags,
+}
+
+#[derive(Debug, Clone)]
+pub struct SyntaxConfig {
+    pub special_char: char,
+    pub open_delim: String,
+    pub close_delim: String,
+    pub chunk_end: String,
+    pub comment_markers: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct FeatureFlags {
+    pub pydef: bool,
+    pub save_intermediates: bool,
+    pub dump_ast: bool,
+}
+
+/// Main entry point for the core API
+pub struct Azadi {
+    config: Config,
+}
+
+impl Azadi {
+    pub fn new(config: Config) -> Self {
+        Self { config }
+    }
+
+    /// Process files through macro expansion only
+    pub fn process_macros(&self, inputs: &[impl AsRef<Path>]) -> Result<Vec<String>, Error> {
+        // Implement macro processing
+        todo!()
+    }
+
+    /// Process files through noweb only
+    pub fn process_noweb(&self, inputs: &[impl AsRef<Path>]) -> Result<Vec<String>, Error> {
+        // Implement noweb processing
+        todo!()
+    }
+
+    /// Process files through complete pipeline
+    pub fn process(&self, inputs: &[impl AsRef<Path>]) -> Result<Vec<String>, Error> {
+        // Implement full pipeline
+        todo!()
+    }
+}
+
+// Re-exports for convenience
+pub mod prelude {
+    pub use super::{Azadi, Config, SyntaxConfig, FeatureFlags, Error};
+}
+// $$
+----
+
+==== CLI Implementation Example
+
+[source,rust]
+----
+// <[@file azadi-cli/azadi/src/main.rs]>=
+// azadi-cli/azadi/src/main.rs
+use azadi_core::prelude::*;
+use clap::Parser;
+use std::path::PathBuf;
+
+#[derive(Parser)]
+struct Cli {
+    #[arg(help = "Input files")]
+    files: Vec<PathBuf>,
+
+    #[arg(long, default_value = "gen")]
+    output_dir: PathBuf,
+
+    // ... other CLI options
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let cli = Cli::parse();
+
+    let config = Config {
+        input_files: cli.files.iter()
+            .map(|p| p.to_string_lossy().into_owned())
+            .collect(),
+        output_dir: cli.output_dir.to_string_lossy().into_owned(),
+        // ... convert other CLI options to Config
+        ..Default::default()
+    };
+
+    let azadi = Azadi::new(config);
+    azadi.process(&cli.files)?;
+
+    Ok(())
+}
+// $$
+----
+
+==== Python Bindings Example
+
+[source,rust]
+----
+// <[@file azadi-python/src/lib.rs]>=
+// azadi-python/src/lib.rs
+use pyo3::prelude::*;
+use azadi_core::prelude::*;
+
+#[pyclass]
+struct PyAzadi {
+    inner: Azadi,
+}
+
+#[pymethods]
+impl PyAzadi {
+    #[new]
+    fn new(
+        input_files: Vec<String>,
+        output_dir: String,
+        work_dir: String,
+        special_char: char,
+    ) -> PyResult<Self> {
+        let config = Config {
+            input_files,
+            output_dir,
+            work_dir,
+            syntax: SyntaxConfig {
+                special_char,
+                ..Default::default()
+            },
+            features: FeatureFlags::default(),
+        };
+
+        Ok(Self {
+            inner: Azadi::new(config)
+        })
+    }
+
+    fn process(&self, files: Vec<String>) -> PyResult<Vec<String>> {
+        self.inner.process(&files)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
+    }
+}
+
+#[pymodule]
+fn azadi(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+    m.add_class::<PyAzadi>()?;
+    Ok(())
+}
+// $$
+----
+
+=== Key Benefits
+
+==== Clear Separation
+
+* Core library contains all business logic
+* CLIs just handle argument parsing and conversion
+* Python bindings just wrap the core API
+
+==== Consistent Interface
+
+* All tools use the same core API
+* Configuration is centralized
+* Error handling is unified
+
+==== Easy to Add Features
+
+* New language bindings just wrap core API
+* New CLIs just convert args to Config
+* Core functionality changes only happen in one place
+
+Would you like me to:
+
+. Show how to reorganize the current codebase into this structure?
+. Add more details about any particular component?
+. Show how to implement specific features in this architecture?
