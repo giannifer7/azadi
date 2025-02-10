@@ -1,4 +1,5 @@
-// src/types.rs
+// crates/azadi-macros/src/types.rs
+
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 

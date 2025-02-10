@@ -1,11 +1,7 @@
 // src/ast/mod.rs
 
-//use crate::evaluator::{lex_parse_content, EvalError};
 use crate::parser::Parser;
 use crate::types::{ASTNode, NodeKind, Token};
-//use std::fs::File;
-//use std::io::Write;
-//use std::path::PathBuf;
 use thiserror::Error;
 pub mod serialization;
 
@@ -174,7 +170,6 @@ pub fn build_clean_ast(parser: &Parser, node_idx: usize) -> Result<Option<ASTNod
     clean_node(parser, node_idx)
 }
 
-// Original space stripping implementation remains unchanged
 pub fn strip_space_before_comments(
     content: &[u8],
     parser: &mut Parser,

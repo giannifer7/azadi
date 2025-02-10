@@ -1,4 +1,4 @@
-// src/lexer/tests.rs
+// crates/azadi-macros/src/lexer/tests.rs
 
 use crate::lexer::Lexer;
 use crate::types::{Token, TokenKind};
@@ -7,23 +7,23 @@ use std::time::Duration;
 
 /// Collect tokens from the lexer, with a small timeout to prevent hangs.
 fn collect_tokens_with_timeout(input: &str) -> Result<Vec<Token>, String> {
-    // Create a channel
+    // Create a channel.
     let (sender, receiver) = channel();
 
-    // Convert input to a static str we can safely reference in a thread
+    // Convert input to a static str we can safely reference in a thread.
     let input_string = Box::leak(input.to_string().into_boxed_str());
 
-    // Spawn a thread that runs the lexer
+    // Spawn a thread that runs the lexer.
     std::thread::spawn(move || {
         let mut lexer = Lexer::new(input_string, '%', 0, sender);
         lexer.run();
     });
 
-    // Collect tokens until EOF or channel close
+    // Collect tokens until EOF or channel close.
     collect_from_receiver(receiver)
 }
 
-/// Helper to read tokens from the receiver with a timeout
+/// Helper to read tokens from the receiver with a timeout.
 fn collect_from_receiver(receiver: Receiver<Token>) -> Result<Vec<Token>, String> {
     let mut tokens = Vec::new();
     let timeout = Duration::from_secs(2); // or whatever
@@ -31,14 +31,14 @@ fn collect_from_receiver(receiver: Receiver<Token>) -> Result<Vec<Token>, String
     loop {
         match receiver.recv_timeout(timeout) {
             Ok(token) => {
-                // If we see TokenKind::EOF, return the tokens (no EOF token included)
+                // If we see TokenKind::EOF, return the tokens (no EOF token included).
                 if token.kind == TokenKind::EOF {
                     return Ok(tokens);
                 }
                 tokens.push(token);
             }
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                // Channel closed, return what we have
+                // Channel closed, return what we have.
                 return Ok(tokens);
             }
             Err(_) => {
@@ -68,18 +68,18 @@ fn assert_tokens(input: &str, expected: &[(TokenKind, &str)]) {
     );
 
     for (i, (token, (exp_kind, exp_text))) in tokens.iter().zip(expected.iter()).enumerate() {
-        // Check the kind
+        // Check the kind.
         assert_eq!(
             token.kind, *exp_kind,
             "Token {} kind mismatch: expected {:?}, got {:?}",
             i, exp_kind, token.kind
         );
-        // Check the textual length
+        // Check the textual length.
         let got_len = token.length;
-        let exp_len = exp_text.len() as usize;
+        let exp_len = exp_text.len();
         assert_eq!(
             got_len, exp_len,
-            "Token {} length mismatch: expected {}, got {} (text='{}')",
+            "Token {} length mismatch: expected {}, got {} (expected text='{}')",
             i, exp_len, got_len, exp_text
         );
     }
@@ -88,6 +88,70 @@ fn assert_tokens(input: &str, expected: &[(TokenKind, &str)]) {
 //-------------------------------------------------------------------------
 // Tests
 //-------------------------------------------------------------------------
+
+#[test]
+fn test_error_cases() {
+    // Incomplete block: "%{incomplete" should produce a BlockOpen token and then a Text token.
+    assert_tokens(
+        "%{incomplete",
+        &[
+            (TokenKind::BlockOpen, "%{"),
+            (TokenKind::Text, "incomplete"),
+        ],
+    );
+
+    // Incomplete macro: "%macro(incomplete" should produce a Macro token and then an Ident token.
+    assert_tokens(
+        "%macro(incomplete",
+        &[
+            (TokenKind::Macro, "%macro("),
+            (TokenKind::Ident, "incomplete"),
+        ],
+    );
+
+    // Unclosed comment: "%/* unfinished" should produce a CommentOpen token and then a Text token.
+    assert_tokens(
+        "%/* unfinished",
+        &[
+            (TokenKind::CommentOpen, "%/*"),
+            (TokenKind::Text, " unfinished"),
+        ],
+    );
+}
+
+#[test]
+fn test_nested_comment() {
+    // This input contains a nested comment:
+    // Outer comment: starts with "%/*" and ends with "%*/"
+    // Inside the outer comment, a nested comment is opened with "%/*" and closed with "%*/".
+    let input = "%/* outer comment %/* inner %*/ outer %*/";
+    assert_tokens(
+        input,
+        &[
+            // From the block state.
+            (TokenKind::CommentOpen, "%/*"),
+            // Outer comment text up to the nested comment open.
+            (TokenKind::Text, " outer comment "),
+            // Nested comment open.
+            (TokenKind::CommentOpen, "%/*"),
+            // Nested comment text.
+            (TokenKind::Text, " inner "),
+            // Nested comment close.
+            (TokenKind::CommentClose, "%*/"),
+            // Outer comment text after the nested comment.
+            (TokenKind::Text, " outer "),
+            // Outer comment close.
+            (TokenKind::CommentClose, "%*/"),
+        ],
+    );
+}
+
+#[test]
+fn test_unfinished_special() {
+    // Input that does not match any recognized pattern after the special char,
+    // so it should be treated as plain text.
+    assert_tokens("%something", &[(TokenKind::Text, "%something")]);
+}
 
 #[test]
 fn test_simple_completion() {
@@ -183,36 +247,6 @@ fn test_unicode() {
             // "名前" might become (Text, "名前") or (Ident, "名前") depending on your code
             (TokenKind::Text, "名前"),
             (TokenKind::CloseParen, ")"),
-        ],
-    );
-}
-
-#[test]
-fn test_error_cases() {
-    // incomplete block
-    assert_tokens(
-        "%{incomplete",
-        &[
-            (TokenKind::BlockOpen, "%{"),
-            (TokenKind::Text, "incomplete"),
-        ],
-    );
-
-    // incomplete macro
-    assert_tokens(
-        "%macro(incomplete",
-        &[
-            (TokenKind::Macro, "%macro("),
-            (TokenKind::Ident, "incomplete"),
-        ],
-    );
-
-    // unclosed comment
-    assert_tokens(
-        "%/* unfinished",
-        &[
-            (TokenKind::CommentOpen, "%/*"),
-            (TokenKind::Text, " unfinished"),
         ],
     );
 }

@@ -1,23 +1,27 @@
+// crates/azadi-macros/src/lexer/mod.rs
+
 use crate::types::{LexerError, Token, TokenKind};
 use std::sync::mpsc::Sender;
 
 #[cfg(test)]
 mod tests;
 
-/// Restrict identifiers to ASCII letters + underscore
+/// Returns true if `c` is an ASCII letter or underscore.
 fn is_identifier_start(c: char) -> bool {
     matches!(c, 'a'..='z' | 'A'..='Z' | '_')
 }
 
+/// Returns true if `c` is an ASCII letter, digit or underscore.
 fn is_identifier_continue(c: char) -> bool {
     matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_')
 }
 
+/// Returns true if `c` is a whitespace character.
 fn is_whitespace(c: char) -> bool {
     matches!(c, ' ' | '\t' | '\r' | '\n')
 }
 
-/// The states in which the lexer can operate
+/// The states in which the lexer can operate.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum State {
     Block,
@@ -25,7 +29,7 @@ enum State {
     Comment,
 }
 
-/// The lexer struct
+/// The lexer struct.
 pub struct Lexer<'a> {
     input: &'a str,
     bytes: &'a [u8],
@@ -42,7 +46,7 @@ pub struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    /// Create a new lexer
+    /// Create a new lexer.
     pub fn new(input: &'a str, special_char: char, src: i32, tokens: Sender<Token>) -> Self {
         let bytes = input.as_bytes();
         let mut lexer = Lexer {
@@ -63,13 +67,13 @@ impl<'a> Lexer<'a> {
         lexer
     }
 
-    /// Utility to “use” line/col so no warnings
+    /// Record the current line/column (used to silence warnings about unused variables).
     fn record_position(&mut self, line: usize, col: usize) {
         self.last_line = line;
         self.last_col = col;
     }
 
-    /// Peek at the current char + line/col, without advancing
+    /// Peek at the current character (with its line/column), without advancing.
     fn peek_char_and_pos(&self) -> (Option<char>, usize, usize) {
         if self.pos >= self.bytes.len() {
             (None, self.line, self.column)
@@ -79,7 +83,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    /// Advance by one char, returning `(char, line, col)` of the char consumed
+    /// Advance one character, returning the consumed character along with its original (line, col).
     fn advance(&mut self) -> Option<(char, usize, usize)> {
         let (ch_opt, old_line, old_col) = self.peek_char_and_pos();
         if let Some(ch) = ch_opt {
@@ -96,16 +100,17 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    /// Read until `end_char` or EOF
+    /// Read until the specified `end_char` or until EOF.
     fn read_until(&mut self, end_char: char) {
-        while let Some((ch, _, _)) = self.advance() {
+        while let (Some(ch), _, _) = self.peek_char_and_pos() {
+            self.advance();
             if ch == end_char {
                 break;
             }
         }
     }
 
-    /// Determine the end of an identifier
+    /// Returns the byte index just after the end of an identifier beginning at `start`.
     fn get_identifier_end(&self, start: usize) -> usize {
         let mut end = start;
         let mut chars = self.input[start..].chars();
@@ -124,7 +129,53 @@ impl<'a> Lexer<'a> {
         end
     }
 
-    /// Emit a token
+    /// Helper: check if the input at the current position starts with string `s`.
+    fn starts_with(&self, s: &str) -> bool {
+        self.input[self.pos..].starts_with(s)
+    }
+
+    /// Helper: if the input at the current position starts with string `s`,
+    /// consume it (updating `pos`, `line`, and `column`) and return true.
+    fn consume_str(&mut self, s: &str) -> bool {
+        if self.starts_with(s) {
+            for ch in s.chars() {
+                if ch == '\n' {
+                    self.line += 1;
+                    self.column = 1;
+                } else {
+                    self.column += 1;
+                }
+            }
+            self.pos += s.len();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Helper: when an identifier following a special char is not followed by a recognized character,
+    /// report an error and emit the token as plain text.
+    /// The `context` parameter should be either "block" or "macro".
+    fn unrecognized_after_pct(
+        &mut self,
+        token_start: usize,
+        error_line: usize,
+        error_col: usize,
+        context: &str,
+    ) -> bool {
+        self.error_here(
+            error_line,
+            error_col,
+            &format!(
+                "Unrecognized char after '{}' in {}",
+                self.special_char, context
+            ),
+        );
+        self.emit_token(token_start, self.pos - token_start, TokenKind::Text);
+        false
+    }
+
+    /// Emit a token (unless length is zero and the kind is not EOF).
     fn emit_token(&mut self, pos: usize, length: usize, kind: TokenKind) {
         if length == 0 && kind != TokenKind::EOF {
             return;
@@ -138,7 +189,7 @@ impl<'a> Lexer<'a> {
         let _ = self.tokens.send(token);
     }
 
-    /// Record an error at line/col
+    /// Record an error at the given (row, col) with the specified message.
     fn error_here(&mut self, row: usize, col: usize, message: &str) {
         self.errors.push(LexerError {
             row,
@@ -147,7 +198,7 @@ impl<'a> Lexer<'a> {
         });
     }
 
-    /// Main lexer driver
+    /// Main lexer driver.
     pub fn run(&mut self) {
         loop {
             if self.state_stack.is_empty() {
@@ -175,6 +226,7 @@ impl<'a> Lexer<'a> {
             self.record_position(line, col);
 
             if ch == self.special_char {
+                // Flush any accumulated text.
                 if self.pos > text_start {
                     self.emit_token(text_start, self.pos - text_start, TokenKind::Text);
                 }
@@ -185,7 +237,7 @@ impl<'a> Lexer<'a> {
                 let (next_opt, nxt_line, nxt_col) = self.peek_char_and_pos();
                 if let Some(nch) = next_opt {
                     if nch == '(' {
-                        // var
+                        // Handle a variable.
                         self.handle_var(pct_start, pct_line, pct_col);
                     } else if nch == '{' {
                         self.advance();
@@ -228,7 +280,10 @@ impl<'a> Lexer<'a> {
                                 self.error_here(
                                     c2_line,
                                     c2_col,
-                                    "Unexpected char after '%/' in block",
+                                    &format!(
+                                        "Unexpected char after '{}{}' in block",
+                                        self.special_char, "/"
+                                    ),
                                 );
                                 self.emit_token(pct_start, self.pos - pct_start, TokenKind::Text);
                             }
@@ -249,7 +304,10 @@ impl<'a> Lexer<'a> {
                                 self.error_here(
                                     d_line,
                                     d_col,
-                                    "Unexpected char after '%-' in block",
+                                    &format!(
+                                        "Unexpected char after '{}{}' in block",
+                                        self.special_char, "-"
+                                    ),
                                 );
                                 self.emit_token(pct_start, self.pos - pct_start, TokenKind::Text);
                             }
@@ -262,7 +320,7 @@ impl<'a> Lexer<'a> {
                         self.advance();
                         self.emit_token(pct_start, self.pos - pct_start, TokenKind::Special);
                     } else if is_identifier_start(nch) {
-                        // Possibly named block or macro
+                        // Possibly a named block or macro.
                         let after_pct = pct_start;
                         let id_start = self.pos;
                         let id_end = self.get_identifier_end(id_start);
@@ -299,60 +357,64 @@ impl<'a> Lexer<'a> {
                                 self.state_stack.push(State::Macro);
                                 return true;
                             } else {
-                                // FIXME
-                                // Just treat it as Macro
-                                self.emit_token(after_pct, self.pos - after_pct, TokenKind::Macro);
+                                return self
+                                    .unrecognized_after_pct(after_pct, a_line, a_col, "block");
                             }
+                        } else {
+                            return self.unrecognized_after_pct(after_pct, a_line, a_col, "block");
                         }
                     } else {
-                        // unrecognized
-                        self.error_here(nxt_line, nxt_col, "Unrecognized char after '%' in block");
+                        self.error_here(
+                            nxt_line,
+                            nxt_col,
+                            &format!("Unrecognized char after '{}' in block", self.special_char),
+                        );
                         self.emit_token(pct_start, 1, TokenKind::Text);
                     }
                 } else {
-                    // next_opt = None => just '%'
+                    // There is nothing after the special char, so emit it as text.
                     self.emit_token(pct_start, 1, TokenKind::Text);
                     return false;
                 }
                 text_start = self.pos;
             } else {
-                // Normal text
+                // Normal text.
                 self.advance();
             }
         }
 
-        // EOF => flush leftover
+        // At EOF flush any leftover text.
         if self.pos > text_start {
             self.emit_token(text_start, self.pos - text_start, TokenKind::Text);
         }
         false
     }
 
-    /// Handle "%(" => var
+    /// Handle a "%(" token sequence representing a variable.
     fn handle_var(&mut self, start: usize, line: usize, col: usize) {
-        // We “use” line,col in error paths below
-        self.advance(); // consume '('
+        // Consume the '('.
+        self.advance();
         let ident_start = self.pos;
         let ident_end = self.get_identifier_end(ident_start);
         if ident_end > ident_start {
             self.pos = ident_end;
-            // If next char is ')', that's a valid var
+            // If next char is ')', then we have a valid var.
             if let (Some(')'), c_line, c_col) = self.peek_char_and_pos() {
-                // So c_line, c_col are used
                 self.record_position(c_line, c_col);
-
                 self.advance();
                 self.emit_token(start, self.pos - start, TokenKind::Var);
                 return;
             } else {
-                // Missing ')'
                 self.error_here(line, col, "Var missing closing ')'");
             }
         } else {
-            // No identifier
-            self.error_here(line, col, "Var missing identifier after '%('");
+            self.error_here(
+                line,
+                col,
+                &format!("Var missing identifier after '{}('", self.special_char),
+            );
         }
-        // fallback => text
+        // Fallback: emit the consumed characters as text.
         self.emit_token(start, self.pos - start, TokenKind::Text);
     }
 
@@ -435,7 +497,10 @@ impl<'a> Lexer<'a> {
                                 self.error_here(
                                     sl_line,
                                     sl_col,
-                                    "Unexpected char after '%/' in macro",
+                                    &format!(
+                                        "Unexpected char after '{}{}' in macro",
+                                        self.special_char, "/"
+                                    ),
                                 );
                                 self.emit_token(pct_start, self.pos - pct_start, TokenKind::Text);
                             }
@@ -453,7 +518,14 @@ impl<'a> Lexer<'a> {
                                     TokenKind::LineComment,
                                 );
                             } else {
-                                self.error_here(dl, dc, "Unexpected char after '%-' in macro");
+                                self.error_here(
+                                    dl,
+                                    dc,
+                                    &format!(
+                                        "Unexpected char after '{}{}' in macro",
+                                        self.special_char, "-"
+                                    ),
+                                );
                                 self.emit_token(pct_start, self.pos - pct_start, TokenKind::Text);
                             }
                         }
@@ -462,7 +534,7 @@ impl<'a> Lexer<'a> {
                         self.read_until('\n');
                         self.emit_token(pct_start, self.pos - pct_start, TokenKind::LineComment);
                     } else if nch == self.special_char {
-                        // "%%"
+                        // Handle a doubled special char, e.g. "%%"
                         self.advance();
                         self.emit_token(pct_start, self.pos - pct_start, TokenKind::Special);
                     } else if is_identifier_start(nch) {
@@ -502,18 +574,28 @@ impl<'a> Lexer<'a> {
                                 self.state_stack.push(State::Macro);
                                 return true;
                             } else {
-                                self.emit_token(after_pct, self.pos - after_pct, TokenKind::Macro);
+                                return self
+                                    .unrecognized_after_pct(after_pct, p_line, p_col, "macro");
                             }
+                        } else {
+                            return self.unrecognized_after_pct(after_pct, p_line, p_col, "macro");
                         }
                     } else {
-                        self.error_here(nxt_line, nxt_col, "Unrecognized char after '%' in macro");
+                        self.error_here(
+                            nxt_line,
+                            nxt_col,
+                            &format!("Unrecognized char after '{}' in macro", self.special_char),
+                        );
                         self.emit_token(pct_start, 1, TokenKind::Text);
                     }
                 } else {
                     self.error_here(
                         pct_line,
                         pct_col,
-                        "EOF after '%' in macro, incomplete token",
+                        &format!(
+                            "EOF after '{}' in macro, incomplete token",
+                            self.special_char
+                        ),
                     );
                     self.emit_token(pct_start, 1, TokenKind::Text);
                     return false;
@@ -524,7 +606,7 @@ impl<'a> Lexer<'a> {
                 self.pos = end_id;
                 self.emit_token(start_id, end_id - start_id, TokenKind::Ident);
             } else {
-                // text until punctuation or '%'
+                // Consume text until a punctuation char or the special char is encountered.
                 let start_o = self.pos;
                 while let (Some(ch2), _, _) = self.peek_char_and_pos() {
                     if is_whitespace(ch2)
@@ -547,54 +629,54 @@ impl<'a> Lexer<'a> {
     }
 
     //--------------------------------------------------------------------------
-    // COMMENT STATE
+    // COMMENT STATE (using the state stack for nested comments)
     //--------------------------------------------------------------------------
     fn run_comment_state(&mut self) -> bool {
-        let text_start = self.pos;
-        while let (Some(ch), line, col) = self.peek_char_and_pos() {
-            self.record_position(line, col);
-
-            if ch == self.special_char {
-                let (pct_char, pct_line, pct_col) = self.advance().unwrap();
-                self.record_position(pct_line, pct_col);
-
-                let pct_start = self.pos - pct_char.len_utf8();
-                let (maybe_star, star_line, star_col) = self.peek_char_and_pos();
-                if maybe_star == Some('*') {
-                    self.advance();
-                    let (maybe_slash, slash_line, slash_col) = self.peek_char_and_pos();
-                    if maybe_slash == Some('/') {
-                        // close comment
-                        self.advance();
-                        let before_len = pct_start - text_start;
-                        if before_len > 0 {
-                            self.emit_token(text_start, before_len, TokenKind::Text);
-                        }
-                        self.emit_token(pct_start, self.pos - pct_start, TokenKind::CommentClose);
-                        return false;
-                    } else {
-                        self.error_here(
-                            slash_line,
-                            slash_col,
-                            "Expected '/' after '%*' to close block comment",
-                        );
-                    }
-                } else {
-                    // FIXME
-                    // nested comments?
-                    self.error_here(
-                        star_line,
-                        star_col,
-                        "Expected '*' after '%' to close block comment",
+        let comment_text_start = self.pos;
+        while self.pos < self.bytes.len() {
+            // Check for nested comment open: "{special_char}/*"
+            let open_delim = format!("{}/*", self.special_char);
+            if self.starts_with(&open_delim) {
+                // Flush any text before the nested comment.
+                if self.pos > comment_text_start {
+                    self.emit_token(
+                        comment_text_start,
+                        self.pos - comment_text_start,
+                        TokenKind::Text,
                     );
                 }
+                let delim_start = self.pos;
+                self.consume_str(&open_delim);
+                self.emit_token(delim_start, self.pos - delim_start, TokenKind::CommentOpen);
+                self.state_stack.push(State::Comment);
+                return true;
+            }
+            // Check for comment close: "{special_char}*/"
+            let close_delim = format!("{}*/", self.special_char);
+            if self.starts_with(&close_delim) {
+                if self.pos > comment_text_start {
+                    self.emit_token(
+                        comment_text_start,
+                        self.pos - comment_text_start,
+                        TokenKind::Text,
+                    );
+                }
+                let delim_start = self.pos;
+                self.consume_str(&close_delim);
+                self.emit_token(delim_start, self.pos - delim_start, TokenKind::CommentClose);
+                return false;
             }
             self.advance();
         }
-        // EOF => unclosed comment
-        if self.pos > text_start {
-            self.emit_token(text_start, self.pos - text_start, TokenKind::Text);
+        // At EOF flush any leftover text before reporting error.
+        if self.pos > comment_text_start {
+            self.emit_token(
+                comment_text_start,
+                self.pos - comment_text_start,
+                TokenKind::Text,
+            );
         }
+        self.error_here(self.line, self.column, "Unclosed comment");
         false
     }
 }

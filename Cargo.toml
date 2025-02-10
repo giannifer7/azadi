@@ -2,8 +2,6 @@
 resolver = "2"
 members = [
     "crates/azadi-macros",
-    "crates/azadi-noweb",
-    "crates/azadi-cli"
 ]
 
 [workspace.package]
@@ -24,4 +22,3 @@ chrono = "0.4"
 
 # Internal crate dependencies
 azadi-macros = { path = "crates/azadi-macros" }
-azadi-noweb = { path = "crates/azadi-noweb" }
