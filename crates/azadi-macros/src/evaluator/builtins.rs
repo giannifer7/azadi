@@ -18,8 +18,14 @@ pub fn default_builtins() -> HashMap<String, BuiltinFn> {
     map.insert("def".to_string(), builtin_def as BuiltinFn);
     map.insert("pydef".to_string(), builtin_pydef as BuiltinFn);
     map.insert("include".to_string(), builtin_include as BuiltinFn);
+    map.insert(
+        "include_silent".to_string(),
+        builtin_include_silent as BuiltinFn,
+    );
     map.insert("if".to_string(), builtin_if as BuiltinFn);
     map.insert("equal".to_string(), builtin_equal as BuiltinFn);
+    map.insert("set".to_string(), builtin_set as BuiltinFn);
+    map.insert("export".to_string(), builtin_export as BuiltinFn);
     map.insert("eval".to_string(), builtin_eval as BuiltinFn);
     map.insert("here".to_string(), builtin_here as BuiltinFn);
     map.insert("capitalize".to_string(), builtin_capitalize as BuiltinFn);
@@ -121,6 +127,7 @@ fn define_macro(
         params: param_list,
         body: body_node,
         is_python: config.is_python,
+        frozen_args: HashMap::new(),
     };
     eval.define_macro(mac);
     Ok("".into())
@@ -154,8 +161,9 @@ pub fn builtin_pydef(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String>
     )
 }
 
-/// `%include(filename)`
-fn builtin_include(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+/// Helper: reads, parses, and evaluates the file specified in `node`,
+/// returning the resulting output.
+fn process_include_file(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     if node.parts.is_empty() {
         return Ok("".into());
     }
@@ -163,7 +171,21 @@ fn builtin_include(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     if filename.trim().is_empty() {
         return Ok("".into());
     }
+    // Call your existing do_include function to read, parse, and evaluate the file.
     eval.do_include(&filename)
+}
+
+/// `%include(filename)` - includes a file for both definitions and text output.
+fn builtin_include(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    process_include_file(eval, node)
+}
+
+/// `%include_silent(filename)` - includes a file for definitions only;
+/// its evaluated output is discarded.
+fn builtin_include_silent(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    // Process the file as usual, but discard its output.
+    let _ = process_include_file(eval, node)?;
+    Ok("".into())
 }
 
 /// `%if(condition, thenVal, elseVal)`
@@ -201,6 +223,29 @@ fn builtin_equal(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     } else {
         Ok("".into())
     }
+}
+
+/// `%set(var_name, value)` => sets the variable var_name to value
+fn builtin_set(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    let parts = &node.parts;
+    if parts.len() != 2 {
+        return Err(EvalError::InvalidUsage("set: exactly 2 args".into()));
+    }
+    let var_name = single_ident_param(eval, &node.parts[0], "var name".into())?;
+    let value = eval.evaluate(&parts[1])?;
+    eval.set_variable(&var_name, &value);
+    Ok("".into())
+}
+
+/// `%export(var_or_macro)` => copies the var (parameter) or macro to the enclosing scope
+fn builtin_export(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    let parts = &node.parts;
+    if parts.len() != 1 {
+        return Err(EvalError::InvalidUsage("export: exactly 1 arg".into()));
+    }
+    let name = single_ident_param(eval, &node.parts[0], "var name".into())?;
+    eval.export(&name);
+    Ok("".into())
 }
 
 /// `%eval(macroName, param1, param2, ...)`

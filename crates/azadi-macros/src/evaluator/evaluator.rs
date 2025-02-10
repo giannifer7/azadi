@@ -54,6 +54,7 @@ pub struct MacroDefinition {
     pub params: Vec<String>,
     pub body: ASTNode,
     pub is_python: bool,
+    pub frozen_args: HashMap<String, String>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -224,34 +225,6 @@ impl Evaluator {
         String::from_utf8_lossy(slice).to_string()
     }
 
-    pub fn evaluate_macro_call(&mut self, node: &ASTNode, name: &str) -> EvalResult<String> {
-        if let Some(bf) = self.builtins.get(name) {
-            return bf(self, node);
-        }
-        let mac = match self.get_macro(name) {
-            Some(m) => m,
-            None => return Err(EvalError::UndefinedMacro(name.into())),
-        };
-        let param_nodes: Vec<&ASTNode> = node
-            .parts
-            .iter()
-            .filter(|p| p.kind == NodeKind::Param)
-            .collect();
-        self.push_scope();
-        for (i, param_name) in mac.params.iter().enumerate() {
-            let val = if let Some(param_node) = param_nodes.get(i) {
-                self.evaluate(param_node)?
-            } else {
-                "".to_string()
-            };
-            self.set_variable(param_name, &val);
-        }
-        let out = self.evaluate(&mac.body)?;
-        self.pop_scope();
-        if mac.is_python {}
-        Ok(out)
-    }
-
     fn push_scope(&mut self) {
         self.scope_stack.push(ScopeFrame::default());
     }
@@ -279,6 +252,138 @@ impl Evaluator {
             }
         }
         "".to_string()
+    }
+
+    /// Exports the variable or macro with the given name from the current (last) scope
+    /// into the immediately enclosing (previous) scope.
+    ///
+    /// - For a variable, its value is cloned.
+    /// - For a macro, its outer variable references are frozen:
+    ///   we collect the current values of any variable in its body that is not among its
+    ///   own parameters and store them in the new `frozen_args` map.
+    pub fn export(&mut self, name: &str) {
+        let stack_len = self.scope_stack.len();
+        if stack_len <= 1 {
+            // Nothing to export if there's no enclosing scope.
+            return;
+        }
+        let parent_index = stack_len - 2;
+
+        // Export variable: if found in the current scope, clone it to the parent scope.
+        if let Some(val) = self
+            .scope_stack
+            .last()
+            .unwrap()
+            .variables
+            .get(name)
+            .cloned()
+        {
+            self.scope_stack
+                .get_mut(parent_index)
+                .unwrap()
+                .variables
+                .insert(name.to_string(), val);
+        }
+
+        // Export macro: if found in the current scope, freeze its outer arguments and copy it.
+        if let Some(mac) = self.scope_stack.last().unwrap().macros.get(name).cloned() {
+            let frozen_mac = self.freeze_macro_definition(&mac);
+            eprintln!(
+                "DEBUG: Exporting macro '{}', frozen_args = {:?}",
+                name, frozen_mac.frozen_args
+            );
+            self.scope_stack
+                .get_mut(parent_index)
+                .unwrap()
+                .macros
+                .insert(name.to_string(), frozen_mac);
+        }
+    }
+
+    /// Recursively traverses `node` and, for each Var node whose name is not in `keep`,
+    /// evaluates it and inserts its value into `frozen`.
+    fn collect_freeze_vars(
+        &mut self,
+        node: &ASTNode,
+        keep: &HashSet<String>,
+        frozen: &mut HashMap<String, String>,
+    ) {
+        if node.kind == NodeKind::Var {
+            let var_name = self.node_text(node).trim().to_string();
+            if !keep.contains(&var_name) && !frozen.contains_key(&var_name) {
+                // Evaluate the variable now; if evaluation fails, use an empty string.
+                let value = self.evaluate(node).unwrap_or_default();
+                eprintln!("DEBUG: Freezing var '{}' with value {:?}", var_name, value);
+                frozen.insert(var_name, value);
+            }
+        }
+        for child in &node.parts {
+            self.collect_freeze_vars(child, keep, frozen);
+        }
+    }
+
+    /// Freezes a macro definition by collecting the current values for any variable in its body
+    /// that is not among its own parameters. These frozen values are stored in a new HashMap,
+    /// which is then set as the macro’s `frozen_args`.
+    fn freeze_macro_definition(&mut self, mac: &MacroDefinition) -> MacroDefinition {
+        let keep: HashSet<String> = mac.params.iter().cloned().collect();
+        let mut frozen = HashMap::new();
+        self.collect_freeze_vars(&mac.body, &keep, &mut frozen);
+        eprintln!(
+            "DEBUG: freeze_macro_definition for {}: frozen_args = {:?}",
+            mac.name, frozen
+        );
+        MacroDefinition {
+            name: mac.name.clone(),
+            params: mac.params.clone(),
+            body: mac.body.clone(),
+            is_python: mac.is_python,
+            frozen_args: frozen,
+        }
+    }
+
+    /// Evaluates a macro call.
+    ///
+    /// If the macro is not a builtin, its frozen arguments are injected into the current scope
+    /// before its parameters are bound and its body is evaluated.
+    pub fn evaluate_macro_call(&mut self, node: &ASTNode, name: &str) -> EvalResult<String> {
+        // Check for a builtin macro first.
+        if let Some(bf) = self.builtins.get(name) {
+            return bf(self, node);
+        }
+        let mac = match self.get_macro(name) {
+            Some(m) => m,
+            None => return Err(EvalError::UndefinedMacro(name.into())),
+        };
+        // Collect parameter nodes from the macro call.
+        let param_nodes: Vec<&ASTNode> = node
+            .parts
+            .iter()
+            .filter(|p| p.kind == NodeKind::Param)
+            .collect();
+
+        self.push_scope();
+        // Inject frozen arguments into the new scope.
+        for (var, frozen_val) in mac.frozen_args.iter() {
+            self.set_variable(var, frozen_val);
+        }
+        // Bind the macro’s own parameters.
+        for (i, param_name) in mac.params.iter().enumerate() {
+            let val = if let Some(param_node) = param_nodes.get(i) {
+                let evaluated = self.evaluate(param_node)?;
+                evaluated
+            } else {
+                "".to_string()
+            };
+            self.set_variable(param_name, &val);
+        }
+        // Evaluate the macro body.
+        let out = self.evaluate(&mac.body)?;
+        self.pop_scope();
+        if mac.is_python {
+            // Additional python-specific processing if needed.
+        }
+        Ok(out)
     }
 
     pub fn define_macro(&mut self, mac: MacroDefinition) {
