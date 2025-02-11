@@ -7,9 +7,9 @@
  * read options from environment variables
  * read variables from: command line (multiple -D options), env var, config file
  * add macros:
-    * %set(var_name, value) to set the variable var_name to value DONE
-    * %export(var_or_macro) to move the var (parameter) or macro to the enclosing scope DONE
-    * %discard() to discard the text but keep the definitions. Tipically %discard(%include(some_file))
+    * %set(var_name, value) to set the variable var_name to value. DONE
+    * %export(var_or_macro) to move the var (parameter) or macro to the enclosing scope. DONE
+    * %include_silent() to discard the text but include the definitions. DONE
     * %to_snake_case(someVarName) -> some_var_name
     * %to_camel_case(some_var_name) -> someVarName
     * %to_screaming_snake_case(someVarName) -> SOME_VAR_NAME

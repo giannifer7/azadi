@@ -1,13 +1,10 @@
-// <[@file crates/azadi-macros/src/evaluator/builtins.rs]>=
 // crates/azadi-macros/src/evaluator/builtins.rs
 
 use std::collections::{HashMap, HashSet};
 
+use super::case_conversion::convert_case_str;
 use super::evaluator::{EvalError, EvalResult, Evaluator, MacroDefinition, Terminate};
 use crate::types::{ASTNode, NodeKind};
-
-//use std::path::Path;
-//use std::io;
 
 /// Type for a builtin macro function: (Evaluator, node) -> String
 pub type BuiltinFn = fn(&mut Evaluator, &ASTNode) -> EvalResult<String>;
@@ -32,6 +29,14 @@ pub fn default_builtins() -> HashMap<String, BuiltinFn> {
     map.insert(
         "decapitalize".to_string(),
         builtin_decapitalize as BuiltinFn,
+    );
+    map.insert(
+        "convert_case".to_string(),
+        builtin_convert_case as BuiltinFn,
+    );
+    map.insert(
+        "to_snake_case".to_string(),
+        builtin_to_snake_case as BuiltinFn,
     );
     map
 }
@@ -333,4 +338,32 @@ fn builtin_decapitalize(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<Stri
     let mut chars = original.chars();
     let first = chars.next().unwrap().to_lowercase().to_string();
     Ok(format!("{}{}", first, chars.collect::<String>()))
+}
+
+/// `%convert_case(someVarName, case)` =>  case may be: snake, camel, pascal, screaming and more
+fn builtin_convert_case(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    let parts = &node.parts;
+    if parts.len() != 2 {
+        return Err(EvalError::InvalidUsage(
+            "convert_case: exactly 2 args".into(),
+        ));
+    }
+    let original = eval.evaluate(&node.parts[0])?;
+    if original.is_empty() {
+        return Ok("".into());
+    }
+    let case = eval.evaluate(&parts[1])?;
+    Ok(convert_case_str(&original, &case)?)
+}
+
+/// `%to_snake_case(someVarName)` => some_var_name
+fn builtin_to_snake_case(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    if node.parts.is_empty() {
+        return Ok("".into());
+    }
+    let original = eval.evaluate(&node.parts[0])?;
+    if original.is_empty() {
+        return Ok("".into());
+    }
+    Ok(convert_case_str(&original, &"snake_case")?)
 }

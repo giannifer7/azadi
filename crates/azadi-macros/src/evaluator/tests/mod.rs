@@ -1,4 +1,5 @@
 // crates/azadi-macros/src/evaluator/tests/mod.rs
+mod test_case_conversion;
 mod test_case_modifiers;
 mod test_def;
 mod test_equal;
