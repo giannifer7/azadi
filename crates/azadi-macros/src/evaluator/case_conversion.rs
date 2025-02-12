@@ -24,10 +24,13 @@ impl FromStr for Case {
             "upper" | "uppercase" => Ok(Case::Upper),
             "snake" | "snake_case" => Ok(Case::Snake),
             "screaming" | "screaming_snake" | "screaming_snake_case" => Ok(Case::Screaming),
-            "kebab" | "kebab-case" => Ok(Case::Kebab),
-            "screaming-kebab" | "screaming-kebab-case" => Ok(Case::ScreamingKebab),
-            "camel" | "camelcase" => Ok(Case::Camel),
-            "pascal" | "pascalcase" => Ok(Case::Pascal),
+            "kebab" | "kebab-case" | "kebab_case" => Ok(Case::Kebab),
+            "screaming-kebab"
+            | "screaming-kebab-case"
+            | "screaming_kebab"
+            | "screaming_kebab_case" => Ok(Case::ScreamingKebab),
+            "camel" | "camelcase" | "camel_case" => Ok(Case::Camel),
+            "pascal" | "pascalcase" | "pascal_case" => Ok(Case::Pascal),
             "ada" | "ada_case" => Ok(Case::Ada),
             _ => Err(format!("Unknown case style: {}", s)),
         }

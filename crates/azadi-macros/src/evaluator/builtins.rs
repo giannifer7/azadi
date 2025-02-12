@@ -38,6 +38,18 @@ pub fn default_builtins() -> HashMap<String, BuiltinFn> {
         "to_snake_case".to_string(),
         builtin_to_snake_case as BuiltinFn,
     );
+    map.insert(
+        "to_camel_case".to_string(),
+        builtin_to_camel_case as BuiltinFn,
+    );
+    map.insert(
+        "to_pascal_case".to_string(),
+        builtin_to_pascal_case as BuiltinFn,
+    );
+    map.insert(
+        "to_screaming_case".to_string(),
+        builtin_to_screaming_case as BuiltinFn,
+    );
     map
 }
 
@@ -365,5 +377,41 @@ fn builtin_to_snake_case(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<Str
     if original.is_empty() {
         return Ok("".into());
     }
-    Ok(convert_case_str(&original, &"snake_case")?)
+    Ok(convert_case_str(&original, &"snake")?)
+}
+
+/// `%to_camel_case(someVarName)` => some_var_name
+fn builtin_to_camel_case(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    if node.parts.is_empty() {
+        return Ok("".into());
+    }
+    let original = eval.evaluate(&node.parts[0])?;
+    if original.is_empty() {
+        return Ok("".into());
+    }
+    Ok(convert_case_str(&original, &"camel")?)
+}
+
+/// `%to_pascal_case(someVarName)` => some_var_name
+fn builtin_to_pascal_case(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    if node.parts.is_empty() {
+        return Ok("".into());
+    }
+    let original = eval.evaluate(&node.parts[0])?;
+    if original.is_empty() {
+        return Ok("".into());
+    }
+    Ok(convert_case_str(&original, &"pascal")?)
+}
+
+/// `%to_screaming_case(someVarName)` => some_var_name
+fn builtin_to_screaming_case(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    if node.parts.is_empty() {
+        return Ok("".into());
+    }
+    let original = eval.evaluate(&node.parts[0])?;
+    if original.is_empty() {
+        return Ok("".into());
+    }
+    Ok(convert_case_str(&original, &"screaming")?)
 }
