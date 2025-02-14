@@ -11,5 +11,8 @@ mod test_include;
 mod test_include_silent;
 mod test_macro_api;
 mod test_macros;
+mod test_pydef;
+mod test_python_evaluator;
 mod test_set;
+mod test_utils;
 mod test_var;

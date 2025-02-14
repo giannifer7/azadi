@@ -1,6 +1,12 @@
-// src/ast/serialization.rs
+// crates/azadi-macros/src/ast/serialization.rs
+
+use crate::evaluator::lex_parse_content;
+use crate::evaluator::EvalError;
+/*
 use crate::evaluator::lexer_parser::lex_parse_content;
 use crate::evaluator::EvalError;
+use crate::evaluator::{lex_parse_content, EvalError};
+*/
 use crate::types::{ASTNode, Token};
 use std::fs::File;
 use std::io::{self, Read, Write};

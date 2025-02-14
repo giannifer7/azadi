@@ -119,16 +119,12 @@ impl<'a> Iterator for WordSplitter<'a> {
     }
 }
 
-pub fn convert_case(input: &str, target_case: Case) -> String {
-    convert_case_inner(input, target_case)
-}
-
 pub fn convert_case_str(input: &str, target_case: &str) -> Result<String, String> {
     let case = target_case.parse::<Case>()?;
-    Ok(convert_case_inner(input, case))
+    Ok(convert_case(input, case))
 }
 
-fn convert_case_inner(input: &str, target_case: Case) -> String {
+pub fn convert_case(input: &str, target_case: Case) -> String {
     let words: Vec<&str> = WordSplitter::new(input).collect();
 
     if words.is_empty() {

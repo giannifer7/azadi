@@ -1,14 +1,17 @@
-// crates/azadi-macros/src/macro_api.rs
+// crates/azadi-macros/src/evaluator/eval_api.rs
 
-use crate::evaluator::{EvalConfig, EvalError, Evaluator};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub fn process_string(
+use super::core::Evaluator;
+use super::errors::{EvalError, EvalResult};
+use super::state::EvalConfig;
+
+pub fn eval_string(
     source: &str,
     real_path: Option<&Path>,
     evaluator: &mut Evaluator,
-) -> Result<Vec<u8>, EvalError> {
+) -> Result<String, EvalError> {
     let path_for_parsing = match real_path {
         Some(rp) => rp.to_path_buf(),
         None => PathBuf::from(format!("<string-{}>", evaluator.num_source_files())),
@@ -17,41 +20,44 @@ pub fn process_string(
     if let Some(rp) = real_path {
         evaluator.set_current_file(rp.to_path_buf());
     }
-    let output_string = evaluator.evaluate(&ast)?;
-    Ok(output_string.into_bytes())
+    evaluator.evaluate(&ast)
 }
 
-pub fn process_file(
+pub fn eval_file(
     input_file: &Path,
     output_file: &Path,
     evaluator: &mut Evaluator,
-) -> Result<(), EvalError> {
+) -> EvalResult<()> {
     let content = fs::read_to_string(input_file)
         .map_err(|e| EvalError::Runtime(format!("Cannot read {input_file:?}: {e}")))?;
-    let expanded = process_string(&content, Some(input_file), evaluator)?;
+
+    let expanded = eval_string(&content, Some(input_file), evaluator)?;
+
     if let Some(parent) = output_file.parent() {
         fs::create_dir_all(parent)
             .map_err(|e| EvalError::Runtime(format!("Cannot create dir {parent:?}: {e}")))?;
     }
-    fs::write(output_file, expanded)
+
+    fs::write(output_file, expanded.as_bytes())
         .map_err(|e| EvalError::Runtime(format!("Cannot write {output_file:?}: {e}")))?;
+
     Ok(())
 }
 
-pub fn process_file_from_config(
+pub fn eval_file_with_config(
     input_file: &Path,
     output_file: &Path,
     config: EvalConfig,
-) -> Result<(), EvalError> {
+) -> EvalResult<()> {
     let mut evaluator = Evaluator::new(config);
-    process_file(input_file, output_file, &mut evaluator)
+    eval_file(input_file, output_file, &mut evaluator)
 }
 
-pub fn process_files(
+pub fn eval_files(
     inputs: &[PathBuf],
     output_dir: &Path,
     evaluator: &mut Evaluator,
-) -> Result<(), EvalError> {
+) -> EvalResult<()> {
     fs::create_dir_all(output_dir)
         .map_err(|e| EvalError::Runtime(format!("Cannot create {output_dir:?}: {e}")))?;
 
@@ -63,21 +69,21 @@ pub fn process_files(
         out_name.push(".txt");
         let out_file = output_dir.join(out_name);
 
-        process_file(input_path, &out_file, evaluator)?;
+        eval_file(input_path, &out_file, evaluator)?;
     }
     Ok(())
 }
 
-pub fn process_files_from_config(
+pub fn eval_files_with_config(
     inputs: &[PathBuf],
     output_dir: &Path,
     config: EvalConfig,
-) -> Result<(), EvalError> {
+) -> EvalResult<()> {
     let mut evaluator = Evaluator::new(config);
-    process_files(inputs, output_dir, &mut evaluator)
+    eval_files(inputs, output_dir, &mut evaluator)
 }
 
-pub fn process_string_defaults(source: &str) -> Result<Vec<u8>, EvalError> {
+pub fn eval_string_with_defaults(source: &str) -> EvalResult<String> {
     let mut evaluator = Evaluator::new(EvalConfig::default());
-    process_string(source, None, &mut evaluator)
+    eval_string(source, None, &mut evaluator)
 }

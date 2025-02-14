@@ -1,7 +1,45 @@
 // crates/azadi-macros/src/evaluator/tests/test_def.rs
 
-use crate::evaluator::evaluator::EvalError;
+use crate::evaluator::EvalError;
 use crate::macro_api::process_string_defaults;
+
+#[test]
+fn test_def_macro_other_errors() {
+    // Test missing arguments
+    let result = process_string_defaults("%def()");
+    assert!(
+        matches!(result, Err(EvalError::InvalidUsage(_))),
+        "Expected InvalidUsage error for empty def"
+    );
+
+    // Test single argument
+    let result = process_string_defaults("%def(foo)");
+    assert!(
+        matches!(result, Err(EvalError::InvalidUsage(_))),
+        "Expected InvalidUsage error for def with only name"
+    );
+
+    // Test numeric name
+    let result = process_string_defaults("%def(123, body)");
+    assert!(
+        matches!(result, Err(EvalError::InvalidUsage(_))),
+        "Expected InvalidUsage error for numeric macro name"
+    );
+
+    // Test numeric parameter
+    let result = process_string_defaults("%def(foo, 123, body)");
+    assert!(
+        matches!(result, Err(EvalError::InvalidUsage(_))),
+        "Expected InvalidUsage error for numeric parameter"
+    );
+
+    // Test parameter with equals
+    let result = process_string_defaults("%def(foo, param=value, body)");
+    assert!(
+        matches!(result, Err(EvalError::InvalidUsage(_))),
+        "Expected InvalidUsage error for parameter with equals"
+    );
+}
 
 #[test]
 fn test_def_macro_basic() {
@@ -36,24 +74,6 @@ fn test_def_macro_comma_errors() {
     assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
 
     let result = process_string_defaults("%def(foo,, bar, baz)");
-    assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
-}
-
-#[test]
-fn test_def_macro_other_errors() {
-    let result = process_string_defaults("%def()");
-    assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
-
-    let result = process_string_defaults("%def(foo)");
-    assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
-
-    let result = process_string_defaults("%def(123, body)");
-    assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
-
-    let result = process_string_defaults("%def(foo, 123, body)");
-    assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
-
-    let result = process_string_defaults("%def(foo, param=value, body)");
     assert!(matches!(result, Err(EvalError::InvalidUsage(_))));
 }
 

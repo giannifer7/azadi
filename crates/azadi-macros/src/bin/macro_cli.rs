@@ -1,8 +1,10 @@
-use azadi_macros::evaluator::evaluator::EvalConfig;
+// crates/azadi-macros/src/bin/macro_cli.rs
+
+use azadi_macros::evaluator::{EvalConfig, EvalError, PythonConfig};
+
 use clap::Parser;
 use std::path::PathBuf;
 
-use azadi_macros::evaluator::EvalError;
 use azadi_macros::macro_api::process_files_from_config;
 
 /// Returns the default path separator based on the platform
@@ -15,7 +17,7 @@ fn default_pathsep() -> String {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "azadi-macro-cli", about = "Azadi macros translator (Rust)")]
+#[command(name = "azadi-macro", about = "Azadi macros translator (Rust)")]
 struct Args {
     /// Output directory
     #[arg(long = "out-dir", default_value = ".")]
@@ -68,6 +70,7 @@ fn run(args: Args) -> Result<(), EvalError> {
         pydef: args.pydef,
         include_paths,
         backup_dir: args.work_dir.clone(),
+        python: PythonConfig::default(),
     };
 
     // Ensure output directory exists

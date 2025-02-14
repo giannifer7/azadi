@@ -1,6 +1,8 @@
+// crates/azadi-macros/src/evaluator/tests/test_export.rs
+
 #[cfg(test)]
 mod tests {
-    use crate::evaluator::evaluator::EvalError;
+    use crate::evaluator::EvalError;
     use crate::macro_api::process_string_defaults;
 
     #[test]

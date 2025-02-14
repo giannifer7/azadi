@@ -15,7 +15,7 @@ fn create_test_file(dir: &Path, name: &str, content: &str) -> PathBuf {
 // Helper to build and get command
 fn cargo_azadi_macro_cli() -> Result<escargot::CargoRun, Box<dyn std::error::Error>> {
     Ok(escargot::CargoBuild::new()
-        .bin("azadi-macro-cli")
+        .bin("azadi-macro")
         .current_release()
         .current_target()
         .run()?)
@@ -110,7 +110,7 @@ fn test_cli_help() -> Result<(), Box<dyn std::error::Error>> {
     let output = cmd.output()?;
     assert!(
         output.status.success(),
-        "Expected 'azadi-macro-cli --help' to succeed."
+        "Expected 'azadi-macro --help' to succeed."
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -120,8 +120,8 @@ fn test_cli_help() -> Result<(), Box<dyn std::error::Error>> {
 
     // Check that it has some known usage text:
     assert!(
-        stdout.contains("azadi-macro-cli"),
-        "Help output did not mention 'azadi-macro-cli'"
+        stdout.contains("azadi-macro"),
+        "Help output did not mention 'azadi-macro'"
     );
     assert!(
         stdout.contains("--out-dir"),
