@@ -1,11 +1,8 @@
 // crates/azadi-macros/src/bin/macro_cli.rs
 
-use azadi_macros::evaluator::{EvalConfig, EvalError, PythonConfig};
-
+use azadi_macros::evaluator::{EvalConfig, EvalError, PyBackend, PythonConfig, SecurityLevel};
 use clap::Parser;
 use std::path::PathBuf;
-
-use azadi_macros::macro_api::process_files_from_config;
 
 /// Returns the default path separator based on the platform
 fn default_pathsep() -> String {
@@ -17,7 +14,7 @@ fn default_pathsep() -> String {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "azadi-macro", about = "Azadi macros translator (Rust)")]
+#[command(name = "azadi-macro-cli", about = "Azadi macros translator (Rust)")]
 struct Args {
     /// Output directory
     #[arg(long = "out-dir", default_value = ".")]
@@ -39,8 +36,24 @@ struct Args {
     #[arg(long = "pathsep", default_value_t = default_pathsep())]
     pathsep: String,
 
+    /// Python backend to use
+    #[arg(long = "python-backend", value_enum, default_value_t = PyBackend::None)]
+    python_backend: PyBackend,
+
+    /// Python security level
+    #[arg(long = "python-security", value_enum, default_value_t = SecurityLevel::Basic)]
+    python_security: SecurityLevel,
+
+    /// Path to Python virtual environment
+    #[arg(long = "venv-path")]
+    venv_path: Option<PathBuf>,
+
+    /// Path to Python executable
+    #[arg(long = "python-path")]
+    python_path: Option<PathBuf>,
+
     /// If set, python macros are considered
-    #[arg(long = "pydef", default_value_t = false, action = clap::ArgAction::SetTrue)]
+    #[arg(long = "pydef", default_value_t = false)]
     pydef: bool,
 
     /// Base directory for input files
@@ -63,14 +76,27 @@ fn run(args: Args) -> Result<(), EvalError> {
 
     eprintln!("Include paths: {:?}", include_paths);
     eprintln!("Special character: {}", args.special);
-    eprintln!("Python macros enabled: {}", args.pydef);
+    eprintln!("Python backend: {:?}", args.python_backend);
+    eprintln!("Python security level: {:?}", args.python_security);
+
+    let python_enabled = match args.python_backend {
+        PyBackend::None => false,
+        _ => true,
+    };
+
+    let python_config = PythonConfig {
+        enabled: python_enabled,
+        venv_path: args.venv_path,
+        python_path: args.python_path,
+        security_level: args.python_security,
+    };
 
     let config = EvalConfig {
         special_char: args.special,
         pydef: args.pydef,
         include_paths,
         backup_dir: args.work_dir.clone(),
-        python: PythonConfig::default(),
+        python: python_config,
     };
 
     // Ensure output directory exists
@@ -114,7 +140,8 @@ fn run(args: Args) -> Result<(), EvalError> {
     eprintln!("  Work directory: {:?}", args.work_dir);
     eprintln!("  Final inputs: {:?}", final_inputs);
 
-    let result = process_files_from_config(&final_inputs, &args.out_dir, config);
+    let result =
+        azadi_macros::macro_api::process_files_from_config(&final_inputs, &args.out_dir, config);
 
     if let Err(ref e) = result {
         eprintln!("Processing failed: {:?}", e);

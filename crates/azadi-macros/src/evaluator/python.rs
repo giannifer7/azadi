@@ -1,6 +1,7 @@
 // crates/azadi-macros/src/evaluator/python.rs
 
 use super::errors::PyEvalError;
+use clap::ValueEnum;
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::Path;
@@ -8,11 +9,42 @@ use std::path::PathBuf;
 use std::process::Command;
 use tempfile::NamedTempFile;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, ValueEnum)]
+#[value(rename_all = "lowercase")]
 pub enum SecurityLevel {
     None,
     Basic,
     Strict,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, ValueEnum)]
+#[value(rename_all = "lowercase")]
+pub enum PyBackend {
+    None,
+    Subprocess,
+    #[cfg(feature = "pyo3")]
+    PyO3,
+}
+
+impl std::fmt::Display for SecurityLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SecurityLevel::None => write!(f, "none"),
+            SecurityLevel::Basic => write!(f, "basic"),
+            SecurityLevel::Strict => write!(f, "strict"),
+        }
+    }
+}
+
+impl std::fmt::Display for PyBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PyBackend::None => write!(f, "none"),
+            PyBackend::Subprocess => write!(f, "subprocess"),
+            #[cfg(feature = "pyo3")]
+            PyBackend::PyO3 => write!(f, "pyo3"),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -208,6 +240,7 @@ pub mod pyo3_evaluator {
     use super::*;
     use pyo3::prelude::*;
     use pyo3::types::{PyDict, PyList};
+    use std::ffi::CString;
 
     pub struct PyO3Evaluator {
         config: PythonConfig,
@@ -235,48 +268,68 @@ pub mod pyo3_evaluator {
             code: &str,
             variables: HashMap<String, String>,
         ) -> Result<String, PyEvalError> {
-            Python::with_gil(|py| {
-                // Create sink list
+            Python::with_gil(|py| -> Result<String, PyEvalError> {
+                // Create output sink list
                 let sink = PyList::empty(py);
 
                 // Create locals dict with variables
                 let locals = PyDict::new(py);
                 for (k, v) in variables {
-                    locals.set_item(k, v)?;
+                    locals.set_item(k, v).map_err(|e| {
+                        PyEvalError::Execution(format!("Failed to set variable: {}", e))
+                    })?;
                 }
 
-                // Add sink and print/write functions
-                locals.set_item("sink", sink)?;
+                // Add sink to locals - note we borrow the sink here
+                locals
+                    .set_item("_output_sink", &sink)
+                    .map_err(|e| PyEvalError::Execution(format!("Failed to set sink: {}", e)))?;
 
-                // Define print/write functions
-                py.run(
+                // Convert Python setup code to CString
+                let setup_code = CString::new(
                     r#"
-class Write:
+class _Write:
     def __call__(self, s):
-        sink.append(str(s))
-class WriteLine(Write):
+        _output_sink.append(str(s))
+class _WriteLine(_Write):
     def __call__(self, s):
-        sink.extend([str(s), '\n'])
-write = Write()
-print = WriteLine()
+        _output_sink.extend([str(s), '\n'])
+write = _Write()
+print = _WriteLine()
                 "#,
-                    None,
-                    Some(locals),
-                )?;
+                )
+                .map_err(|e| {
+                    PyEvalError::Execution(format!("Failed to create setup code: {}", e))
+                })?;
 
-                // Execute the code
-                py.run(code, None, Some(locals))?;
+                // Convert main code to CString
+                let main_code = CString::new(code).map_err(|e| {
+                    PyEvalError::Execution(format!("Failed to create main code: {}", e))
+                })?;
 
-                // Get output from sink
-                let result: String = sink
-                    .iter()?
-                    .map(|item| item.extract::<String>())
-                    .collect::<PyResult<Vec<_>>>()?
-                    .join("");
+                // Run setup code
+                py.run(&setup_code, None, Some(&locals)).map_err(|e| {
+                    PyEvalError::Execution(format!("Failed to run setup code: {}", e))
+                })?;
+
+                // Run main code
+                py.run(&main_code, None, Some(&locals)).map_err(|e| {
+                    PyEvalError::Execution(format!("Failed to run main code: {}", e))
+                })?;
+
+                // Collect output from sink
+                let mut result = String::new();
+
+                // Now we can use sink since we only borrowed it earlier
+                for item in sink.iter() {
+                    let item_str: String = item.extract().map_err(|e| {
+                        PyEvalError::Execution(format!("Failed to extract string: {}", e))
+                    })?;
+                    result.push_str(&item_str);
+                }
 
                 Ok(result)
             })
-            .map_err(|e| PyEvalError::Execution(format!("PyO3 error: {}", e)))
         }
     }
 }

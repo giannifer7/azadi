@@ -5,8 +5,8 @@ mod case_conversion;
 mod core;
 mod errors;
 mod eval_api;
-pub mod lexer_parser; // Make this public
-mod python;
+pub mod lexer_parser;
+pub mod python;
 mod source_utils;
 mod state;
 
@@ -27,4 +27,4 @@ pub use state::{EvalConfig, MacroDefinition};
 #[cfg(feature = "pyo3")]
 pub use python::pyo3_evaluator::PyO3Evaluator;
 
-pub use python::{PythonConfig, PythonEvaluator, SecurityLevel, SubprocessEvaluator};
+pub use python::{PyBackend, PythonConfig, PythonEvaluator, SecurityLevel, SubprocessEvaluator};
