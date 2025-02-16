@@ -1,3 +1,5 @@
+# crates/azadi-macros/Cargo.toml
+
 [package]
 name = "azadi-macros"
 version.workspace = true
@@ -7,20 +9,27 @@ license.workspace = true
 description = "Core macro processing library for Azadi"
 
 [dependencies]
+# Regular workspace-shared dependencies
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-clap = { version = "4.4", features = ["derive"] }
 tempfile = "3.8"
+lazy_static.workspace = true
+clap = { version = "4.4", features = ["derive"] }
+
+# Optional dependencies for "pyo3" and "wasm-bindgen"
+pyo3 = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [features]
+# The default feature set is empty
 default = []
+
+# Tie the local "pyo3" feature to the optional pyo3 dependency
 pyo3 = ["dep:pyo3"]
 
-[dependencies.pyo3]
-version = "0.23.4"
-optional = true
-features = ["auto-initialize"]
+# Tie the local "wasm-bindgen" feature to the optional wasm-bindgen dependency
+wasm_bindgen = ["dep:wasm-bindgen"]
 
 [dev-dependencies]
 tempfile = "3.8"

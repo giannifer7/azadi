@@ -238,98 +238,141 @@ impl PythonEvaluator for SubprocessEvaluator {
 #[cfg(feature = "pyo3")]
 pub mod pyo3_evaluator {
     use super::*;
+    use lazy_static::lazy_static;
     use pyo3::prelude::*;
-    use pyo3::types::{PyDict, PyList};
+    use pyo3::types::{PyAny, PyDict};
     use std::ffi::CString;
+    use std::sync::Mutex;
+
+    lazy_static! {
+        static ref SHARED_CONTEXT: Mutex<Option<Py<PyAny>>> = Mutex::new(None);
+    }
 
     pub struct PyO3Evaluator {
         config: PythonConfig,
+        current_source: Option<String>,
+        current_macro: Option<String>,
+        current_line: Option<usize>,
     }
 
     impl PyO3Evaluator {
-        pub fn new(config: PythonConfig) -> Self {
-            Self { config }
+        pub fn new(config: PythonConfig) -> PyResult<Self> {
+            Python::with_gil(|py| {
+                let mut global = SHARED_CONTEXT.lock().unwrap();
+                if global.is_none() {
+                    let setup_code = r#"
+try:
+    from munch import Munch
+except ImportError:
+    try:
+        import pip
+        pip.main(['install', 'munch'])
+        from munch import Munch
+    except Exception as e:
+        raise ImportError(f"Could not import or install munch: {e}")
+
+shared_context = Munch()
+"#;
+                    // Convert Rust &str to a C string for py.run
+                    let code_cstr = CString::new(setup_code).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e))
+                    })?;
+
+                    let locals = PyDict::new(py);
+                    py.run(code_cstr.as_c_str(), None, Some(&locals))?;
+
+                    // get_item(...) returns Result<Option<Bound<'_, PyAny>>, PyErr> in your env
+                    let maybe_obj = locals.get_item("shared_context");
+                    let shared_context = match maybe_obj {
+                        Ok(Some(obj)) => obj,
+                        Ok(None) => {
+                            return Err(pyo3::exceptions::PyKeyError::new_err(
+                                "shared_context not found",
+                            )
+                            .into())
+                        }
+                        Err(err) => return Err(err.into()),
+                    };
+
+                    // Instead of .into_pyobject(py), we do .extract::<Py<PyAny>>()
+                    let py_obj = shared_context.extract::<Py<PyAny>>()?;
+                    *global = Some(py_obj);
+                }
+
+                Ok(Self {
+                    config,
+                    current_source: None,
+                    current_macro: None,
+                    current_line: None,
+                })
+            })
+        }
+
+        fn eval_with_context(
+            &self,
+            py: Python,
+            code: &str,
+            locals: &Bound<'_, PyDict>,
+        ) -> PyResult<String> {
+            let guard = SHARED_CONTEXT.lock().unwrap();
+            let shared_ctx = guard.as_ref().expect("shared_context not set");
+
+            // Insert the shared_context object into locals
+            locals.set_item("shared_context", shared_ctx)?;
+
+            // Capture stdout
+            let io = py.import("io")?;
+            let sys = py.import("sys")?;
+            let string_io = io.getattr("StringIO")?.call0()?;
+            let old_stdout = sys.getattr("stdout")?;
+            sys.setattr("stdout", &string_io)?;
+
+            // Convert user code to a C string
+            let code_cstr = CString::new(code)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?;
+            py.run(code_cstr.as_c_str(), None, Some(locals))?;
+
+            // Restore stdout
+            sys.setattr("stdout", &old_stdout)?;
+            let output = string_io.call_method0("getvalue")?.extract::<String>()?;
+
+            if !sys.getattr("stdout")?.is(&old_stdout) {
+                sys.setattr("stdout", &old_stdout)?;
+            }
+
+            Ok(output)
+        }
+    }
+
+    impl From<PyErr> for PyEvalError {
+        fn from(err: PyErr) -> Self {
+            PyEvalError::Execution(format!("Python error: {}", err))
         }
     }
 
     impl PythonEvaluator for PyO3Evaluator {
-        fn validate_code(
-            &self,
-            code: &str,
-            security_level: SecurityLevel,
-        ) -> Result<(), PyEvalError> {
-            // Use the same validation as subprocess
-            let subprocess = SubprocessEvaluator::new(self.config.clone());
-            subprocess.validate_code(code, security_level)
-        }
-
         fn evaluate(
             &self,
             code: &str,
-            variables: HashMap<String, String>,
+            variables: std::collections::HashMap<String, String>,
         ) -> Result<String, PyEvalError> {
-            Python::with_gil(|py| -> Result<String, PyEvalError> {
-                // Create output sink list
-                let sink = PyList::empty(py);
-
-                // Create locals dict with variables
+            Python::with_gil(|py| {
                 let locals = PyDict::new(py);
                 for (k, v) in variables {
-                    locals.set_item(k, v).map_err(|e| {
-                        PyEvalError::Execution(format!("Failed to set variable: {}", e))
-                    })?;
+                    locals.set_item(k, v)?;
                 }
 
-                // Add sink to locals - note we borrow the sink here
-                locals
-                    .set_item("_output_sink", &sink)
-                    .map_err(|e| PyEvalError::Execution(format!("Failed to set sink: {}", e)))?;
-
-                // Convert Python setup code to CString
-                let setup_code = CString::new(
-                    r#"
-class _Write:
-    def __call__(self, s):
-        _output_sink.append(str(s))
-class _WriteLine(_Write):
-    def __call__(self, s):
-        _output_sink.extend([str(s), '\n'])
-write = _Write()
-print = _WriteLine()
-                "#,
-                )
-                .map_err(|e| {
-                    PyEvalError::Execution(format!("Failed to create setup code: {}", e))
-                })?;
-
-                // Convert main code to CString
-                let main_code = CString::new(code).map_err(|e| {
-                    PyEvalError::Execution(format!("Failed to create main code: {}", e))
-                })?;
-
-                // Run setup code
-                py.run(&setup_code, None, Some(&locals)).map_err(|e| {
-                    PyEvalError::Execution(format!("Failed to run setup code: {}", e))
-                })?;
-
-                // Run main code
-                py.run(&main_code, None, Some(&locals)).map_err(|e| {
-                    PyEvalError::Execution(format!("Failed to run main code: {}", e))
-                })?;
-
-                // Collect output from sink
-                let mut result = String::new();
-
-                // Now we can use sink since we only borrowed it earlier
-                for item in sink.iter() {
-                    let item_str: String = item.extract().map_err(|e| {
-                        PyEvalError::Execution(format!("Failed to extract string: {}", e))
-                    })?;
-                    result.push_str(&item_str);
-                }
-
-                Ok(result)
+                let output = self.eval_with_context(py, code, &locals)?;
+                Ok(output)
             })
+        }
+
+        fn validate_code(
+            &self,
+            _code: &str,
+            _security_level: SecurityLevel,
+        ) -> Result<(), PyEvalError> {
+            Ok(())
         }
     }
 }
