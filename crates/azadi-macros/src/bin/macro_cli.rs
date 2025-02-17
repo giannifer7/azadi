@@ -66,18 +66,11 @@ struct Args {
 }
 
 fn run(args: Args) -> Result<(), EvalError> {
-    eprintln!("Starting macro-cli with arguments: {:?}", args);
-
     let include_paths: Vec<PathBuf> = args
         .include
         .split(&args.pathsep)
         .map(PathBuf::from)
         .collect();
-
-    eprintln!("Include paths: {:?}", include_paths);
-    eprintln!("Special character: {}", args.special);
-    eprintln!("Python backend: {:?}", args.python_backend);
-    eprintln!("Python security level: {:?}", args.python_security);
 
     let python_enabled = match args.python_backend {
         PyBackend::None => false,
@@ -101,53 +94,32 @@ fn run(args: Args) -> Result<(), EvalError> {
 
     // Ensure output directory exists
     if !args.out_dir.exists() {
-        eprintln!("Creating output directory: {:?}", args.out_dir);
         std::fs::create_dir_all(&args.out_dir)
             .map_err(|e| EvalError::Runtime(format!("Failed to create output directory: {}", e)))?;
     }
 
     // Ensure work directory exists
     if !args.work_dir.exists() {
-        eprintln!("Creating work directory: {:?}", args.work_dir);
         std::fs::create_dir_all(&args.work_dir)
             .map_err(|e| EvalError::Runtime(format!("Failed to create work directory: {}", e)))?;
     }
 
     let mut final_inputs = Vec::new();
-    eprintln!(
-        "Processing input files from base directory: {:?}",
-        args.input_dir
-    );
     for inp in &args.inputs {
         let full = args.input_dir.join(inp);
-        eprintln!("Checking input file: {:?}", full);
-
         // Try to get canonical path for better error messages
         let canon = full.canonicalize().unwrap_or_else(|_| full.clone());
-
         if !full.exists() {
             return Err(EvalError::Runtime(format!(
                 "Input file does not exist: {:?}",
                 canon
             )));
         }
-        eprintln!("Input file exists: {:?}", canon);
         final_inputs.push(full);
     }
 
-    eprintln!("Starting file processing with:");
-    eprintln!("  Output directory: {:?}", args.out_dir);
-    eprintln!("  Work directory: {:?}", args.work_dir);
-    eprintln!("  Final inputs: {:?}", final_inputs);
-
     let result =
         azadi_macros::macro_api::process_files_from_config(&final_inputs, &args.out_dir, config);
-
-    if let Err(ref e) = result {
-        eprintln!("Processing failed: {:?}", e);
-    } else {
-        eprintln!("Processing completed successfully");
-    }
 
     result
 }

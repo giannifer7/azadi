@@ -250,9 +250,10 @@ pub mod pyo3_evaluator {
 
     pub struct PyO3Evaluator {
         config: PythonConfig,
+        /*
         current_source: Option<String>,
         current_macro: Option<String>,
-        current_line: Option<usize>,
+        current_line: Option<usize>,*/
     }
 
     impl PyO3Evaluator {
@@ -261,15 +262,7 @@ pub mod pyo3_evaluator {
                 let mut global = SHARED_CONTEXT.lock().unwrap();
                 if global.is_none() {
                     let setup_code = r#"
-try:
-    from munch import Munch
-except ImportError:
-    try:
-        import pip
-        pip.main(['install', 'munch'])
-        from munch import Munch
-    except Exception as e:
-        raise ImportError(f"Could not import or install munch: {e}")
+from munch import Munch
 
 shared_context = Munch()
 "#;
@@ -301,9 +294,9 @@ shared_context = Munch()
 
                 Ok(Self {
                     config,
-                    current_source: None,
+                    /*current_source: None,
                     current_macro: None,
-                    current_line: None,
+                    current_line: None,*/
                 })
             })
         }
@@ -330,6 +323,7 @@ shared_context = Munch()
             // Convert user code to a C string
             let code_cstr = CString::new(code)
                 .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?;
+            println!("---- DEBUG CODE ----\n{}", code);
             py.run(code_cstr.as_c_str(), None, Some(locals))?;
 
             // Restore stdout

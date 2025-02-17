@@ -13,6 +13,8 @@ mod test_macro_api;
 mod test_macros;
 mod test_pydef;
 mod test_python_evaluator;
+#[cfg(feature = "pyo3")]
+mod test_python_evaluator_pyo3;
 mod test_set;
 mod test_utils;
 mod test_var;
