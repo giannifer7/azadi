@@ -2,6 +2,7 @@
 
 use crate::evaluator::{EvalConfig, EvalError, Evaluator};
 use std::fs;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 pub fn process_string(
@@ -21,50 +22,63 @@ pub fn process_string(
     Ok(output_string.into_bytes())
 }
 
-pub fn process_file(
+pub fn process_file_with_writer(
     input_file: &Path,
-    output_file: &Path,
+    writer: &mut dyn Write,
     evaluator: &mut Evaluator,
 ) -> Result<(), EvalError> {
     let content = fs::read_to_string(input_file)
         .map_err(|e| EvalError::Runtime(format!("Cannot read {input_file:?}: {e}")))?;
     let expanded = process_string(&content, Some(input_file), evaluator)?;
+    writer
+        .write_all(&expanded)
+        .map_err(|e| EvalError::Runtime(format!("Cannot write to output: {e}")))?;
+    Ok(())
+}
+
+pub fn process_file(
+    input_file: &Path,
+    output_file: &Path,
+    evaluator: &mut Evaluator,
+) -> Result<(), EvalError> {
     if let Some(parent) = output_file.parent() {
         fs::create_dir_all(parent)
             .map_err(|e| EvalError::Runtime(format!("Cannot create dir {parent:?}: {e}")))?;
     }
-    fs::write(output_file, expanded)
-        .map_err(|e| EvalError::Runtime(format!("Cannot write {output_file:?}: {e}")))?;
-    Ok(())
-}
-
-pub fn process_file_from_config(
-    input_file: &Path,
-    output_file: &Path,
-    config: EvalConfig,
-) -> Result<(), EvalError> {
-    let mut evaluator = Evaluator::new(config);
-    process_file(input_file, output_file, &mut evaluator)
+    let mut file = fs::File::create(output_file)
+        .map_err(|e| EvalError::Runtime(format!("Cannot create {output_file:?}: {e}")))?;
+    process_file_with_writer(input_file, &mut file, evaluator)
 }
 
 pub fn process_files(
     inputs: &[PathBuf],
-    output_dir: &Path,
+    output_path: &Path,
     evaluator: &mut Evaluator,
 ) -> Result<(), EvalError> {
-    fs::create_dir_all(output_dir)
-        .map_err(|e| EvalError::Runtime(format!("Cannot create {output_dir:?}: {e}")))?;
+    // Determine the appropriate writer based on output_path
+    let mut stdout_handle;
+    let mut file_handle;
+    let writer: &mut dyn Write = if output_path.to_string_lossy() == "-" {
+        stdout_handle = io::stdout();
+        &mut stdout_handle
+    } else {
+        // Create parent directory if needed
+        if let Some(parent) = output_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| EvalError::Runtime(format!("Cannot create dir {parent:?}: {e}")))?;
+        }
 
+        // Open the output file
+        file_handle = fs::File::create(output_path)
+            .map_err(|e| EvalError::Runtime(format!("Cannot create {output_path:?}: {e}")))?;
+        &mut file_handle
+    };
+
+    // Process all input files with the selected writer
     for input_path in inputs {
-        let mut out_name = match input_path.file_name() {
-            Some(n) => n.to_os_string(),
-            None => "output".into(),
-        };
-        out_name.push(".txt");
-        let out_file = output_dir.join(out_name);
-
-        process_file(input_path, &out_file, evaluator)?;
+        process_file_with_writer(input_path, writer, evaluator)?;
     }
+
     Ok(())
 }
 

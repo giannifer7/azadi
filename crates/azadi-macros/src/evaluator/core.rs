@@ -6,9 +6,9 @@ use std::path::{Path, PathBuf};
 
 use super::builtins::{default_builtins, BuiltinFn};
 use super::errors::{EvalError, EvalResult};
+use super::python::{PyO3Evaluator, PythonEvaluator};
 use super::state::{EvalConfig, EvaluatorState, MacroDefinition};
-use crate::evaluator::{PythonEvaluator, SubprocessEvaluator};
-use crate::types::{ASTNode, NodeKind, TokenKind};
+use crate::types::{ASTNode, NodeKind, Token, TokenKind};
 
 pub struct Evaluator {
     state: EvaluatorState,
@@ -19,8 +19,21 @@ pub struct Evaluator {
 impl Evaluator {
     pub fn new(config: EvalConfig) -> Self {
         let python_evaluator = if config.python.enabled {
-            Some(Box::new(SubprocessEvaluator::new(config.python.clone()))
-                as Box<dyn PythonEvaluator>)
+            match PyO3Evaluator::new(config.python.clone()) {
+                Ok(evaluator) => {
+                    // Set the work directory for Python code logging
+                    if let Some(work_dir) = config.backup_dir.parent() {
+                        evaluator.set_work_directory(work_dir.to_path_buf());
+                    } else {
+                        evaluator.set_work_directory(config.backup_dir.clone());
+                    }
+                    Some(Box::new(evaluator) as Box<dyn PythonEvaluator>)
+                }
+                Err(e) => {
+                    eprintln!("Failed to initialize PyO3 evaluator: {}", e);
+                    None
+                }
+            }
         } else {
             None
         };
@@ -145,10 +158,35 @@ impl Evaluator {
         }
     }
 
+    pub fn extract_name_value(&self, name_token: &Token) -> String {
+        if let Some(source) = self.state.source_manager.get_source(name_token.src) {
+            let start = name_token.pos;
+            let end = name_token.pos + name_token.length;
+
+            // Bounds checking
+            if end > source.len() || start > source.len() {
+                eprintln!(
+                    "extract_name_value: out of range - start: {}, end: {}, source len: {}",
+                    start,
+                    end,
+                    source.len()
+                );
+                return "".into();
+            }
+
+            // Since we know it's an Identifier, we can extract directly
+            String::from_utf8_lossy(&source[start..end]).to_string()
+        } else {
+            eprintln!("extract_name_value: invalid src index");
+            "".into()
+        }
+    }
+
     pub fn evaluate_macro_call(&mut self, node: &ASTNode, name: &str) -> EvalResult<String> {
         if let Some(bf) = self.builtins.get(name) {
             return bf(self, node);
         }
+
         let mac = match self.state.get_macro(name) {
             Some(m) => m,
             None => return Err(EvalError::UndefinedMacro(name.into())),
@@ -168,14 +206,29 @@ impl Evaluator {
             self.state.set_variable(var, frozen_val);
         }
 
-        // TODO: keyword arguments
+        // Handle parameter assignment with support for both positional and named arguments
         for (i, param_name) in mac.params.iter().enumerate() {
             let val = if let Some(param_node) = param_nodes.get(i) {
-                let evaluated = self.evaluate(param_node)?;
-                evaluated
+                // If the parameter has a name in the AST node, use that as the parameter name
+                if let Some(name_token) = &param_node.name {
+                    // Extract the actual name from the token
+                    let name_value = self.extract_name_value(name_token);
+
+                    // Evaluate the parameter value
+                    let evaluated = self.evaluate(param_node)?;
+
+                    // Store the named parameter value
+                    self.state.set_variable(&name_value, &evaluated);
+                    continue; // Skip the positional assignment since we've handled it as named
+                }
+
+                // Otherwise, evaluate it as a positional parameter
+                self.evaluate(param_node)?
             } else {
                 "".to_string()
             };
+
+            // Set the variable with the positional parameter name
             self.state.set_variable(param_name, &val);
         }
 
@@ -185,7 +238,25 @@ impl Evaluator {
         if mac.is_python && self.state.config.python.enabled {
             if let Some(evaluator) = &self.python_evaluator {
                 let variables = self.state.current_scope().variables.clone();
-                result = evaluator.evaluate(&result, variables)?;
+
+                // Get context information for better error reporting and logging
+                let current_file = self.state.current_file.to_string_lossy().to_string();
+                let source_pos = node.token.pos;
+                let name = Some(mac.name.as_str());
+                let filename = if current_file.is_empty() {
+                    None
+                } else {
+                    Some(current_file.as_str())
+                };
+
+                // Use the context-aware evaluation
+                result = evaluator.evaluate_with_context(
+                    &result,
+                    variables,
+                    name,
+                    filename,
+                    Some(source_pos as u32),
+                )?;
             } else {
                 return Err(EvalError::Runtime("Python evaluator not configured".into()));
             }

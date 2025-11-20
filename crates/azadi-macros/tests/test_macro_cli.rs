@@ -1,3 +1,5 @@
+// crates/azadi-macros/tests/test_macro_cli.rs
+
 use escargot;
 use std::fs;
 use std::io::Write;
@@ -39,18 +41,18 @@ Hello %hello()!"#,
     println!("{}", fs::read_to_string(&input)?);
     assert!(input.exists(), "Input file should exist");
 
-    // Set up directories but don't create them - let the program do it
-    let out_dir = temp_path.join("output");
+    // Set up an output file instead of a directory
+    let out_file = temp_path.join("output.txt");
     let work_dir = temp_path.join("work");
 
-    println!("Output dir will be: {}", out_dir.display());
+    println!("Output file will be: {}", out_file.display());
     println!("Work dir will be: {}", work_dir.display());
 
     // Run the command
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
-    cmd.arg("--out-dir")
-        .arg(&out_dir)
+    cmd.arg("--out-file") // Changed from --out-dir to --out-file
+        .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
         .arg(&input);
@@ -64,15 +66,7 @@ Hello %hello()!"#,
 
     assert!(output.status.success());
 
-    // List directory contents for debugging
-    println!("Output directory contents:");
-    for entry in fs::read_dir(&out_dir)? {
-        let entry = entry?;
-        println!("  {}", entry.path().display());
-    }
-
-    // Check the output file
-    let out_file = out_dir.join("input.txt.txt");
+    // Check the output file directly
     println!("Looking for output file: {}", out_file.display());
     assert!(out_file.exists(), "Output file should exist");
 
@@ -82,24 +76,7 @@ Hello %hello()!"#,
 
     Ok(())
 }
-/*
-use escargot;
-use std::fs;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use tempfile::TempDir;
 
-// Existing code (for reference)...
-// ------------------------------------------------------------------
-// fn create_test_file(dir: &Path, name: &str, content: &str) -> PathBuf { ... }
-// fn cargo_azadi_macro_cli() -> Result<escargot::CargoRun, Box<dyn std::error::Error>> { ... }
-//
-// #[test]
-// fn test_basic_macro_processing() -> Result<(), Box<dyn std::error::Error>> { ... }
-//
-// End of existing code
-// ------------------------------------------------------------------
-*/
 // 1) Test the help message
 #[test]
 fn test_cli_help() -> Result<(), Box<dyn std::error::Error>> {
@@ -124,8 +101,8 @@ fn test_cli_help() -> Result<(), Box<dyn std::error::Error>> {
         "Help output did not mention 'azadi-macro'"
     );
     assert!(
-        stdout.contains("--out-dir"),
-        "Help output did not mention '--out-dir'"
+        stdout.contains("--out-file"), // Changed from --out-dir to --out-file
+        "Help output did not mention '--out-file'"
     );
 
     Ok(())
@@ -140,13 +117,13 @@ fn test_missing_input_file() -> Result<(), Box<dyn std::error::Error>> {
     // We intentionally do NOT create the file
     let missing_input = temp_path.join("not_real.txt");
 
-    let out_dir = temp_path.join("output");
+    let out_file = temp_path.join("output.txt");
     let work_dir = temp_path.join("work");
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
-    cmd.arg("--out-dir")
-        .arg(&out_dir)
+    cmd.arg("--out-file") // Changed from --out-dir to --out-file
+        .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
         .arg(missing_input.to_string_lossy().to_string());
@@ -186,13 +163,13 @@ fn test_multiple_inputs() -> Result<(), Box<dyn std::error::Error>> {
         "%def(macro2, MACRO_TWO)\n%macro2()",
     );
 
-    let out_dir = temp_path.join("output");
+    let out_file = temp_path.join("combined_output.txt");
     let work_dir = temp_path.join("work");
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
-    cmd.arg("--out-dir")
-        .arg(&out_dir)
+    cmd.arg("--out-file") // Changed from --out-dir to --out-file
+        .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
         .arg(input1.to_string_lossy().to_string())
@@ -210,19 +187,16 @@ fn test_multiple_inputs() -> Result<(), Box<dyn std::error::Error>> {
     );
     assert!(output.status.success());
 
-    // Check the output files
-    let out_file_1 = out_dir.join("file1.txt.txt");
-    let out_file_2 = out_dir.join("file2.txt.txt");
-    let content1 = fs::read_to_string(&out_file_1)?;
-    let content2 = fs::read_to_string(&out_file_2)?;
+    // Check the single output file with combined content
+    let content = fs::read_to_string(&out_file)?;
 
     assert!(
-        content1.contains("MACRO_ONE"),
-        "Expected 'MACRO_ONE' in file1 output."
+        content.contains("MACRO_ONE"),
+        "Expected 'MACRO_ONE' in combined output file."
     );
     assert!(
-        content2.contains("MACRO_TWO"),
-        "Expected 'MACRO_TWO' in file2 output."
+        content.contains("MACRO_TWO"),
+        "Expected 'MACRO_TWO' in combined output file."
     );
 
     Ok(())
@@ -240,15 +214,15 @@ fn test_custom_special_char() -> Result<(), Box<dyn std::error::Error>> {
         "input_at.txt",
         "@def(test_macro, Hello from custom char)\n@test_macro()",
     );
-    let out_dir = temp_path.join("out");
+    let out_file = temp_path.join("output_at.txt");
     let work_dir = temp_path.join("work");
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
     cmd.arg("--special")
         .arg("@")
-        .arg("--out-dir")
-        .arg(&out_dir)
+        .arg("--out-file") // Changed from --out-dir to --out-file
+        .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
         .arg(&input);
@@ -259,7 +233,6 @@ fn test_custom_special_char() -> Result<(), Box<dyn std::error::Error>> {
         "CLI run with custom special char should succeed."
     );
 
-    let out_file = out_dir.join("input_at.txt.txt");
     let content = fs::read_to_string(&out_file)?;
     println!("(custom_special_char) output content:\n{content}");
     assert!(
@@ -270,7 +243,7 @@ fn test_custom_special_char() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// 5) Test the --pydef flag (assuming your code uses it differently)
+// 5) Test the --pydef flag
 #[test]
 fn test_pydef_flag() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TempDir::new()?;
@@ -281,17 +254,17 @@ fn test_pydef_flag() -> Result<(), Box<dyn std::error::Error>> {
     let input = create_test_file(
         &temp_path,
         "pydef_test.txt",
-        "%pydef(test_python, Hello Python)\n%test_python()",
+        "%pydef(test_python, %{print('Hello Python')\n%})\n%test_python()",
     );
 
-    let out_dir = temp_path.join("out");
+    let out_file = temp_path.join("output_py.txt");
     let work_dir = temp_path.join("work");
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
     cmd.arg("--pydef")
-        .arg("--out-dir")
-        .arg(&out_dir)
+        .arg("--out-file") // Changed from --out-dir to --out-file
+        .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
         .arg(&input);
@@ -311,7 +284,6 @@ fn test_pydef_flag() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Check output
-    let out_file = out_dir.join("pydef_test.txt.txt");
     let content = fs::read_to_string(&out_file)?;
     println!("(pydef_flag) final content:\n{content}");
     assert!(
@@ -336,7 +308,7 @@ fn test_colon_separated_includes() -> Result<(), Box<dyn std::error::Error>> {
     // Now create a main file that tries to include 'my_include.txt'
     let main_file = create_test_file(&temp_path, "main.txt", "%include(my_include.txt)");
 
-    let out_dir = temp_path.join("output");
+    let out_file = temp_path.join("output_inc.txt");
     let work_dir = temp_path.join("work");
 
     let run = cargo_azadi_macro_cli()?;
@@ -349,8 +321,8 @@ fn test_colon_separated_includes() -> Result<(), Box<dyn std::error::Error>> {
 
     cmd.arg("--include")
         .arg(&includes_str)
-        .arg("--out-dir")
-        .arg(&out_dir)
+        .arg("--out-file") // Changed from --out-dir to --out-file
+        .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
         .arg(&main_file);
@@ -361,7 +333,6 @@ fn test_colon_separated_includes() -> Result<(), Box<dyn std::error::Error>> {
         "CLI should succeed with colon-separated includes."
     );
 
-    let out_file = out_dir.join("main.txt.txt");
     let content = fs::read_to_string(&out_file)?;
     println!("(colon_separated_includes) content:\n{content}");
     assert!(
@@ -391,7 +362,7 @@ fn test_custom_pathsep_includes() -> Result<(), Box<dyn std::error::Error>> {
 
     let main_file = create_test_file(&temp_path, "custom_sep_main.txt", "%include(m_incl.txt)");
 
-    let out_dir = temp_path.join("output");
+    let out_file = temp_path.join("output_sep.txt");
     let work_dir = temp_path.join("work");
 
     // Suppose we want to use '|' as the path separator
@@ -403,8 +374,8 @@ fn test_custom_pathsep_includes() -> Result<(), Box<dyn std::error::Error>> {
         .arg(&includes_str)
         .arg("--pathsep")
         .arg("|")
-        .arg("--out-dir")
-        .arg(&out_dir)
+        .arg("--out-file") // Changed from --out-dir to --out-file
+        .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
         .arg(&main_file);
@@ -421,7 +392,6 @@ fn test_custom_pathsep_includes() -> Result<(), Box<dyn std::error::Error>> {
 
     assert!(output.status.success());
 
-    let out_file = out_dir.join("custom_sep_main.txt.txt");
     let content = fs::read_to_string(&out_file)?;
     assert!(
         content.contains("Inside custom pathsep dir"),
@@ -447,13 +417,13 @@ fn test_large_input() -> Result<(), Box<dyn std::error::Error>> {
 
     let big_file = create_test_file(&temp_path, "big_file.txt", &big_content);
 
-    let out_dir = temp_path.join("output");
+    let out_file = temp_path.join("output_big.txt");
     let work_dir = temp_path.join("work");
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
-    cmd.arg("--out-dir")
-        .arg(&out_dir)
+    cmd.arg("--out-file") // Changed from --out-dir to --out-file
+        .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
         .arg(&big_file);
@@ -464,7 +434,6 @@ fn test_large_input() -> Result<(), Box<dyn std::error::Error>> {
         "CLI should handle a large input file."
     );
 
-    let out_file = out_dir.join("big_file.txt.txt");
     let out_content = fs::read_to_string(&out_file)?;
     // We expect 10,000 lines of "HELLO"
     let line_count = out_content.matches("HELLO").count();

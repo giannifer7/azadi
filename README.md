@@ -6,7 +6,7 @@ A minimalistic macro processor written in Rust that helps with text transformati
 
 ## Overview
 
-Azadi is a simple macro processor that helps you automate repetitive text transformations. It supports basic macro definitions, file inclusion, and conditional processing.
+Azadi is a simple macro processor that helps you automate repetitive text transformations. It supports basic macro definitions, file inclusion, conditional processing, and Python integration.
 
 ## Installation
 
@@ -20,7 +20,8 @@ azadi-macros = "0.1.0"
 Or install the CLI tool:
 
 ```bash
-cargo install azadi
+cargo install --path crates/azadi-macros
+# The binary is named 'azadi-macro'
 ```
 
 ## Quick Start
@@ -59,30 +60,40 @@ Output:
 
 ## Command Line Usage
 
-```bash
-azadi-macro-cli [OPTIONS] <INPUT_FILES>...
+The CLI tool is named `azadi-macro`.
 
-OPTIONS:
-    --out-dir <DIR>        Output directory [default: .]
-    --special <CHAR>       Special character for macros [default: %]
-    --work-dir <DIR>       Working directory for backups [default: _azadi_work]
-    --include <PATHS>      Colon-separated list of include paths [default: .]
-    --pathsep <SEP>        Path separator (':' on Unix, ';' on Windows)
-    --pydef               Enable Python macro definitions
-    --input-dir <DIR>      Base directory for input files [default: .]
+```bash
+azadi-macro [OPTIONS] <INPUT_FILES>...
 ```
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--out-file <PATH>` | `.` | Output directory or file path |
+| `--special <CHAR>` | `%` | Special character for macros |
+| `--work-dir <DIR>` | `_azadi_work` | Working directory for backups |
+| `--include <PATHS>` | `.` | Colon-separated list of include paths |
+| `--pathsep <SEP>` | `:` (Unix) / `;` (Win) | Path separator for include paths |
+| `--input-dir <DIR>` | `.` | Base directory for input files |
+| `--pydef` | `false` | Enable Python macro definitions |
+| `--venv-path <PATH>` | - | Path to Python virtual environment |
+| `--python-path <PATH>` | - | Path to Python executable |
 
 ### Basic Usage
 
 ```bash
 # Process a file
-azadi-macro-cli input.txt
+azadi-macro input.txt
 
-# Use stdin/stdout
-cat input.txt | azadi-macro-cli -
+# Use stdin/stdout (use '-' for stdin)
+cat input.txt | azadi-macro -
 
 # Process multiple files
-azadi-macro-cli file1.txt file2.txt
+azadi-macro file1.txt file2.txt
+
+# Specify output directory
+azadi-macro --out-file dist/ input.txt
 ```
 
 ## Configuration
@@ -106,7 +117,7 @@ close_delim = "]>"
 
 ## Real-World Examples
 
-Here are some practical examples taken from the test suite:
+Here are some practical examples:
 
 ### 1. Nested Macro Calls
 ```
@@ -151,7 +162,6 @@ Here's a template for creating Rust files with a specific structure:
 // $$
 ----
 %})
-
 ```
 
 Usage example:
@@ -206,7 +216,7 @@ Server port: %(PORT)
 
 ## Built-in Macros
 
-Azadi provides several built-in macros for common operations. Leading spaces in macro parameters are ignored.
+Azadi provides several built-in macros. Leading spaces in macro parameters are ignored.
 
 ### %def(name, [params...], body)
 Defines a new macro.
@@ -294,6 +304,7 @@ Makes first letter lowercase.
 - Standard input/output support
 - Backup file generation
 - UTF-8 text processing
+- **Python Integration**: Define macros in Python (requires `--pydef` and optional configuration).
 
 ## Development
 

@@ -1,372 +1,241 @@
-// crates/azadi-macros/src/evaluator/python.rs
-
-use super::errors::PyEvalError;
-use clap::ValueEnum;
+use crate::evaluator::errors::PyEvalError;
+use pyo3::prelude::*; // Basic PyO3 items (Python, PyResult, etc.)
+use pyo3::types::PyModule; // for PyModule::from_code
 use std::collections::HashMap;
-use std::io::Write;
-use std::path::Path;
+use std::ffi::CString;
+use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
-use tempfile::NamedTempFile;
-
-#[derive(Debug, Clone, Copy, PartialEq, ValueEnum)]
-#[value(rename_all = "lowercase")]
-pub enum SecurityLevel {
-    None,
-    Basic,
-    Strict,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, ValueEnum)]
-#[value(rename_all = "lowercase")]
-pub enum PyBackend {
-    None,
-    Subprocess,
-    #[cfg(feature = "pyo3")]
-    PyO3,
-}
-
-impl std::fmt::Display for SecurityLevel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SecurityLevel::None => write!(f, "none"),
-            SecurityLevel::Basic => write!(f, "basic"),
-            SecurityLevel::Strict => write!(f, "strict"),
-        }
-    }
-}
-
-impl std::fmt::Display for PyBackend {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PyBackend::None => write!(f, "none"),
-            PyBackend::Subprocess => write!(f, "subprocess"),
-            #[cfg(feature = "pyo3")]
-            PyBackend::PyO3 => write!(f, "pyo3"),
-        }
-    }
-}
+use std::sync::{Mutex, OnceLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone)]
 pub struct PythonConfig {
     pub enabled: bool,
     pub venv_path: Option<PathBuf>,
     pub python_path: Option<PathBuf>,
-    pub security_level: SecurityLevel,
 }
 
 impl Default for PythonConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
+            enabled: true,
             venv_path: None,
             python_path: None,
-            security_level: SecurityLevel::Basic,
         }
     }
 }
 
 pub trait PythonEvaluator: Send + Sync {
-    fn validate_code(&self, code: &str, security_level: SecurityLevel) -> Result<(), PyEvalError>;
     fn evaluate(
         &self,
         code: &str,
         variables: HashMap<String, String>,
     ) -> Result<String, PyEvalError>;
+
+    fn evaluate_with_context(
+        &self,
+        code: &str,
+        variables: HashMap<String, String>,
+        name: Option<&str>,
+        filename: Option<&str>,
+        line: Option<u32>,
+    ) -> Result<String, PyEvalError>;
 }
 
-pub struct SubprocessEvaluator {
+/// Just storing config or any global data you like. We won't keep a 'globals' PyDict in this version.
+struct PythonState {
+    work_dir: Option<PathBuf>,
+}
+
+/// Single lazy `PythonState`.
+static PYTHON_STATE: OnceLock<Mutex<PythonState>> = OnceLock::new();
+
+impl PythonState {
+    fn new() -> Self {
+        Self { work_dir: None }
+    }
+
+    fn set_work_directory(&mut self, path: Option<PathBuf>) {
+        self.work_dir = path;
+        if let Some(ref d) = self.work_dir {
+            let py_dir = d.join("python");
+            if !py_dir.exists() {
+                if let Err(e) = std::fs::create_dir_all(&py_dir) {
+                    eprintln!("Warning: Failed to create Python work directory: {}", e);
+                }
+            }
+        }
+    }
+
+    /// If logging is enabled, write `code` to a .py file.
+    fn log_code(
+        &self,
+        code: &str,
+        name: Option<&str>,
+        filename: Option<&str>,
+        line: Option<u32>,
+    ) -> Result<(), std::io::Error> {
+        if let Some(ref base) = self.work_dir {
+            let py_dir = base.join("python");
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis();
+
+            let log_filename = match (name, filename, line) {
+                (Some(n), Some(f), Some(l)) => {
+                    format!("{}_{}_L{}_{}.py", n, f.replace("/", "_"), l, timestamp)
+                }
+                (Some(n), Some(f), None) => {
+                    format!("{}_{}.py", n, f.replace("/", "_"))
+                }
+                (Some(n), None, None) => format!("{}_{}.py", n, timestamp),
+                _ => format!("python_code_{}.py", timestamp),
+            };
+
+            let mut file_content = String::new();
+            file_content.push_str("# Python code generated from:\n");
+            if let Some(f) = filename {
+                file_content.push_str(&format!("# File: {}\n", f));
+            }
+            if let Some(l) = line {
+                file_content.push_str(&format!("# Line: {}\n", l));
+            }
+            if let Some(n) = name {
+                file_content.push_str(&format!("# Block: {}\n", n));
+            }
+            file_content.push_str(&format!("# Timestamp: {}\n\n{}", timestamp, code));
+
+            let out_path = py_dir.join(log_filename);
+            fs::write(out_path, file_content)?;
+        }
+        Ok(())
+    }
+}
+
+fn get_python_state() -> &'static Mutex<PythonState> {
+    PYTHON_STATE.get_or_init(|| Mutex::new(PythonState::new()))
+}
+
+/// Minimal evaluator that only does "single-pass" code execution via `PyModule::from_code`.
+pub struct PyO3Evaluator {
     config: PythonConfig,
 }
 
-impl SubprocessEvaluator {
-    pub fn new(config: PythonConfig) -> Self {
-        Self { config }
+impl PyO3Evaluator {
+    pub fn new(config: PythonConfig) -> PyResult<Self> {
+        let me = Self { config };
+        // If you want to set up a virtualenv or do other steps, do so here.
+        if let Some(ref venv) = me.config.venv_path {
+            me.setup_virtualenv(venv)?;
+        }
+        Ok(me)
     }
 
-    fn create_execution_script(
+    pub fn set_work_directory(&self, path: PathBuf) {
+        let mut st = get_python_state().lock().unwrap();
+        st.set_work_directory(Some(path));
+    }
+
+    /// If you want to unify a virtualenv site-packages, do so here
+    fn setup_virtualenv(&self, _venv_path: &PathBuf) -> PyResult<()> {
+        // ... same logic you had before ...
+        Ok(())
+    }
+
+    /// Actually run user code in a single multi-line snippet that also captures stdout.
+    /// We do it all at once with `PyModule::from_code(...)`.
+    fn eval_with_context(
         &self,
-        code: &str,
+        user_code: &str,
         variables: &HashMap<String, String>,
-    ) -> Result<NamedTempFile, PyEvalError> {
-        let mut script = NamedTempFile::new()
-            .map_err(|e| PyEvalError::Environment(format!("Failed to create temp file: {}", e)))?;
-
-        // Write output capture setup
-        writeln!(script, "import sys, io")?;
-        writeln!(script, "_output = io.StringIO()")?;
-        writeln!(script, "sys.stdout = _output")?;
-
-        // Write error handling
-        writeln!(script, "try:")?;
-
-        // Write variable definitions with indentation
-        for (name, value) in variables {
-            writeln!(script, "    {} = \"{}\"", name, value)?;
+        name: Option<&str>,
+        filename: Option<&str>,
+        line: Option<u32>,
+    ) -> PyResult<String> {
+        // Possibly log to file
+        {
+            let st = get_python_state().lock().unwrap();
+            if let Err(e) = st.log_code(user_code, name, filename, line) {
+                eprintln!("Warn: cannot log python code: {}", e);
+            }
         }
 
-        // Write the actual code with indentation
-        for line in code.lines() {
-            writeln!(script, "    {}", line)?;
-        }
+        Python::with_gil(|py| {
+            // We'll build a Python snippet that:
+            //   1) sets up a buffer for stdout
+            //   2) defines or sets each variable
+            //   3) runs the user's code
+            //   4) restores stdout
+            //   5) stashes the result in "__captured"
 
-        // Write error handling and output management
-        writeln!(script, "except Exception as e:")?;
-        writeln!(script, "    print(f'Python error: {{str(e)}}')")?;
-        writeln!(script, "finally:")?;
-        writeln!(script, "    sys.stdout = sys.__stdout__")?;
-        writeln!(script, "    print(_output.getvalue(), end='')")?;
+            let mut snippet = String::new();
+            snippet.push_str(
+                r#"
+import sys, io
 
-        script.flush()?;
-        Ok(script)
+old_stdout = sys.stdout
+_buf = io.StringIO()
+sys.stdout = _buf
+"#,
+            );
+
+            // Insert each variable. We can just define them at top-level:
+            for (k, v) in variables {
+                // naive approach: do var = repr(v)
+                snippet.push_str(&format!("{k} = {val:?}\n", val = v));
+            }
+
+            // Insert user code verbatim
+            snippet.push_str("\n# === user code ===\n");
+            snippet.push_str(user_code);
+            snippet.push_str("\n# === end user code ===\n");
+
+            // restore stdout
+            snippet.push_str(
+                r#"
+sys.stdout = old_stdout
+__captured = _buf.getvalue()
+"#,
+            );
+
+            // Now we compile+run this snippet into a new module
+            let c_code = CString::new(snippet).unwrap();
+            let c_filename = CString::new("in_memory.py").unwrap();
+            let c_modname = CString::new("temp_module").unwrap();
+
+            let module = PyModule::from_code(py, &c_code, c_filename.as_ref(), c_modname.as_ref())?;
+
+            // Finally, read __captured if present
+            if let Ok(captured_any) = module.getattr("__captured") {
+                let output: String = captured_any.extract()?;
+                Ok(output)
+            } else {
+                Ok(String::new())
+            }
+        })
     }
 }
 
-impl PythonEvaluator for SubprocessEvaluator {
-    fn validate_code(&self, code: &str, security_level: SecurityLevel) -> Result<(), PyEvalError> {
-        match security_level {
-            SecurityLevel::None => Ok(()),
-            SecurityLevel::Basic => {
-                let forbidden = ["os.system", "subprocess", "exec", "eval", "open", "file"];
-                for term in forbidden {
-                    if code.contains(term) {
-                        return Err(PyEvalError::Security(format!(
-                            "Forbidden term found: {}",
-                            term
-                        )));
-                    }
-                }
-                Ok(())
-            }
-            SecurityLevel::Strict => {
-                let forbidden = [
-                    "os.",
-                    "sys.",
-                    "subprocess",
-                    "exec",
-                    "eval",
-                    "open",
-                    "file",
-                    "__import__",
-                    "importlib",
-                ];
-                for term in forbidden {
-                    if code.contains(term) {
-                        return Err(PyEvalError::Security(format!(
-                            "Forbidden term found: {}",
-                            term
-                        )));
-                    }
-                }
-                Ok(())
-            }
-        }
-    }
-
+impl PythonEvaluator for PyO3Evaluator {
     fn evaluate(
         &self,
         code: &str,
         variables: HashMap<String, String>,
     ) -> Result<String, PyEvalError> {
-        // First validate
-        self.validate_code(code, self.config.security_level)?;
-
-        // Create the execution script
-        let script = self.create_execution_script(code, &variables)?;
-
-        // Build command with virtual env configuration
-        let python_path = self
-            .config
-            .python_path
-            .as_ref()
-            .map(|p| p.as_path())
-            .unwrap_or_else(|| Path::new("python3"));
-
-        let mut cmd = Command::new(python_path);
-
-        // Configure virtual environment if specified
-        if let Some(venv) = &self.config.venv_path {
-            if let Some(venv_str) = venv.to_str() {
-                cmd.env("VIRTUAL_ENV", venv_str);
-
-                #[cfg(unix)]
-                {
-                    let path = format!(
-                        "{}/bin:{}",
-                        venv_str,
-                        std::env::var("PATH").unwrap_or_default()
-                    );
-                    cmd.env("PATH", path);
-                }
-                #[cfg(windows)]
-                {
-                    let path = format!(
-                        "{}/Scripts;{}",
-                        venv_str,
-                        std::env::var("PATH").unwrap_or_default()
-                    );
-                    cmd.env("PATH", path);
-                }
-            }
-        }
-
-        // Execute and capture output/errors
-        let output = cmd
-            .arg(script.path())
-            .output()
-            .map_err(|e| PyEvalError::Execution(format!("Failed to execute Python: {}", e)))?;
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-
-        if !output.status.success() {
-            return Err(PyEvalError::Execution(format!(
-                "Python execution failed: {}\nOutput: {}",
-                stderr, stdout
-            )));
-        }
-
-        // If there's stderr output but the process succeeded, it might be warnings
-        if !stderr.is_empty() {
-            eprintln!("Python warnings: {}", stderr);
-        }
-
-        Ok(stdout.into_owned())
-    }
-}
-
-#[cfg(feature = "pyo3")]
-pub mod pyo3_evaluator {
-    use super::*;
-    use lazy_static::lazy_static;
-    use pyo3::prelude::*;
-    use pyo3::types::{PyAny, PyDict};
-    use std::ffi::CString;
-    use std::sync::Mutex;
-
-    lazy_static! {
-        static ref SHARED_CONTEXT: Mutex<Option<Py<PyAny>>> = Mutex::new(None);
+        self.eval_with_context(code, &variables, None, None, None)
+            .map_err(|e| PyEvalError::Execution(format!("Python error: {}", e)))
     }
 
-    pub struct PyO3Evaluator {
-        config: PythonConfig,
-        /*
-        current_source: Option<String>,
-        current_macro: Option<String>,
-        current_line: Option<usize>,*/
-    }
-
-    impl PyO3Evaluator {
-        pub fn new(config: PythonConfig) -> PyResult<Self> {
-            Python::with_gil(|py| {
-                let mut global = SHARED_CONTEXT.lock().unwrap();
-                if global.is_none() {
-                    let setup_code = r#"
-from munch import Munch
-
-shared_context = Munch()
-"#;
-                    // Convert Rust &str to a C string for py.run
-                    let code_cstr = CString::new(setup_code).map_err(|e| {
-                        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e))
-                    })?;
-
-                    let locals = PyDict::new(py);
-                    py.run(code_cstr.as_c_str(), None, Some(&locals))?;
-
-                    // get_item(...) returns Result<Option<Bound<'_, PyAny>>, PyErr> in your env
-                    let maybe_obj = locals.get_item("shared_context");
-                    let shared_context = match maybe_obj {
-                        Ok(Some(obj)) => obj,
-                        Ok(None) => {
-                            return Err(pyo3::exceptions::PyKeyError::new_err(
-                                "shared_context not found",
-                            )
-                            .into())
-                        }
-                        Err(err) => return Err(err.into()),
-                    };
-
-                    // Instead of .into_pyobject(py), we do .extract::<Py<PyAny>>()
-                    let py_obj = shared_context.extract::<Py<PyAny>>()?;
-                    *global = Some(py_obj);
-                }
-
-                Ok(Self {
-                    config,
-                    /*current_source: None,
-                    current_macro: None,
-                    current_line: None,*/
-                })
-            })
-        }
-
-        fn eval_with_context(
-            &self,
-            py: Python,
-            code: &str,
-            locals: &Bound<'_, PyDict>,
-        ) -> PyResult<String> {
-            let guard = SHARED_CONTEXT.lock().unwrap();
-            let shared_ctx = guard.as_ref().expect("shared_context not set");
-
-            // Insert the shared_context object into locals
-            locals.set_item("shared_context", shared_ctx)?;
-
-            // Capture stdout
-            let io = py.import("io")?;
-            let sys = py.import("sys")?;
-            let string_io = io.getattr("StringIO")?.call0()?;
-            let old_stdout = sys.getattr("stdout")?;
-            sys.setattr("stdout", &string_io)?;
-
-            // Convert user code to a C string
-            let code_cstr = CString::new(code)
-                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?;
-            println!("---- DEBUG CODE ----\n{}", code);
-            py.run(code_cstr.as_c_str(), None, Some(locals))?;
-
-            // Restore stdout
-            sys.setattr("stdout", &old_stdout)?;
-            let output = string_io.call_method0("getvalue")?.extract::<String>()?;
-
-            if !sys.getattr("stdout")?.is(&old_stdout) {
-                sys.setattr("stdout", &old_stdout)?;
-            }
-
-            Ok(output)
-        }
-    }
-
-    impl From<PyErr> for PyEvalError {
-        fn from(err: PyErr) -> Self {
-            PyEvalError::Execution(format!("Python error: {}", err))
-        }
-    }
-
-    impl PythonEvaluator for PyO3Evaluator {
-        fn evaluate(
-            &self,
-            code: &str,
-            variables: std::collections::HashMap<String, String>,
-        ) -> Result<String, PyEvalError> {
-            Python::with_gil(|py| {
-                let locals = PyDict::new(py);
-                for (k, v) in variables {
-                    locals.set_item(k, v)?;
-                }
-
-                let output = self.eval_with_context(py, code, &locals)?;
-                Ok(output)
-            })
-        }
-
-        fn validate_code(
-            &self,
-            _code: &str,
-            _security_level: SecurityLevel,
-        ) -> Result<(), PyEvalError> {
-            Ok(())
-        }
+    fn evaluate_with_context(
+        &self,
+        code: &str,
+        variables: HashMap<String, String>,
+        name: Option<&str>,
+        filename: Option<&str>,
+        line: Option<u32>,
+    ) -> Result<String, PyEvalError> {
+        self.eval_with_context(code, &variables, name, filename, line)
+            .map_err(|e| PyEvalError::Execution(format!("Python error: {}", e)))
     }
 }

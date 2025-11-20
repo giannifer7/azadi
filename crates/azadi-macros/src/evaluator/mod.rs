@@ -24,7 +24,4 @@ pub use eval_api::{
 pub use lexer_parser::lex_parse_content;
 pub use state::{EvalConfig, MacroDefinition};
 
-#[cfg(feature = "pyo3")]
-pub use python::pyo3_evaluator::PyO3Evaluator;
-
-pub use python::{PyBackend, PythonConfig, PythonEvaluator, SecurityLevel, SubprocessEvaluator};
+pub use python::{PyO3Evaluator, PythonConfig, PythonEvaluator};

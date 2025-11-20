@@ -5,6 +5,7 @@ resolver = "2"
 
 members = [
     "crates/azadi-macros",
+    # (Add other crate folders here)
 ]
 
 [workspace.package]
@@ -14,7 +15,7 @@ authors = ["Gianni Ferrarotti <gianni.ferrarotti@gmail.com>"]
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
-# Shared dependencies
+# Shared dependencies, mandated for the entire workspace:
 clap = { version = "4.4", features = ["derive"] }
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -23,9 +24,26 @@ regex = "1.9"
 lazy_static = "1.4"
 chrono = "0.4"
 
-# Add pyo3 and wasm-bindgen so all workspace crates can share them
-pyo3 = { version = "0.23.4", features = ["auto-initialize", "extension-module"] }
+# PyO3 is mandatory for all crates that use it; we unify the version + features here:
+pyo3 = { version = "0.23.5", features = [
+  "auto-initialize",
+  #"extension-module",
+  "macros",
+  #"embed",
+] }
+
+# Ensures consistent build config for all crates that compile Python extensions:
+pyo3-build-config = "0.23.5"
+
+# Other potential shared dependencies:
 wasm-bindgen = "0.2.84"
+tempfile = "3.8"
+
+# Dev/test dependencies we might want across the workspace:
+pretty_assertions = "1.4"
+assert_cmd = "2.0"
+predicates = "3.0"
+escargot = "0.5"
 
 # Internal crate dependencies (points to the sub-crate on disk)
 azadi-macros = { path = "crates/azadi-macros" }

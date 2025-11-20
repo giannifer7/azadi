@@ -1,6 +1,6 @@
 // crates/azadi-macros/src/bin/macro_cli.rs
 
-use azadi_macros::evaluator::{EvalConfig, EvalError, PyBackend, PythonConfig, SecurityLevel};
+use azadi_macros::evaluator::{EvalConfig, EvalError, PythonConfig};
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -17,8 +17,8 @@ fn default_pathsep() -> String {
 #[command(name = "azadi-macro-cli", about = "Azadi macros translator (Rust)")]
 struct Args {
     /// Output directory
-    #[arg(long = "out-dir", default_value = ".")]
-    out_dir: PathBuf,
+    #[arg(long = "out-file", default_value = ".")]
+    out_file: PathBuf,
 
     /// Special character for macros
     #[arg(long = "special", default_value = "%")]
@@ -35,14 +35,6 @@ struct Args {
     /// Path separator (usually ':' on Unix, ';' on Windows)
     #[arg(long = "pathsep", default_value_t = default_pathsep())]
     pathsep: String,
-
-    /// Python backend to use
-    #[arg(long = "python-backend", value_enum, default_value_t = PyBackend::None)]
-    python_backend: PyBackend,
-
-    /// Python security level
-    #[arg(long = "python-security", value_enum, default_value_t = SecurityLevel::Basic)]
-    python_security: SecurityLevel,
 
     /// Path to Python virtual environment
     #[arg(long = "venv-path")]
@@ -72,16 +64,10 @@ fn run(args: Args) -> Result<(), EvalError> {
         .map(PathBuf::from)
         .collect();
 
-    let python_enabled = match args.python_backend {
-        PyBackend::None => false,
-        _ => true,
-    };
-
     let python_config = PythonConfig {
-        enabled: python_enabled,
+        enabled: true,
         venv_path: args.venv_path,
         python_path: args.python_path,
-        security_level: args.python_security,
     };
 
     let config = EvalConfig {
@@ -91,12 +77,6 @@ fn run(args: Args) -> Result<(), EvalError> {
         backup_dir: args.work_dir.clone(),
         python: python_config,
     };
-
-    // Ensure output directory exists
-    if !args.out_dir.exists() {
-        std::fs::create_dir_all(&args.out_dir)
-            .map_err(|e| EvalError::Runtime(format!("Failed to create output directory: {}", e)))?;
-    }
 
     // Ensure work directory exists
     if !args.work_dir.exists() {
@@ -119,7 +99,7 @@ fn run(args: Args) -> Result<(), EvalError> {
     }
 
     let result =
-        azadi_macros::macro_api::process_files_from_config(&final_inputs, &args.out_dir, config);
+        azadi_macros::macro_api::process_files_from_config(&final_inputs, &args.out_file, config);
 
     result
 }

@@ -1,3 +1,5 @@
+// crates/azadi-macros/build.rs
+
 use std::env;
 use std::process::Command;
 
