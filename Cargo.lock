@@ -120,6 +120,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "azadi-noweb"
+version = "0.1.0"
+dependencies = [
+ "assert_cmd",
+ "chrono",
+ "clap",
+ "lazy_static",
+ "predicates",
+ "regex",
+ "tempfile",
+]
+
+[[package]]
 name = "bitflags"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

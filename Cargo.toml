@@ -5,7 +5,7 @@ resolver = "2"
 
 members = [
     "crates/azadi-macros",
-    # (Add other crate folders here)
+    "crates/azadi-noweb",
 ]
 
 [workspace.package]
@@ -23,6 +23,7 @@ serde_json = "1.0"
 regex = "1.9"
 lazy_static = "1.4"
 chrono = "0.4"
+
 
 # PyO3 is mandatory for all crates that use it; we unify the version + features here:
 pyo3 = { version = "0.23.5", features = [
@@ -47,3 +48,4 @@ escargot = "0.5"
 
 # Internal crate dependencies (points to the sub-crate on disk)
 azadi-macros = { path = "crates/azadi-macros" }
+azadi-noweb = { path = "crates/azadi-noweb" }

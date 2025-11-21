@@ -1,0 +1,25 @@
+[package]
+name = "azadi-noweb"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "A Rust implementation of noweb-style literate programming tool"
+license.workspace = true
+repository = "https://github.com/giannifer7/azadi"
+
+[dependencies]
+regex.workspace = true
+lazy_static.workspace = true
+chrono.workspace = true
+clap.workspace = true
+
+predicates.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+predicates.workspace = true
+assert_cmd.workspace = true
+
+[[bin]]
+name = "azadi-noweb"
+path = "src/main.rs"
