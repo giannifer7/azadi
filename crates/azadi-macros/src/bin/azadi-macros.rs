@@ -14,11 +14,11 @@ fn default_pathsep() -> String {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "azadi-macro-cli", about = "Azadi macros translator (Rust)")]
+#[command(name = "azadi-macros", about = "Azadi macros translator (Rust)")]
 struct Args {
     /// Output directory
-    #[arg(long = "out-file", default_value = ".")]
-    out_file: PathBuf,
+    #[arg(long = "out-dir", default_value = ".")]
+    out_dir: PathBuf,
 
     /// Special character for macros
     #[arg(long = "special", default_value = "%")]
@@ -28,7 +28,7 @@ struct Args {
     #[arg(long = "work-dir", default_value = "_azadi_work")]
     work_dir: PathBuf,
 
-    /// Colon-separated list of include paths
+    /// List of include paths separated by the path separator
     #[arg(long = "include", default_value = ".")]
     include: String,
 
@@ -36,11 +36,7 @@ struct Args {
     #[arg(long = "pathsep", default_value_t = default_pathsep())]
     pathsep: String,
 
-    /// Path to Python virtual environment
-    #[arg(long = "venv-path")]
-    venv_path: Option<PathBuf>,
-
-    /// Path to Python executable
+    /// Path to Python executable or venv directory
     #[arg(long = "python-path")]
     python_path: Option<PathBuf>,
 
@@ -64,10 +60,20 @@ fn run(args: Args) -> Result<(), EvalError> {
         .map(PathBuf::from)
         .collect();
 
+    let (venv_path, python_path) = if let Some(path) = args.python_path {
+        if path.is_dir() {
+            (Some(path), None)
+        } else {
+            (None, Some(path))
+        }
+    } else {
+        (None, None)
+    };
+
     let python_config = PythonConfig {
         enabled: true,
-        venv_path: args.venv_path,
-        python_path: args.python_path,
+        venv_path,
+        python_path,
     };
 
     let config = EvalConfig {
@@ -99,7 +105,7 @@ fn run(args: Args) -> Result<(), EvalError> {
     }
 
     let result =
-        azadi_macros::macro_api::process_files_from_config(&final_inputs, &args.out_file, config);
+        azadi_macros::macro_api::process_files_from_config(&final_inputs, &args.out_dir, config);
 
     result
 }

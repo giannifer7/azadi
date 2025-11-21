@@ -35,5 +35,5 @@ predicates.workspace = true
 escargot.workspace = true
 
 [[bin]]
-name = "azadi-macro"
-path = "src/bin/macro_cli.rs"
+name = "azadi-macros"
+path = "src/bin/azadi-macros.rs"
