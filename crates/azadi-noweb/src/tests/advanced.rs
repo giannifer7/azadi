@@ -15,7 +15,7 @@ fn test_file_chunk_detection() {
 }
 
 #[test]
-fn test_undefined_chunk_error() {
+fn test_undefined_chunk_is_empty() {
     let mut setup = TestSetup::new(&["#"]);
     setup.clip.read(
         r#"
@@ -27,19 +27,10 @@ fn test_undefined_chunk_error() {
     );
 
     let result = setup.clip.expand("main", "");
-    match result {
-        // Note how we capture `file_name` in the pattern
-        Err(AzadiError::Chunk(ChunkError::UndefinedChunk {
-            chunk,
-            file_name,
-            location,
-        })) => {
-            assert_eq!(chunk, "nonexistent");
-            assert_eq!(file_name, "undefined.nw");
-            assert_eq!(location.line, 1);
-        }
-        _ => panic!("Expected UndefinedChunk error"),
-    }
+    // Undefined chunk should be treated as empty, so result is Ok(vec![])
+    assert!(result.is_ok());
+    let content = result.unwrap();
+    assert!(content.is_empty());
 }
 
 #[test]
@@ -149,7 +140,7 @@ fn test_error_messages_format() {
     setup.clip.read(
         r#"
 # <<a>>=
-# <<nonexistent>>
+# <<a>>
 # @
 "#,
         "errors.nw",
@@ -159,7 +150,7 @@ fn test_error_messages_format() {
     let error_msg = err.to_string();
 
     assert!(error_msg.contains("Error: errors.nw line 2:"));
-    assert!(error_msg.contains("referenced chunk 'nonexistent' is undefined"));
+    assert!(error_msg.contains("recursive reference detected in chunk 'a'"));
 }
 
 #[test]

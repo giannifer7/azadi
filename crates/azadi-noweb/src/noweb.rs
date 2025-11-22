@@ -11,6 +11,7 @@ use std::rc::Rc;
 use crate::AzadiError;
 use crate::SafeFileWriter;
 use crate::SafeWriterError;
+use log::{debug, warn};
 
 /// Represents a single definition of a named chunk.
 #[derive(Debug, Clone)]
@@ -212,12 +213,12 @@ impl ChunkStore {
 
         // Opening lines
         let open_pattern = format!(
-            r"^(\s*)(?:{})?[ \t]*{}(?:@replace[ \t]+)?(?:@file[ \t]+)?([^\s]+){}=",
+            r"^(\s*)(?:{})?[ \t]*{}(?:@replace[ \t]+)?(?:@file[ \t]+)?(.+?){}=",
             escaped_comments, od, cd
         );
         // Reference lines
         let slot_pattern = format!(
-            r"^(\s*)(?:{})?\s*{}(?:@file\s+|@reversed\s+)?([^\s>]+){}\s*$",
+            r"^(\s*)(?:{})?\s*{}(?:@file\s+|@reversed\s+)?(.+?){}\s*$",
             escaped_comments, od, cd
         );
         // Closing lines
@@ -248,7 +249,7 @@ impl ChunkStore {
             // Then chunk_name is a path
             path_is_safe(chunk_name).is_ok()
         } else {
-            !chunk_name.is_empty() && !chunk_name.contains(char::is_whitespace)
+            !chunk_name.is_empty()
         }
     }
 
@@ -258,6 +259,7 @@ impl ChunkStore {
     /// - Otherwise, if we’re inside a chunk, we add lines to it.
     /// Then we fill out file_chunks for any chunk name that starts with @file .
     pub fn read(&mut self, text: &str, file_idx: usize) {
+        debug!("Reading text for file_idx: {}", file_idx);
         let mut current_chunk: Option<(String, usize)> = None;
         let mut line_no: i32 = -1;
 
@@ -268,6 +270,7 @@ impl ChunkStore {
             if let Some(caps) = self.open_re.captures(line) {
                 let indentation = caps.get(1).map_or("", |m| m.as_str());
                 let base_name = caps.get(2).map_or("", |m| m.as_str()).to_string();
+                debug!("Found open pattern: indentation='{}', base_name='{}'", indentation, base_name);
 
                 let is_replace = line.contains("@replace");
                 let is_file = line.contains("@file");
@@ -338,7 +341,8 @@ impl ChunkStore {
                     ));
                     drop(borrowed);
 
-                    current_chunk = Some((full_name, def_idx));
+                    current_chunk = Some((full_name.clone(), def_idx));
+                    debug!("Started chunk: {}", full_name);
                 }
                 continue;
             }
@@ -371,6 +375,7 @@ impl ChunkStore {
             }
         }
         self.file_chunks = fc;
+        debug!("Finished reading. File chunks: {:?}", self.file_chunks);
     }
 
     /// Increments references on a chunk or returns an error if undefined.
@@ -431,24 +436,26 @@ impl ChunkStore {
             });
         }
 
+        // Check existence first
+        if !self.chunks.contains_key(chunk_name) {
+            let file_name = self
+                .file_names
+                .get(reference_location.file_idx)
+                .cloned()
+                .unwrap_or_default();
+            warn!(
+                "Undefined chunk '{}' referenced at {} line {}. Treating as empty.",
+                chunk_name,
+                file_name,
+                reference_location.line + 1
+            );
+            return Ok(Vec::new());
+        }
+
         // Bump references
         self.inc_references(chunk_name, &reference_location)?;
 
-        let rc = match self.chunks.get(chunk_name) {
-            Some(r) => r,
-            None => {
-                let file_name = self
-                    .file_names
-                    .get(reference_location.file_idx)
-                    .cloned()
-                    .unwrap_or_default();
-                return Err(ChunkError::UndefinedChunk {
-                    chunk: chunk_name.to_string(),
-                    file_name,
-                    location: reference_location,
-                });
-            }
-        };
+        let rc = self.chunks.get(chunk_name).unwrap();
 
         let borrowed = rc.borrow();
         let defs = &borrowed.definitions;
