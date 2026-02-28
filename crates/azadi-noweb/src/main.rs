@@ -95,6 +95,7 @@ fn run(args: Args) -> Result<(), AzadiError> {
 }
 
 fn main() {
+    env_logger::init();
     let args = Args::parse();
 
     if let Err(e) = run(args) {

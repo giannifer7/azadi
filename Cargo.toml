@@ -26,7 +26,7 @@ chrono = "0.4"
 
 
 # PyO3 is mandatory for all crates that use it; we unify the version + features here:
-pyo3 = { version = "0.23.5", features = [
+pyo3 = { version = "0.28.1", features = [
   "auto-initialize",
   #"extension-module",
   "macros",
@@ -34,7 +34,7 @@ pyo3 = { version = "0.23.5", features = [
 ] }
 
 # Ensures consistent build config for all crates that compile Python extensions:
-pyo3-build-config = "0.23.5"
+pyo3-build-config = "0.28.1"
 
 # Other potential shared dependencies:
 wasm-bindgen = "0.2.84"

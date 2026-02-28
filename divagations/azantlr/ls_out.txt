@@ -1,0 +1,9 @@
+total 16
+drwxr-xr-x 1 g4 g4  122 Nov 22 07:26 .
+drwxr-xr-x 1 g4 g4   40 Nov 22 07:09 ..
+-rw-r--r-- 1 g4 g4 2689 Nov 22 07:03 AzadiLexer.g4
+drwxr-xr-x 1 g4 g4  222 Nov 22 07:25 build
+-rw-r--r-- 1 g4 g4 1768 Nov 22 07:10 CMakeLists.txt
+-rw-r--r-- 1 g4 g4    0 Nov 22 07:26 ls_out.txt
+-rw-r--r-- 1 g4 g4  766 Nov 22 06:38 main.cpp
+-rw-r--r-- 1 g4 g4   90 Nov 22 07:26 version.txt

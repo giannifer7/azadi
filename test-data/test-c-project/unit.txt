@@ -1,0 +1,89 @@
+===========================================================================
+%def(hfile,name,content,%{
+<[@file %(name).h]>=
+// %(name).h
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+<[%(name) header forward]>
+<[%(name) header includes]>
+<[%(name) header pre]>
+<[%(name) header body]>
+<[%(name) header post]>
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+@
+
+<[%(name) header body]>=
+%(content)
+@
+%})
+
+
+
+===========================================================================
+%def(cfile,name,content,%{
+<[@file %(name).c]>=
+// %(name).c
+<[%(name) impl includes]>
+<[%(name) impl self include]>
+<[%(name) impl forward]>
+<[%(name) impl pre]>
+<[%(name) impl body]>
+<[%(name) impl post]>
+@
+
+<[%(name) impl body]>=
+%(content)
+@
+%})
+
+
+
+===========================================================================
+%def(snipfile,name,%{
+<[@file _snippets/%(name).txt]>=
+<[%(name) snippets]>
+@
+%})
+
+
+
+===========================================================================
+%def(unit,name,%{
+%hfile(%(name),)
+%cfile(%(name),)
+%snipfile(%(name))
+
+<[%(name) impl self include]>=
+#include "%(name).h"
+@
+%})
+
+
+default using UNIT
+%def(dunit, %a{%unit(%UNIT())%a})
+
+===========================================================================
+%def(hinclude, where, what, header, %a{
+  %if(%(header),%b{
+<[%(where) header includes]>=
+#include "%(what).h"
+@
+%b},%c{
+<[%(where) impl includes]>=
+#include "%(what).h"
+@
+%c})
+%a})
+
+===========================================================================
+%def(sysinclude, where, what, %a{
+<[%(where) impl includes]>=
+#include <%(what).h>
+@
+%a})

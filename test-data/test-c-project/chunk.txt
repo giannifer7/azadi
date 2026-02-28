@@ -1,0 +1,543 @@
+
+
+
+
+
+
+<[@file commondefs.h]>=
+// commondefs.h
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+<[commondefs header forward]>
+<[commondefs header includes]>
+<[commondefs header pre]>
+<[commondefs header body]>
+<[commondefs header post]>
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+@
+
+<[commondefs header body]>=
+
+@
+
+<[commondefs header body]>=
+typedef char *charPtr;
+typedef int *intPtr;
+@
+
+
+
+
+<[@file toyforth.h]>=
+// toyforth.h
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+<[toyforth header forward]>
+<[toyforth header includes]>
+<[toyforth header pre]>
+<[toyforth header body]>
+<[toyforth header post]>
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+@
+
+<[toyforth header body]>=
+
+@
+
+
+<[@file toyforth.c]>=
+// toyforth.c
+<[toyforth impl includes]>
+<[toyforth impl self include]>
+<[toyforth impl forward]>
+<[toyforth impl pre]>
+<[toyforth impl body]>
+<[toyforth impl post]>
+@
+
+<[toyforth impl body]>=
+
+@
+
+
+<[@file _snippets/toyforth.txt]>=
+<[toyforth snippets]>
+@
+
+
+<[toyforth impl self include]>=
+#include "toyforth.h"
+@
+
+
+
+<[toyforth impl includes]>=
+#include <stddef.h>
+@
+
+
+<[toyforth impl includes]>=
+#include <stdio.h>
+@
+
+
+<[toyforth impl includes]>=
+#include <stdlib.h>
+@
+
+
+<[toyforth impl includes]>=
+#include <unistd.h>
+@
+
+
+  
+<[toyforth impl includes]>=
+#include "commondefs.h"
+@
+
+
+
+
+<[toyforth header pre]>=
+
+typedef enum {
+    <[EObjType decl item]>
+    EObjType__SUP
+} EObjType;
+
+const char *EObjType_as_string(EObjType val);
+@
+
+<[toyforth impl forward]>=
+
+const char * EObjType_as_string(EObjType val) {
+    switch (val) {
+        <[EObjType impl item]>
+        default: return "<invalid EObjType value>";
+    }
+}
+@
+
+
+<[toyforth snippets]>=
+
+    // switch on EObjType example
+    switch (val) {
+    <[EObjType switch_example item]>
+    default: {
+        } break;
+    // fall through
+    }
+@
+
+
+
+
+
+
+   
+<[EObjType decl item]>=
+eint = 1,
+@
+
+<[EObjType impl item]>=
+case eint: return "int";
+@
+
+<[EObjType switch_example item]>=
+case eint: {
+    } break; //--------------- end of int
+@
+
+
+
+
+   
+<[EObjType decl item]>=
+estr,
+@
+
+<[EObjType impl item]>=
+case estr: return "str";
+@
+
+<[EObjType switch_example item]>=
+case estr: {
+    } break; //--------------- end of str
+@
+
+
+
+
+   
+<[EObjType decl item]>=
+ebool,
+@
+
+<[EObjType impl item]>=
+case ebool: return "bool";
+@
+
+<[EObjType switch_example item]>=
+case ebool: {
+    } break; //--------------- end of bool
+@
+
+
+
+
+   
+<[EObjType decl item]>=
+elist,
+@
+
+<[EObjType impl item]>=
+case elist: return "list";
+@
+
+<[EObjType switch_example item]>=
+case elist: {
+    } break; //--------------- end of list
+@
+
+
+
+
+   
+<[EObjType decl item]>=
+esymbol,
+@
+
+<[EObjType impl item]>=
+case esymbol: return "symbol";
+@
+
+<[EObjType switch_example item]>=
+case esymbol: {
+    } break; //--------------- end of symbol
+@
+
+
+
+
+
+
+
+-- keep the forward decls in the header bp even for impl classes
+<[toyforth header forward]>=
+
+typedef struct TFObject TFObject;
+typedef TFObject *TFObjectPtr;
+@
+
+
+
+    
+
+<[toyforth header body]>=
+<[TFObject pre class]>
+
+struct TFObject {
+    <[TFObject props]>
+};
+
+
+<[TFObject post class]>
+@
+
+<[toyforth impl pre]>=
+<[TFObject impl decls]>
+@
+
+
+<[toyforth snippets]>=
+%pubfunc(TFObject, TFObjectPtr, new, Allocator* allo, %{
+    return (TFObjectPtr) malloc(sizeof(TFObject));
+%})
+
+
+%pubmeth(TFObject, err_t, init, %{Allocator* allo%}, %{
+    memset(self, 0, sizeof(TFObject));
+    /*** TFObject_init example pre actions ***/
+    /*** TFObject_init example actions ***/
+
+    return 0;
+cleanup:
+    /*** TFObject_init example post actions ***/
+    return -1;
+%})
+
+
+%pubmeth(TFObject, err_t, uninit, Allocator* allo, %{
+    /*** TFObject_uninit example actions ***/
+    return 0;
+%})
+
+
+%pubmeth(TFObject, err_t, delete, Allocator* allo, %{
+    TFObject_uninit(self, allo);
+    FREE(allo, self, sizeof(TFObject));
+    return 0;
+%})
+
+@
+
+
+
+<[TFObject props]>=
+int refcount;
+@
+
+
+
+
+<[TFObject_init example actions]>=
+
+self->refcount = refcount;
+@
+
+
+
+
+<[TFObject props]>=
+EObjType type;
+@
+
+
+
+
+<[TFObject_init example actions]>=
+
+self->type = type;
+@
+
+
+
+
+
+<[TFObject props]>=
+union {
+    <[TFObject union props]>
+};
+@
+
+
+<[TFObject union props]>=
+int i;
+@
+
+
+<[TFObject union props]>=
+struct {
+    char *ptr;
+    size_t len;
+} str;
+@
+
+
+<[TFObject union props]>=
+struct {
+    TFObject **ele;
+    size_t len;
+} list;
+@
+
+
+
+<[toyforth impl pre]>=
+
+void *xmalloc(size_t size) {
+    void *result = malloc(size);
+    if (NULL == result) {
+        fprintf(stderr, "Out of memory allocating %zu bytes", size);
+        exit(1);
+    }
+    return result;
+}
+
+
+TFObjectPtr create_object(EObjType type) {
+    TFObjectPtr result = malloc(sizeof(TFObject));
+    result->type = type;
+    result->refcount = 1;
+    return result;
+}
+
+TFObjectPtr create_string_object(char *s, size_t len) {
+    TFObjectPtr result = create_object(estr);
+    result->str.ptr = s;
+    result->str.len = len;
+    return result;
+}
+
+TFObjectPtr create_symbol_object(char *s, size_t len) {
+    TFObjectPtr result = create_string_object(s, len);
+    result->type = esymbol;
+    return result;
+}
+
+TFObjectPtr create_int_object(int i) {
+    TFObjectPtr result = create_object(eint);
+    result->i = i;
+    return result;
+}
+
+TFObjectPtr create_bool_object(bool b) {
+    TFObjectPtr result = create_object(ebool);
+    result->i = b;
+    return result;
+}
+
+TFObjectPtr create_list_object(bool b) {
+    TFObjectPtr result = create_object(elist);
+    result->list.ele = NULL;
+    result->list.len = 0;
+    return result;
+}
+
+@
+
+
+
+
+
+-- keep the forward decls in the header bp even for impl classes
+<[toyforth header forward]>=
+
+typedef struct TFParser TFParser;
+typedef TFParser *TFParserPtr;
+@
+
+
+
+    
+
+<[toyforth header body]>=
+<[TFParser pre class]>
+
+struct TFParser {
+    <[TFParser props]>
+};
+
+
+<[TFParser post class]>
+@
+
+<[toyforth impl pre]>=
+<[TFParser impl decls]>
+@
+
+
+<[toyforth snippets]>=
+%pubfunc(TFParser, TFParserPtr, new, Allocator* allo, %{
+    return (TFParserPtr) malloc(sizeof(TFParser));
+%})
+
+
+%pubmeth(TFParser, err_t, init, %{Allocator* allo%}, %{
+    memset(self, 0, sizeof(TFParser));
+    /*** TFParser_init example pre actions ***/
+    /*** TFParser_init example actions ***/
+
+    return 0;
+cleanup:
+    /*** TFParser_init example post actions ***/
+    return -1;
+%})
+
+
+%pubmeth(TFParser, err_t, uninit, Allocator* allo, %{
+    /*** TFParser_uninit example actions ***/
+    return 0;
+%})
+
+
+%pubmeth(TFParser, err_t, delete, Allocator* allo, %{
+    TFParser_uninit(self, allo);
+    FREE(allo, self, sizeof(TFParser));
+    return 0;
+%})
+
+@
+
+
+
+<[TFParser props]>=
+charPtr prg;
+@
+
+
+
+<[TFParser_init example pre actions]>=
+self->prg = NULL;
+@
+
+<[TFParser_init example actions]>=
+
+new_check(self->prg, char)
+if (char_init(self->prg)) {
+    printf("%s\n", "could not init prg (in TFParser_init)");
+    goto cleanup;
+}
+@
+
+<[TFParser_init example post actions]>=
+char_delete(self->prg);
+@
+
+<[TFParser_uninit example actions]>=
+char_delete(self->prg);
+@
+
+
+
+
+<[TFParser props]>=
+charPtr p;
+@
+
+
+
+<[TFParser_init example pre actions]>=
+self->p = NULL;
+@
+
+<[TFParser_init example actions]>=
+
+new_check(self->p, char)
+if (char_init(self->p)) {
+    printf("%s\n", "could not init p (in TFParser_init)");
+    goto cleanup;
+}
+@
+
+<[TFParser_init example post actions]>=
+char_delete(self->p);
+@
+
+<[TFParser_uninit example actions]>=
+char_delete(self->p);
+@
+
+
+
+
+
+<[toyforth impl body]>=
+int main(int argc, char **argv) {
+    return 0;
+}
+@

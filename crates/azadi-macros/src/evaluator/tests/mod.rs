@@ -8,7 +8,7 @@ mod test_export;
 mod test_here;
 mod test_if;
 mod test_include;
-mod test_include_silent;
+mod test_import;
 mod test_macro_api;
 mod test_macros;
 mod test_pydef;

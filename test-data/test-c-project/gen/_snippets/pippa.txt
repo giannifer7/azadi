@@ -1,0 +1,11 @@
+
+    // switch on Cosi example
+    switch (val) {
+    case coUno: {
+        } break; //--------------- end of Uno
+    case coTre: {
+        } break; //--------------- end of Tre
+    default: {
+        } break;
+    // fall through
+    }

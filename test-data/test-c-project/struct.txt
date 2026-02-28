@@ -1,0 +1,114 @@
+
+=============================================================
+%def(_classoid, unit, name, impl, struct, %a{
+
+    %def(where,%b{%if(%(impl),impl,header)%b})
+
+<[%(unit) %where() body]>=
+<[%(name) pre class]>
+%(struct)
+<[%(name) post class]>
+@
+
+<[%(unit) impl pre]>=
+<[%(name) impl decls]>
+@
+%a})
+
+=============================================================
+if impl is not null the class is declared in the c file
+
+%def(struct, unit, name, impl, %a{
+
+-- keep the forward decls in the header bp even for impl classes
+<[%(unit) header forward]>=
+
+typedef struct %(name) %(name);
+typedef %(name) *%(name)Ptr;
+@
+
+%_classoid(%(unit), %(name), %(impl), %b{
+struct %(name) {
+    <[%(name) props]>
+};
+
+%b})
+
+<[%(unit) snippets]>=
+%%pubfunc(%(name), %(name)Ptr, new, Allocator* allo, %%{
+    return (%(name)Ptr) malloc(sizeof(%(name)));
+%%})
+
+
+%%pubmeth(%(name), err_t, init, %%{Allocator* allo%%}, %%{
+    memset(self, 0, sizeof(%(name)));
+    /*** %(name)_init example pre actions ***/
+    /*** %(name)_init example actions ***/
+
+    return 0;
+cleanup:
+    /*** %(name)_init example post actions ***/
+    return -1;
+%%})
+
+
+%%pubmeth(%(name), err_t, uninit, Allocator* allo, %%{
+    /*** %(name)_uninit example actions ***/
+    return 0;
+%%})
+
+
+%%pubmeth(%(name), err_t, delete, Allocator* allo, %%{
+    %(name)_uninit(self, allo);
+    FREE(allo, self, sizeof(%(name)));
+    return 0;
+%%})
+
+@
+%a})
+
+=============================================================
+
+declaration
+%def(decl, type, var, %a{%(type) %(var);%a})
+
+
+%def(_field, class, type, ptr, var, %{
+<[%(class) props]>=
+%decl(%(type)%if(%(ptr),Ptr),%(var))
+@
+
+
+%if(%(ptr),%h{
+<[%(class)_init example pre actions]>=
+self->%(var) = NULL;
+@
+
+<[%(class)_init example actions]>=
+
+new_check(self->%(var), %(type))
+if (%(type)_init(self->%(var))) {
+    printf("%%s\n", "could not init %(var) (in %(class)_init)");
+    goto cleanup;
+}
+@
+
+<[%(class)_init example post actions]>=
+%(type)_delete(self->%(var));
+@
+
+<[%(class)_uninit example actions]>=
+%(type)_delete(self->%(var));
+@
+%h}, %i{
+
+<[%(class)_init example actions]>=
+
+self->%(var) = %(var);
+@
+%i})
+
+%})
+
+%def(field, class, type, ptr, var, %{%_field(%(class), %(type), %(ptr), %(var))%})
+

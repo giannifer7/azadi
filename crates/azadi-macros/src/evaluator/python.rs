@@ -18,7 +18,7 @@ pub struct PythonConfig {
 impl Default for PythonConfig {
     fn default() -> Self {
         Self {
-            enabled: true,
+            enabled: false,
             venv_path: None,
             python_path: None,
         }
@@ -161,7 +161,7 @@ impl PyO3Evaluator {
             }
         }
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             // We'll build a Python snippet that:
             //   1) sets up a buffer for stdout
             //   2) defines or sets each variable

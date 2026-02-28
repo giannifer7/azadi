@@ -1,0 +1,75 @@
+
+    // switch on EObjType example
+    switch (val) {
+    case eint: {
+        } break; //--------------- end of int
+    case estr: {
+        } break; //--------------- end of str
+    case ebool: {
+        } break; //--------------- end of bool
+    case elist: {
+        } break; //--------------- end of list
+    case esymbol: {
+        } break; //--------------- end of symbol
+    default: {
+        } break;
+    // fall through
+    }
+%pubfunc(TFObject, TFObjectPtr, new, Allocator* allo, %{
+    return (TFObjectPtr) malloc(sizeof(TFObject));
+%})
+
+
+%pubmeth(TFObject, err_t, init, %{Allocator* allo%}, %{
+    memset(self, 0, sizeof(TFObject));
+    /*** TFObject_init example pre actions ***/
+    /*** TFObject_init example actions ***/
+
+    return 0;
+cleanup:
+    /*** TFObject_init example post actions ***/
+    return -1;
+%})
+
+
+%pubmeth(TFObject, err_t, uninit, Allocator* allo, %{
+    /*** TFObject_uninit example actions ***/
+    return 0;
+%})
+
+
+%pubmeth(TFObject, err_t, delete, Allocator* allo, %{
+    TFObject_uninit(self, allo);
+    FREE(allo, self, sizeof(TFObject));
+    return 0;
+%})
+
+%pubfunc(TFParser, TFParserPtr, new, Allocator* allo, %{
+    return (TFParserPtr) malloc(sizeof(TFParser));
+%})
+
+
+%pubmeth(TFParser, err_t, init, %{Allocator* allo%}, %{
+    memset(self, 0, sizeof(TFParser));
+    /*** TFParser_init example pre actions ***/
+    /*** TFParser_init example actions ***/
+
+    return 0;
+cleanup:
+    /*** TFParser_init example post actions ***/
+    return -1;
+%})
+
+
+%pubmeth(TFParser, err_t, uninit, Allocator* allo, %{
+    /*** TFParser_uninit example actions ***/
+    return 0;
+%})
+
+
+%pubmeth(TFParser, err_t, delete, Allocator* allo, %{
+    TFParser_uninit(self, allo);
+    FREE(allo, self, sizeof(TFParser));
+    return 0;
+%})
+

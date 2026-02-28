@@ -4,7 +4,7 @@ mod tests {
     use std::io::Write;
     use tempfile::NamedTempFile;
 
-    /// Test that `%include_silent` imports definitions only.
+    /// Test that `%import` imports definitions only.
     ///
     /// The temporary file contains:
     ///
@@ -12,11 +12,11 @@ mod tests {
     ///     %def(included_macro, x, included: %(x)!)
     ///     More text that should be discarded.
     ///
-    /// The source uses `%include_silent` to process that file (so its text is not output)
+    /// The source uses `%import` to process that file (so its text is not output)
     /// and then calls a macro that uses the included definition:
     ///
     ///     %def(macro_using_includes, param, %{
-    ///         %include_silent(TEMP_PATH)
+    ///         %import(TEMP_PATH)
     ///         %included_macro(%(param))
     ///     %})
     ///     %macro_using_includes(test)
@@ -28,7 +28,7 @@ mod tests {
     /// (Note: The definition for `%included_macro` is imported only within the scope of
     /// `%macro_using_includes`; it is not leaked outside.)
     #[test]
-    fn test_include_silent_includes_definitions_only() {
+    fn test_import_includes_definitions_only() {
         // Create a temporary file that contains both text and a macro definition.
         let mut tmp = NamedTempFile::new().expect("Failed to create temporary file");
         // Write some text that should normally appear if included normally.
@@ -43,12 +43,12 @@ mod tests {
             .to_str()
             .expect("Temporary file path is not valid UTF-8");
 
-        // Build a source that uses %include_silent to load definitions from the temp file.
+        // Build a source that uses %import to load definitions from the temp file.
         // Then it defines a macro that calls %included_macro with its own parameter.
         let source = format!(
             r#"
 %def(macro_using_includes, param, %{{
-    %include_silent({tmp_path})
+    %import({tmp_path})
     %included_macro(%(param))
 %}})
 %macro_using_includes(test)

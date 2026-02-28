@@ -51,9 +51,9 @@ pub struct SafeWriterConfig {
 impl Default for SafeWriterConfig {
     fn default() -> Self {
         SafeWriterConfig {
-            backup_enabled: true,
+            backup_enabled: false,
             allow_overwrites: false,
-            modification_check: true,
+            modification_check: false,
             buffer_size: 8192,
         }
     }
@@ -111,25 +111,25 @@ impl SafeFileWriter {
 
     fn atomic_copy<P: AsRef<Path>>(&self, source: P, destination: P) -> io::Result<()> {
         let temp_path = destination.as_ref().with_extension("tmp");
-        
+
         // Ensure temp file is removed if it exists
         if temp_path.exists() {
             let _ = fs::remove_file(&temp_path);
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
-        
+
         {
             let mut source_file = fs::File::open(&source)?;
             let mut temp_file = fs::File::create(&temp_path)?;
             io::copy(&mut source_file, &mut temp_file)?;
             temp_file.sync_all()?;
         } // Handles are dropped here
-        
+
         std::thread::sleep(std::time::Duration::from_millis(10));
         fs::rename(temp_path, destination)?;
         Ok(())
     }
-    
+
     fn copy_if_different<P: AsRef<Path>>(
         &self,
         source: P,
@@ -137,32 +137,34 @@ impl SafeFileWriter {
     ) -> Result<(), SafeWriterError> {
         let source = source.as_ref();
         let destination = destination.as_ref();
-    
+
         if !destination.exists() {
             return self
                 .atomic_copy(source, destination)
                 .map_err(SafeWriterError::from);
         }
-    
+
         let are_different = {
-            let mut source_file = BufReader::with_capacity(self.config.buffer_size, File::open(source)?);
-            let mut dest_file = BufReader::with_capacity(self.config.buffer_size, File::open(destination)?);
-    
+            let mut source_file =
+                BufReader::with_capacity(self.config.buffer_size, File::open(source)?);
+            let mut dest_file =
+                BufReader::with_capacity(self.config.buffer_size, File::open(destination)?);
+
             let mut source_content = Vec::new();
             let mut dest_content = Vec::new();
-    
+
             source_file.read_to_end(&mut source_content)?;
             dest_file.read_to_end(&mut dest_content)?;
-    
+
             source_content != dest_content
         }; // Handles are dropped here
-    
+
         if are_different {
             println!("file {} changed", destination.display());
             std::thread::sleep(std::time::Duration::from_millis(10)); // Allow Windows to release handles
             self.atomic_copy(source, destination)?;
         }
-    
+
         Ok(())
     }
 

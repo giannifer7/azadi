@@ -1,0 +1,179 @@
+%import(unit.txt)
+%import(enum.txt)
+%import(struct.txt)
+
+
+%hfile(commondefs)
+<[commondefs header body]>=
+typedef char *charPtr;
+typedef int *intPtr;
+@
+
+
+%unit(toyforth)
+
+%sysinclude(toyforth, stddef)
+%sysinclude(toyforth, stdio)
+%sysinclude(toyforth, stdlib)
+%sysinclude(toyforth, unistd)
+%sysinclude(toyforth, ctype)
+%hinclude(toyforth, commondefs)
+
+%enum(toyforth, EObjType)
+
+%def(obtype, item, init, %{
+   %en_item(EObjType, e, %(item), %(init))
+%})
+
+%obtype(int, 1)
+%obtype(str)
+%obtype(bool)
+%obtype(list)
+%obtype(symbol)
+
+
+%struct(toyforth, TFObject)
+
+%field(TFObject, int,, refcount)
+%field(TFObject, EObjType,, type)
+
+
+<[TFObject props]>=
+union {
+    <[TFObject union props]>
+};
+@
+
+
+<[TFObject union props]>=
+int i;
+@
+
+
+<[TFObject union props]>=
+struct {
+    char *ptr;
+    size_t len;
+} str;
+@
+
+
+<[TFObject union props]>=
+struct {
+    TFObject **ele;
+    size_t len;
+} list;
+@
+
+
+
+<[toyforth impl pre]>=
+
+void *xmalloc(size_t size) {
+    void *result = malloc(size);
+    if (NULL == result) {
+        fprintf(stderr, "Out of memory allocating %%zu bytes", size);
+        exit(1);
+    }
+    return result;
+}
+
+
+TFObjectPtr create_object(EObjType type) {
+    TFObjectPtr result = malloc(sizeof(TFObject));
+    result->type = type;
+    result->refcount = 1;
+    return result;
+}
+
+TFObjectPtr create_string_object(char *s, size_t len) {
+    TFObjectPtr result = create_object(estr);
+    result->str.ptr = s;
+    result->str.len = len;
+    return result;
+}
+
+TFObjectPtr create_symbol_object(char *s, size_t len) {
+    TFObjectPtr result = create_string_object(s, len);
+    result->type = esymbol;
+    return result;
+}
+
+TFObjectPtr create_int_object(int i) {
+    TFObjectPtr result = create_object(eint);
+    result->i = i;
+    return result;
+}
+
+TFObjectPtr create_bool_object(bool b) {
+    TFObjectPtr result = create_object(ebool);
+    result->i = b;
+    return result;
+}
+
+TFObjectPtr create_list_object() {
+    TFObjectPtr result = create_object(elist);
+    result->list.ele = NULL;
+    result->list.len = 0;
+    return result;
+}
+
+@
+
+
+
+%struct(toyforth, TFParser)
+
+%field(TFParser, char, *, prg)
+%field(TFParser, char, *, p)
+
+
+<[toyforth impl body]>=
+
+
+void parse_spaces(TFParserPtr pparser) {
+    while (isspace(pparser->p[0])) {
+        ++pparser->p;
+    }
+}
+
+TFObjectPtr compile(char *prg) {
+    TFParser parser;
+    parser.prg = prg;
+    parser.p = prg;
+
+    while (parser.p) {
+        TFObjectPtr pobj;
+        parse_spaces(&parser);
+
+    }
+}
+
+
+int main(int argc, char **argv) {
+    if (argc !=2) {
+        fprintf(stderr, "Usage %s <filename>\n", argv[0]);
+        return 1;
+    }
+
+    FILE *fp = fopen(argv[1], "r");
+    if (NULL == fp) {
+        fprintf(stderr, "Could not read \"%s\"\n", argv[1]);
+        return 1;
+    }
+    fseek(fp, 0, SEEK_END);
+    long file_size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    char *prgtext = xmalloc(file_size + 1);
+    fread(prgtext, file_size, 1, fp);
+    prgtext[file_size] = 0;
+    fclose(fp);
+
+    return 0;
+}
+@
+
+
+<[@file program.tf]>=
+5 dup * print
+@

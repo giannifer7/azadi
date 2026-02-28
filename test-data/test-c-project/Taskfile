@@ -1,0 +1,34 @@
+#/bin/bash
+
+aza_root=../../target/debug
+prep=$aza_root/azadi-macros
+noweb=$aza_root/azadi-noweb
+
+
+function run_macros {
+  source=$1
+  $prep --out-dir chunk.txt $source
+}
+
+function run_noweb {
+  $noweb --open-delim='<[' --close-delim=']>' chunk.txt
+}
+
+function run_compile {
+  gcc -W -Wall -o toyforth -I gen gen/toyforth.c
+}
+
+function default {
+    run_macros project.txt
+    run_noweb
+}
+
+function help {
+    echo "$0 <task> <args>"
+    echo "Tasks:"
+    compgen -A function | cat -n
+}
+
+
+TIMEFORMAT="Task completed in %3lR"
+time ${@:-default}

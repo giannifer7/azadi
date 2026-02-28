@@ -18,8 +18,8 @@ pub fn default_builtins() -> HashMap<String, BuiltinFn> {
     map.insert("pydef".to_string(), builtin_pydef as BuiltinFn);
     map.insert("include".to_string(), builtin_include as BuiltinFn);
     map.insert(
-        "include_silent".to_string(),
-        builtin_include_silent as BuiltinFn,
+        "import".to_string(),
+        builtin_import as BuiltinFn,
     );
     map.insert("if".to_string(), builtin_if as BuiltinFn);
     map.insert("equal".to_string(), builtin_equal as BuiltinFn);
@@ -200,7 +200,7 @@ pub fn builtin_include(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<Strin
     process_include_file(eval, node)
 }
 
-pub fn builtin_include_silent(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+pub fn builtin_import(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     let _ = process_include_file(eval, node)?;
     Ok("".into())
 }

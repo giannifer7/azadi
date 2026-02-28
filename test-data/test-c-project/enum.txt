@@ -1,0 +1,51 @@
+%def(enum,where,name,%{
+<[%(where) header pre]>=
+
+typedef enum {
+    <[%(name) decl item]>
+    %(name)__SUP
+} %(name);
+
+const char *%(name)_as_string(%(name) val);
+@
+
+<[%(where) impl forward]>=
+
+const char * %(name)_as_string(%(name) val) {
+    switch (val) {
+        <[%(name) impl item]>
+        default: return "<invalid %(name) value>";
+    }
+}
+@
+
+
+<[%(where) snippets]>=
+
+    // switch on %(name) example
+    switch (val) {
+    <[%(name) switch_example item]>
+    default: {
+        } break;
+    // fall through
+    }
+@
+
+%})
+
+
+%def(en_item, name, pfx, item, init, %{
+<[%(name) decl item]>=
+%(pfx)%(item)%if(%(init),%{ = %(init)%}),
+@
+
+<[%(name) impl item]>=
+case %(pfx)%(item): return "%(item)";
+@
+
+<[%(name) switch_example item]>=
+case %(pfx)%(item): {
+    } break; //--------------- end of %(item)
+@
+
+%})
