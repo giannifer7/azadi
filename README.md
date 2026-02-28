@@ -38,7 +38,7 @@ azadi-macros [OPTIONS] <INPUTS>...
 
 #### Options
 
-- `--out-dir <PATH>`: Output directory (default: `.`).
+- `--output <PATH>`: Output path (default: current directory).
 - `--special <CHAR>`: Special character for macros (default: `%`).
 - `--work-dir <PATH>`: Working directory for backups (default: `_azadi_work`).
 - `--include <PATHS>`: List of include paths separated by the path separator (default: `.`).

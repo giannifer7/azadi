@@ -16,9 +16,9 @@ fn default_pathsep() -> String {
 #[derive(Parser, Debug)]
 #[command(name = "azadi-macros", about = "Azadi macros translator (Rust)")]
 struct Args {
-    /// Output directory
-    #[arg(long = "out-dir", default_value = ".")]
-    out_dir: PathBuf,
+    /// Output path (file or '-' for stdout)
+    #[arg(long = "output", default_value = ".")]
+    output: PathBuf,
 
     /// Special character for macros
     #[arg(long = "special", default_value = "%")]
@@ -105,7 +105,7 @@ fn run(args: Args) -> Result<(), EvalError> {
     }
 
     let result =
-        azadi_macros::macro_api::process_files_from_config(&final_inputs, &args.out_dir, config);
+        azadi_macros::macro_api::process_files_from_config(&final_inputs, &args.output, config);
 
     result
 }
