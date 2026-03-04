@@ -376,12 +376,16 @@ impl Evaluator {
             return Err(EvalError::CircularInclude(path.display().to_string()));
         }
         self.state.open_includes.insert(path.clone());
-        let content = std::fs::read_to_string(&path)
-            .map_err(|_| EvalError::IncludeNotFound(filename.into()))?;
-        let ast = self.parse_string(&content, &path)?;
-        let out = self.evaluate(&ast)?;
+        let result = (|| {
+            let content = std::fs::read_to_string(&path)
+                .map_err(|_| EvalError::IncludeNotFound(filename.into()))?;
+            let ast = self.parse_string(&content, &path)?;
+            self.evaluate(&ast)
+        })();
+        // Always remove the path, whether the include succeeded or failed,
+        // so that a reused evaluator does not permanently block future includes.
         self.state.open_includes.remove(&path);
-        Ok(out)
+        result
     }
 
     pub fn num_source_files(&self) -> usize {

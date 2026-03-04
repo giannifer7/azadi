@@ -2,10 +2,21 @@
 use std::{fs, io::Write, path::PathBuf};
 use tempfile::TempDir;
 use crate::{AzadiError, SafeFileWriter};
+use crate::safe_writer::SafeWriterConfig;
 
 pub(crate) fn create_test_writer() -> (TempDir, SafeFileWriter) {
     let temp = TempDir::new().unwrap();
-    let writer = SafeFileWriter::new(temp.path().join("gen"), temp.path().join("private"));
+    let config = SafeWriterConfig {
+        backup_enabled: true,
+        modification_check: true,
+        allow_overwrites: false,
+        buffer_size: 8192,
+    };
+    let writer = SafeFileWriter::with_config(
+        temp.path().join("gen"),
+        temp.path().join("private"),
+        config,
+    );
     (temp, writer)
 }
 

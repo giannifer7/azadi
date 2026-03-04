@@ -246,8 +246,9 @@ impl ChunkStore {
 
     fn validate_chunk_name(&self, chunk_name: &str, line: &str) -> bool {
         if line.contains("@file") {
-            // Then chunk_name is a path
-            path_is_safe(chunk_name).is_ok()
+            // chunk_name is "@file <path>"; validate only the path part.
+            let path = chunk_name.strip_prefix("@file ").unwrap_or(chunk_name);
+            path_is_safe(path).is_ok()
         } else {
             !chunk_name.is_empty()
         }
@@ -286,21 +287,14 @@ impl ChunkStore {
                     // unless @replace is present
                     if full_name.starts_with("@file ") {
                         if self.chunks.contains_key(&full_name) && !is_replace {
-                            // Return an error: multiple definitions for the same file chunk
-                            // We'll store a placeholder chunk error with the needed data
-                            // Because this is "read", we can’t return an error here easily
-                            // so let's just remove the chunk later, or store a special chunk error.
-                            // But to integrate with your code, let's define a single approach:
-                            // We'll create a chunk error by wrapping it in IoError for now:
+                            // Report the error and keep the first definition.
+                            // Silently dropping both definitions would hide the mistake.
                             let location = ChunkLocation {
                                 file_idx,
                                 line: line_no as usize,
                             };
-                            // We'll store an error in place of that chunk
-                            // or you might prefer to panic, or do something else
-                            // Here, let's forcibly remove it so the user sees an error at expansion time:
-                            let _err_msg = format!(
-                                "Chunk error: {}",
+                            eprintln!(
+                                "{}",
                                 ChunkError::FileChunkRedefinition {
                                     file_chunk: full_name.clone(),
                                     file_name: self
@@ -311,11 +305,6 @@ impl ChunkStore {
                                     location,
                                 }
                             );
-                            // We'll forcibly remove old chunk, so there's no conflict
-                            // and store a dummy chunk that references the error
-                            self.chunks.remove(&full_name);
-                            // or you might do eprintln!("{}", err_msg);
-                            // for now, let's just continue to skip:
                             continue;
                         }
                         if is_replace {
@@ -601,7 +590,7 @@ impl<'a> ChunkWriter<'a> {
         if !chunk_name.starts_with("@file ") {
             return Ok(());
         }
-        let path_str = &chunk_name[5..].trim();
+        let path_str = chunk_name["@file ".len()..].trim();
         let final_path = self.safe_file_writer.before_write(path_str)?;
         let mut f = fs::File::create(&final_path)?;
         for line in content {

@@ -203,6 +203,19 @@ impl SafeFileWriter {
             } else {
                 self.old_timestamp = None;
             }
+        } else if self.config.modification_check {
+            // Without a backup, use the private file's mtime as the reference for the
+            // last time we wrote the output. The private file is only written by us, so
+            // its mtime represents the last write time. If after_write sees a newer mtime
+            // on the output file, it was externally modified between our writes.
+            let private_file = self.private_dir.join(&path);
+            if private_file.is_file() {
+                let metadata = fs::metadata(&private_file)?;
+                let system_time: SystemTime = metadata.modified()?;
+                self.old_timestamp = Some(DateTime::from(system_time));
+            } else {
+                self.old_timestamp = None;
+            }
         }
 
         Ok(self.private_dir.join(path))

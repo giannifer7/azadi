@@ -170,6 +170,38 @@ fn test_include_with_symlink() {
 ///     Included says: test
 ///
 /// (The call to `%included_macro(outside)` outside the macro should produce nothing.)
+/// Regression test for Bug 6: open_includes was not cleaned up when an include failed,
+/// causing a spurious CircularInclude error on any subsequent include of the same file.
+#[test]
+fn test_include_path_cleaned_up_on_error() {
+    let temp_dir = TempDir::new().expect("Failed to create temporary directory");
+    let temp_dir_path = temp_dir.path();
+
+    // A file that triggers an evaluation error (undefined macro call)
+    let bad_file_path = temp_dir_path.join("bad.txt");
+    fs::write(&bad_file_path, "%undefined_macro()").expect("Failed to write bad.txt");
+
+    let mut evaluator = create_evaluator_with_temp_dir(temp_dir_path);
+
+    // First include should fail with UndefinedMacro, not CircularInclude
+    let result1 = process_string("%include(bad.txt)", None, &mut evaluator);
+    assert!(
+        matches!(result1, Err(EvalError::UndefinedMacro(_))),
+        "Expected UndefinedMacro on first include, got: {:?}",
+        result1
+    );
+
+    // Second include of the same file must also fail with UndefinedMacro.
+    // Before the fix it raised CircularInclude because the path was never
+    // removed from open_includes after the first failure.
+    let result2 = process_string("%include(bad.txt)", None, &mut evaluator);
+    assert!(
+        matches!(result2, Err(EvalError::UndefinedMacro(_))),
+        "Expected UndefinedMacro on second include (not CircularInclude), got: {:?}",
+        result2
+    );
+}
+
 fn test_include_scope() {
     // Create a temporary file that will act as our included definitions.
     let mut tmp = NamedTempFile::new().expect("Failed to create temp file");

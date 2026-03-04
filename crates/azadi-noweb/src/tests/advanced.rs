@@ -4,6 +4,41 @@ use super::*;
 use crate::AzadiError;
 use crate::ChunkError;
 
+/// Bug fix: duplicate @file chunk without @replace used to silently discard
+/// both definitions. Now it reports an error and keeps the first definition.
+#[test]
+fn test_duplicate_file_chunk_keeps_first_definition() {
+    let mut setup = TestSetup::new(&["#"]);
+    setup.clip.read(
+        r#"
+# <<@file out.txt>>=
+first definition
+# @
+
+# <<@file out.txt>>=
+second definition
+# @
+"#,
+        "duplicate.nw",
+    );
+
+    // The first definition must survive.
+    assert!(
+        setup.clip.has_chunk("@file out.txt"),
+        "first definition should be kept"
+    );
+    let content = setup.clip.get_chunk_content("@file out.txt").unwrap();
+    assert!(
+        content.iter().any(|l| l.contains("first definition")),
+        "first definition content should be preserved, got: {:?}",
+        content
+    );
+    assert!(
+        !content.iter().any(|l| l.contains("second definition")),
+        "second definition should be rejected"
+    );
+}
+
 #[test]
 fn test_file_chunk_detection() {
     let mut setup = TestSetup::new(&["#"]);
