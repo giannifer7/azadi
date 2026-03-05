@@ -43,6 +43,80 @@ azadi-macros [OPTIONS] <INPUTS>...
 | `--pathsep <STR>` | `:` / `;` | Path separator (platform default) |
 | `--input-dir <PATH>` | `.` | Base directory prepended to each input path |
 
+### Syntax
+
+#### Argument whitespace
+
+Leading whitespace in every argument is stripped. This lets you align
+multi-argument calls without spaces leaking into the expanded text:
+
+```
+%def(tag, name, value, <%(name)>%(value)</%(name)>)
+%tag( div,
+      Hello world)
+```
+Output: `<div>Hello world</div>`
+
+To include a literal leading space use a block:
+
+```
+%tag(%{ div%}, %{ Hello world%})
+```
+Output: `< div> Hello world</ div>`
+
+#### Named arguments
+
+Any argument may be given a name with `identifier = value` syntax. The named
+argument is bound to the variable whose name matches the identifier, regardless
+of position:
+
+```
+%def(greet, name, msg, Hello, %(name)! %(msg))
+%greet(msg = Good morning, name = Alice)
+```
+Output: `Hello, Alice! Good morning`
+
+#### Comments
+
+| Syntax | Scope | Style |
+|--------|-------|-------|
+| `%# …` | to end of line | shell / Python |
+| `%// …` | to end of line | C++ / Rust |
+| `%-- …` | to end of line | Lua / SQL |
+| `%/* … %*/` | block, nestable | C |
+
+Comments are discarded and produce no output. They can appear at the top level,
+inside macro bodies, or inside argument lists:
+
+```
+%def(greet,
+     %# formal parameters:
+     name,   %// the person's name
+     msg,    %/* optional message %*/
+     Hello %(name)! %(msg))
+```
+
+#### Multi-line blocks and tags
+
+`%{ … %}` delimits a block that may span multiple lines and may contain
+commas and parentheses without triggering argument splitting.
+
+An optional tag identifier makes matching pairs easier to spot — in an editor
+and on a printed page:
+
+```
+%def(page, title, body, %page{
+<!DOCTYPE html>
+<html><head><title>%(title)</title></head>
+<body>%(body)</body></html>
+%page})
+```
+
+The syntax is `%tag_name{ … %tag_name}` where `tag_name` is any identifier.
+Tags are purely documentary; they do not affect evaluation.
+
+---
+
 ### Built-in macros
 
 #### `%def` — define a macro
