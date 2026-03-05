@@ -46,3 +46,4 @@ impl From<std::io::Error> for AzadiError {
 
 pub use crate::noweb::Clip;
 pub use crate::safe_writer::SafeFileWriter;
+pub use crate::safe_writer::SafeWriterConfig;

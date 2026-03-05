@@ -1,5 +1,6 @@
-use azadi_noweb::{AzadiError, Clip, SafeFileWriter};
+use azadi_noweb::{AzadiError, Clip, SafeFileWriter, SafeWriterConfig};
 use clap::Parser;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -43,6 +44,11 @@ struct Args {
     #[arg(long, default_value = "#,//")]
     comment_markers: String,
 
+    /// Formatter command per file extension, e.g. --formatter rs=rustfmt
+    /// Can be repeated: --formatter rs=rustfmt --formatter ts="prettier --write"
+    #[arg(long, value_name = "EXT=CMD")]
+    formatter: Vec<String>,
+
     /// Input files
     #[arg(required = true)]
     files: Vec<PathBuf>,
@@ -67,7 +73,20 @@ fn run(args: Args) -> Result<(), AzadiError> {
         .map(|s| s.trim().to_string())
         .collect();
 
-    let safe_writer = SafeFileWriter::new(&args.gen, &args.priv_dir);
+    let formatters: HashMap<String, String> = args
+        .formatter
+        .iter()
+        .filter_map(|s| s.split_once('=').map(|(e, c)| (e.to_string(), c.to_string())))
+        .collect();
+
+    let safe_writer = SafeFileWriter::with_config(
+        &args.gen,
+        &args.priv_dir,
+        SafeWriterConfig {
+            formatters,
+            ..SafeWriterConfig::default()
+        },
+    );
     let mut clipper = Clip::new(
         safe_writer,
         &args.open_delim,

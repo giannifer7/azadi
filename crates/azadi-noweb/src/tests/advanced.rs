@@ -234,3 +234,139 @@ Content4
         vec!["Content1\n"]
     );
 }
+
+// ── @replace ─────────────────────────────────────────────────────────────────
+
+/// `@replace` on a regular chunk discards all prior definitions and installs
+/// only the new one.
+#[test]
+fn test_replace_normal_chunk() {
+    let mut setup = TestSetup::new(&["#"]);
+    setup.clip.read(
+        r#"
+# <<greet>>=
+Hello
+# @
+
+# <<@replace greet>>=
+Hi
+# @
+"#,
+        "replace_normal.nw",
+    );
+
+    let content = setup.clip.get_chunk_content("greet").unwrap();
+    assert_eq!(content, vec!["Hi\n"], "only the @replace definition should survive");
+}
+
+/// `@replace` on a file chunk replaces the earlier definition.
+#[test]
+fn test_replace_file_chunk() {
+    let mut setup = TestSetup::new(&["#"]);
+    setup.clip.read(
+        r#"
+# <<@file out.txt>>=
+old content
+# @
+
+# <<@replace @file out.txt>>=
+new content
+# @
+"#,
+        "replace_file.nw",
+    );
+
+    let content = setup.clip.get_chunk_content("@file out.txt").unwrap();
+    assert_eq!(content, vec!["new content\n"], "@replace should replace file chunk");
+}
+
+/// Without `@replace`, a second file-chunk definition is an error and the first
+/// definition is kept (regression guard).
+#[test]
+fn test_no_replace_file_chunk_keeps_first() {
+    let mut setup = TestSetup::new(&["#"]);
+    setup.clip.read(
+        r#"
+# <<@file out.txt>>=
+first
+# @
+
+# <<@file out.txt>>=
+second
+# @
+"#,
+        "no_replace_file.nw",
+    );
+
+    let content = setup.clip.get_chunk_content("@file out.txt").unwrap();
+    assert!(
+        content.iter().any(|l| l.contains("first")),
+        "first definition should be kept without @replace"
+    );
+    assert!(
+        !content.iter().any(|l| l.contains("second")),
+        "second definition should be rejected without @replace"
+    );
+}
+
+// ── @reversed ────────────────────────────────────────────────────────────────
+
+/// A regular chunk may accumulate multiple definitions (without @replace).
+/// A plain reference expands them in definition order (first → last).
+#[test]
+fn test_accumulated_chunks_normal_order() {
+    let mut setup = TestSetup::new(&["#"]);
+    setup.clip.read(
+        r#"
+# <<items>>=
+alpha
+# @
+
+# <<items>>=
+beta
+# @
+
+# <<items>>=
+gamma
+# @
+
+# <<list>>=
+# <<items>>
+# @
+"#,
+        "normal_order.nw",
+    );
+
+    let expanded = setup.clip.expand("list", "").unwrap();
+    assert_eq!(expanded, vec!["alpha\n", "beta\n", "gamma\n"]);
+}
+
+/// `@reversed` on a reference expands the chunk's accumulated definitions in
+/// reverse order (last-defined first).
+#[test]
+fn test_reversed_reference() {
+    let mut setup = TestSetup::new(&["#"]);
+    setup.clip.read(
+        r#"
+# <<items>>=
+alpha
+# @
+
+# <<items>>=
+beta
+# @
+
+# <<items>>=
+gamma
+# @
+
+# <<list>>=
+# <<@reversed items>>
+# @
+"#,
+        "reversed.nw",
+    );
+
+    let expanded = setup.clip.expand("list", "").unwrap();
+    assert_eq!(expanded, vec!["gamma\n", "beta\n", "alpha\n"]);
+}

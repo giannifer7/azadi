@@ -1,23 +1,10 @@
 // crates/azadi-macros/src/evaluator/errors.rs
 
-use std::io;
 use thiserror::Error;
 
 /// Custom type to signal termination (not an error).
 #[derive(Debug)]
 pub struct Terminate;
-
-#[derive(Error, Debug)]
-pub enum PyEvalError {
-    #[error("Python execution error: {0}")]
-    Execution(String),
-    #[error("Security violation: {0}")]
-    Security(String),
-    #[error("Environment error: {0}")]
-    Environment(String),
-    #[error("IO error: {0}")]
-    Io(#[from] io::Error),
-}
 
 #[derive(Error, Debug)]
 pub enum EvalError {
@@ -44,9 +31,6 @@ pub enum EvalError {
 
     #[error("Terminate execution")]
     Terminate(Terminate),
-
-    #[error("Python error: {0}")]
-    Python(#[from] PyEvalError),
 
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),

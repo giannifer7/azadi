@@ -15,7 +15,7 @@ pub type BuiltinFn = fn(&mut Evaluator, &ASTNode) -> EvalResult<String>;
 pub fn default_builtins() -> HashMap<String, BuiltinFn> {
     let mut map = HashMap::new();
     map.insert("def".to_string(), builtin_def as BuiltinFn);
-    map.insert("pydef".to_string(), builtin_pydef as BuiltinFn);
+    map.insert("rhaidef".to_string(), builtin_rhaidef as BuiltinFn);
     map.insert("include".to_string(), builtin_include as BuiltinFn);
     map.insert(
         "import".to_string(),
@@ -60,7 +60,7 @@ struct DefMacroConfig {
     name_param_context: String,
     formal_param_context: String,
     duplicate_param_error: String,
-    is_python: bool,
+    is_rhai: bool,
 }
 
 /// Helper: Checks that a Param node contains exactly one identifier child
@@ -150,7 +150,7 @@ fn define_macro(
         name: macro_name,
         params: param_list,
         body: body_node,
-        is_python: config.is_python,
+        is_rhai: config.is_rhai,
         frozen_args: HashMap::new(),
     };
     eval.define_macro(mac);
@@ -166,21 +166,21 @@ pub fn builtin_def(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
             name_param_context: "macro name".into(),
             formal_param_context: "formal parameter".into(),
             duplicate_param_error: "def".into(),
-            is_python: false,
+            is_rhai: false,
         },
     )
 }
 
-pub fn builtin_pydef(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+pub fn builtin_rhaidef(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     define_macro(
         eval,
         node,
         DefMacroConfig {
-            min_params_error: "pydef requires at least (name, body)".into(),
-            name_param_context: "pydef name".into(),
-            formal_param_context: "pydef parameter".into(),
-            duplicate_param_error: "pydef".into(),
-            is_python: true,
+            min_params_error: "rhaidef requires at least (name, body)".into(),
+            name_param_context: "rhaidef name".into(),
+            formal_param_context: "rhaidef parameter".into(),
+            duplicate_param_error: "rhaidef".into(),
+            is_rhai: true,
         },
     )
 }

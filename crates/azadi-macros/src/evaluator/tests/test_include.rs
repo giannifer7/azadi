@@ -146,7 +146,6 @@ fn test_include_with_symlink() {
     assert_eq!(String::from_utf8(result).unwrap(), "Hello from target.txt");
 }
 
-#[test]
 /// Test that an %include inside a macro correctly scopes the included %defs.
 ///
 /// The test simulates the following source:
@@ -202,6 +201,7 @@ fn test_include_path_cleaned_up_on_error() {
     );
 }
 
+#[test]
 fn test_include_scope() {
     // Create a temporary file that will act as our included definitions.
     let mut tmp = NamedTempFile::new().expect("Failed to create temp file");

@@ -1,6 +1,6 @@
 // crates/azadi-macros/src/bin/macro_cli.rs
 
-use azadi_macros::evaluator::{EvalConfig, EvalError, PythonConfig};
+use azadi_macros::evaluator::{EvalConfig, EvalError};
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -36,14 +36,6 @@ struct Args {
     #[arg(long = "pathsep", default_value_t = default_pathsep())]
     pathsep: String,
 
-    /// Path to Python executable or venv directory
-    #[arg(long = "python-path")]
-    python_path: Option<PathBuf>,
-
-    /// If set, python macros are considered
-    #[arg(long = "pydef", default_value_t = false)]
-    pydef: bool,
-
     /// Base directory for input files
     #[arg(long = "input-dir", default_value = ".")]
     input_dir: PathBuf,
@@ -60,28 +52,10 @@ fn run(args: Args) -> Result<(), EvalError> {
         .map(PathBuf::from)
         .collect();
 
-    let (venv_path, python_path) = if let Some(path) = args.python_path {
-        if path.is_dir() {
-            (Some(path), None)
-        } else {
-            (None, Some(path))
-        }
-    } else {
-        (None, None)
-    };
-
-    let python_config = PythonConfig {
-        enabled: true,
-        venv_path,
-        python_path,
-    };
-
     let config = EvalConfig {
         special_char: args.special,
-        pydef: args.pydef,
         include_paths,
         backup_dir: args.work_dir.clone(),
-        python: python_config,
     };
 
     // Ensure work directory exists

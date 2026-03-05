@@ -6,42 +6,22 @@ use std::path::{Path, PathBuf};
 
 use super::builtins::{default_builtins, BuiltinFn};
 use super::errors::{EvalError, EvalResult};
-use super::python::{PyO3Evaluator, PythonEvaluator};
+use super::rhai_eval::RhaiEvaluator;
 use super::state::{EvalConfig, EvaluatorState, MacroDefinition};
 use crate::types::{ASTNode, NodeKind, Token, TokenKind};
 
 pub struct Evaluator {
     state: EvaluatorState,
     builtins: HashMap<String, BuiltinFn>,
-    python_evaluator: Option<Box<dyn PythonEvaluator>>,
+    rhai_evaluator: RhaiEvaluator,
 }
 
 impl Evaluator {
     pub fn new(config: EvalConfig) -> Self {
-        let python_evaluator = if config.python.enabled {
-            match PyO3Evaluator::new(config.python.clone()) {
-                Ok(evaluator) => {
-                    // Set the work directory for Python code logging
-                    if let Some(work_dir) = config.backup_dir.parent() {
-                        evaluator.set_work_directory(work_dir.to_path_buf());
-                    } else {
-                        evaluator.set_work_directory(config.backup_dir.clone());
-                    }
-                    Some(Box::new(evaluator) as Box<dyn PythonEvaluator>)
-                }
-                Err(e) => {
-                    eprintln!("Failed to initialize PyO3 evaluator: {}", e);
-                    None
-                }
-            }
-        } else {
-            None
-        };
-
         Evaluator {
             state: EvaluatorState::new(config),
             builtins: default_builtins(),
-            python_evaluator,
+            rhai_evaluator: RhaiEvaluator::new(),
         }
     }
 
@@ -234,32 +214,18 @@ impl Evaluator {
 
         let mut result = self.evaluate(&mac.body)?;
 
-        // Add Python evaluation for pydef macros
-        if mac.is_python && self.state.config.python.enabled {
-            if let Some(evaluator) = &self.python_evaluator {
-                let variables = self.state.current_scope().variables.clone();
-
-                // Get context information for better error reporting and logging
-                let current_file = self.state.current_file.to_string_lossy().to_string();
-                let source_pos = node.token.pos;
-                let name = Some(mac.name.as_str());
-                let filename = if current_file.is_empty() {
-                    None
-                } else {
-                    Some(current_file.as_str())
-                };
-
-                // Use the context-aware evaluation
-                result = evaluator.evaluate_with_context(
-                    &result,
-                    variables,
-                    name,
-                    filename,
-                    Some(source_pos as u32),
-                )?;
-            } else {
-                return Err(EvalError::Runtime("Python evaluator not configured".into()));
+        if mac.is_rhai {
+            // Collect all visible variables (outer scopes first so inner ones win)
+            let mut variables = std::collections::HashMap::new();
+            for frame in self.state.scope_stack.iter() {
+                for (k, v) in &frame.variables {
+                    variables.insert(k.clone(), v.clone());
+                }
             }
+            result = self
+                .rhai_evaluator
+                .evaluate(&result, &variables, Some(&mac.name))
+                .map_err(EvalError::Runtime)?;
         }
 
         self.state.pop_scope();
@@ -319,7 +285,7 @@ impl Evaluator {
             name: mac.name.clone(),
             params: mac.params.clone(),
             body: mac.body.clone(),
-            is_python: mac.is_python,
+            is_rhai: mac.is_rhai,
             frozen_args: frozen,
         }
     }

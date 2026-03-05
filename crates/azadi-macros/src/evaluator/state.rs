@@ -1,6 +1,5 @@
 // crates/azadi-macros/src/evaluator/state.rs
 
-use super::python::PythonConfig;
 use crate::types::ASTNode;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -8,20 +7,16 @@ use std::path::PathBuf;
 #[derive(Debug, Clone)]
 pub struct EvalConfig {
     pub special_char: char,
-    pub pydef: bool,
     pub include_paths: Vec<PathBuf>,
     pub backup_dir: PathBuf,
-    pub python: PythonConfig,
 }
 
 impl Default for EvalConfig {
     fn default() -> Self {
         Self {
             special_char: '%',
-            pydef: false,
             include_paths: vec![PathBuf::from(".")],
             backup_dir: PathBuf::from("_azadi_work"),
-            python: PythonConfig::default(),
         }
     }
 }
@@ -31,7 +26,7 @@ pub struct MacroDefinition {
     pub name: String,
     pub params: Vec<String>,
     pub body: ASTNode,
-    pub is_python: bool,
+    pub is_rhai: bool,
     pub frozen_args: HashMap<String, String>,
 }
 
@@ -110,10 +105,6 @@ impl EvaluatorState {
         if self.scope_stack.len() > 1 {
             self.scope_stack.pop();
         }
-    }
-
-    pub fn current_scope(&self) -> &ScopeFrame {
-        self.scope_stack.last().unwrap()
     }
 
     pub fn current_scope_mut(&mut self) -> &mut ScopeFrame {

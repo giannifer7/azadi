@@ -51,7 +51,7 @@ Hello %hello()!"#,
     // Run the command
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
-    cmd.arg("--out-dir") // Changed from --out-dir to --out-file
+    cmd.arg("--output") // Changed from --output to --out-file
         .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
@@ -101,8 +101,8 @@ fn test_cli_help() -> Result<(), Box<dyn std::error::Error>> {
         "Help output did not mention 'azadi-macros'"
     );
     assert!(
-        stdout.contains("--out-dir"), // Changed from --out-dir to --out-file
-        "Help output did not mention '--out-dir'"
+        stdout.contains("--output"), // Changed from --output to --out-file
+        "Help output did not mention '--output'"
     );
 
     Ok(())
@@ -122,7 +122,7 @@ fn test_missing_input_file() -> Result<(), Box<dyn std::error::Error>> {
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
-    cmd.arg("--out-dir") // Changed from --out-dir to --out-file
+    cmd.arg("--output") // Changed from --output to --out-file
         .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
@@ -168,7 +168,7 @@ fn test_multiple_inputs() -> Result<(), Box<dyn std::error::Error>> {
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
-    cmd.arg("--out-dir") // Changed from --out-dir to --out-file
+    cmd.arg("--output") // Changed from --output to --out-file
         .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
@@ -221,7 +221,7 @@ fn test_custom_special_char() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = run.command();
     cmd.arg("--special")
         .arg("@")
-        .arg("--out-dir") // Changed from --out-dir to --out-file
+        .arg("--output") // Changed from --output to --out-file
         .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
@@ -243,27 +243,24 @@ fn test_custom_special_char() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// 5) Test the --pydef flag
+// 5) Test rhaidef: arithmetic via Rhai scripting
 #[test]
 fn test_pydef_flag() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TempDir::new()?;
     let temp_path = temp.path().canonicalize()?;
 
-    // If your code treats pydef macros distinctly, you can define one
-    // Here we just define "pydef" as if it were a normal macro for demonstration
     let input = create_test_file(
         &temp_path,
-        "pydef_test.txt",
-        "%pydef(test_python, %{print('Hello Python')\n%})\n%test_python()",
+        "rhaidef_test.txt",
+        "%rhaidef(double, x, %{(parse_int(x) * 2).to_string()%})\n%double(21)",
     );
 
-    let out_file = temp_path.join("output_py.txt");
+    let out_file = temp_path.join("output_rhai.txt");
     let work_dir = temp_path.join("work");
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
-    cmd.arg("--pydef")
-        .arg("--out-dir") // Changed from --out-dir to --out-file
+    cmd.arg("--output")
         .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
@@ -271,24 +268,23 @@ fn test_pydef_flag() -> Result<(), Box<dyn std::error::Error>> {
 
     let output = cmd.output()?;
     println!(
-        "(pydef_flag) stdout:\n{}",
+        "(rhaidef) stdout:\n{}",
         String::from_utf8_lossy(&output.stdout)
     );
     println!(
-        "(pydef_flag) stderr:\n{}",
+        "(rhaidef) stderr:\n{}",
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
         output.status.success(),
-        "CLI should succeed with the pydef argument set to true."
+        "CLI should succeed with rhaidef macro."
     );
 
-    // Check output
     let content = fs::read_to_string(&out_file)?;
-    println!("(pydef_flag) final content:\n{content}");
+    println!("(rhaidef) final content:\n{content}");
     assert!(
-        content.contains("Hello Python"),
-        "Expected expansion from a pydef macro."
+        content.contains("42"),
+        "Expected '42' from rhaidef arithmetic."
     );
 
     Ok(())
@@ -321,7 +317,7 @@ fn test_colon_separated_includes() -> Result<(), Box<dyn std::error::Error>> {
 
     cmd.arg("--include")
         .arg(&includes_str)
-        .arg("--out-dir") // Changed from --out-dir to --out-file
+        .arg("--output") // Changed from --output to --out-file
         .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
@@ -374,7 +370,7 @@ fn test_custom_pathsep_includes() -> Result<(), Box<dyn std::error::Error>> {
         .arg(&includes_str)
         .arg("--pathsep")
         .arg("|")
-        .arg("--out-dir") // Changed from --out-dir to --out-file
+        .arg("--output") // Changed from --output to --out-file
         .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)
@@ -422,7 +418,7 @@ fn test_large_input() -> Result<(), Box<dyn std::error::Error>> {
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
-    cmd.arg("--out-dir") // Changed from --out-dir to --out-file
+    cmd.arg("--output") // Changed from --output to --out-file
         .arg(&out_file)
         .arg("--work-dir")
         .arg(&work_dir)

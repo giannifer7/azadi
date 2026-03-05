@@ -2,7 +2,8 @@
 use super::*;
 use crate::SafeWriterError;
 use crate::AzadiError;
-use std::{fs, io::Write, path::PathBuf, thread, time::Duration};
+use crate::safe_writer::{SafeWriterConfig, SafeFileWriter};
+use std::{collections::HashMap, fs, io::Write, path::PathBuf, thread, time::Duration};
 
 #[test]
 fn test_basic_file_writing() -> Result<(), AzadiError> {
@@ -152,12 +153,13 @@ fn test_backup_disabled() -> Result<(), AzadiError> {
 
     let mut config = writer.get_config().clone();
     config.backup_enabled = false;
+    config.modification_check = false;
     writer.set_config(config);
 
     write_file(&mut writer, &test_file, "Test content")?;
 
     let backup_path = writer.get_old_dir().join(&test_file);
-    assert!(!backup_path.exists(), "Backup file should not exist when backups are disabled");
+    assert!(!backup_path.exists(), "Backup file should not exist when backups and modification_check are disabled");
     Ok(())
 }
 
@@ -230,4 +232,105 @@ fn test_path_safety() {
             _ => panic!("Expected SecurityViolation for path: {}", path.display()),
         }
     }
+}
+
+#[test]
+fn test_formatter_is_applied() -> Result<(), AzadiError> {
+    let temp = tempfile::TempDir::new().unwrap();
+    let mut formatters = HashMap::new();
+    // Shell script that replaces the file content with "FORMATTED\n"
+    formatters.insert("txt".to_string(), "sh -c echo FORMATTED > \"$1\" && echo FORMATTED > \"$1\"".to_string());
+    // Use a simpler approach: a script file
+    let script_path = temp.path().join("fmt.sh");
+    fs::write(&script_path, "#!/bin/sh\necho FORMATTED > \"$1\"\n").unwrap();
+    std::process::Command::new("chmod").arg("+x").arg(&script_path).status().unwrap();
+
+    let mut formatters2 = HashMap::new();
+    formatters2.insert("txt".to_string(), script_path.to_string_lossy().to_string());
+
+    let config = SafeWriterConfig {
+        backup_enabled: true,
+        modification_check: true,
+        allow_overwrites: false,
+        buffer_size: 8192,
+        formatters: formatters2,
+    };
+    let mut writer = SafeFileWriter::with_config(
+        temp.path().join("gen"),
+        temp.path().join("private"),
+        config,
+    );
+
+    let test_file = PathBuf::from("test.txt");
+    write_file(&mut writer, &test_file, "original content")?;
+
+    let output = fs::read_to_string(writer.get_gen_base().join(&test_file))?;
+    assert!(output.contains("FORMATTED"), "Formatter should have replaced content, got: {:?}", output);
+    Ok(())
+}
+
+#[test]
+fn test_formatter_error_propagates() -> Result<(), AzadiError> {
+    let temp = tempfile::TempDir::new().unwrap();
+    let mut formatters = HashMap::new();
+    formatters.insert("txt".to_string(), "nonexistent-formatter-xyz".to_string());
+
+    let config = SafeWriterConfig {
+        backup_enabled: false,
+        modification_check: false,
+        allow_overwrites: false,
+        buffer_size: 8192,
+        formatters,
+    };
+    let mut writer = SafeFileWriter::with_config(
+        temp.path().join("gen"),
+        temp.path().join("private"),
+        config,
+    );
+
+    let test_file = PathBuf::from("test.txt");
+    let result = write_file(&mut writer, &test_file, "some content");
+    match result {
+        Err(AzadiError::SafeWriter(SafeWriterError::FormatterError(_))) => Ok(()),
+        Ok(_) => panic!("Expected FormatterError but write succeeded"),
+        Err(e) => panic!("Unexpected error: {}", e),
+    }
+}
+
+#[test]
+fn test_formatter_prevents_false_positive() -> Result<(), AzadiError> {
+    let temp = tempfile::TempDir::new().unwrap();
+    let script_path = temp.path().join("noop.sh");
+    // A no-op formatter: copies file to itself (content unchanged)
+    fs::write(&script_path, "#!/bin/sh\ncp \"$1\" \"$1.bak\" && mv \"$1.bak\" \"$1\"\n").unwrap();
+    std::process::Command::new("chmod").arg("+x").arg(&script_path).status().unwrap();
+
+    let mut formatters = HashMap::new();
+    formatters.insert("txt".to_string(), script_path.to_string_lossy().to_string());
+
+    let config = SafeWriterConfig {
+        backup_enabled: true,
+        modification_check: true,
+        allow_overwrites: false,
+        buffer_size: 8192,
+        formatters,
+    };
+    let mut writer = SafeFileWriter::with_config(
+        temp.path().join("gen"),
+        temp.path().join("private"),
+        config,
+    );
+
+    let test_file = PathBuf::from("test.txt");
+    write_file(&mut writer, &test_file, "initial content")?;
+
+    // Simulate formatter running externally on the output (content unchanged)
+    let output_path = writer.get_gen_base().join(&test_file);
+    let content = fs::read_to_string(&output_path)?;
+    fs::write(&output_path, &content)?;
+
+    // Second write should NOT trigger ModifiedExternally (content is the same as old/)
+    let result = write_file(&mut writer, &test_file, "initial content");
+    assert!(result.is_ok(), "Expected success but got: {:?}", result.err());
+    Ok(())
 }

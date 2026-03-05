@@ -1,60 +1,316 @@
 # Azadi
 
-Azadi is a workspace containing tools for literate programming and macro expansion in Rust.
+Azadi is a literate-programming toolchain. It consists of two tools that work together in
+a pipeline:
 
-## Components
+```
+azadi-macros source.md | azadi-noweb
+```
 
-### azadi-noweb
+1. **azadi-macros** — expands macro definitions embedded in a source document
+2. **azadi-noweb** — extracts named code chunks and writes them to output files
 
-`azadi-noweb` is a Rust implementation of a noweb-style literate programming tool. It allows extracting code chunks from literate source files.
+---
 
-#### Usage
+## Quick start
+
+```bash
+cargo build --release
+# binaries land in target/release/azadi-macros and target/release/azadi-noweb
+```
+
+---
+
+## azadi-macros
+
+A macro expander. Reads one or more source files, evaluates `%macro(...)` calls, and
+writes the result to `--output`.
+
+### Usage
+
+```bash
+azadi-macros [OPTIONS] <INPUTS>...
+```
+
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--output <PATH>` | `.` | Output file (or directory when processing multiple inputs) |
+| `--special <CHAR>` | `%` | Macro invocation character |
+| `--work-dir <PATH>` | `_azadi_work` | Directory for backup / intermediate files |
+| `--include <PATHS>` | `.` | Include search paths (separated by `--pathsep`) |
+| `--pathsep <STR>` | `:` / `;` | Path separator (platform default) |
+| `--input-dir <PATH>` | `.` | Base directory prepended to each input path |
+
+### Built-in macros
+
+#### `%def` — define a macro
+
+```
+%def(name, param1, param2, ..., body)
+```
+
+All arguments except the first (name) and last (body) are formal parameters.
+Use `%{ ... %}` for multi-line bodies.
+
+```
+%def(greet, name, Hello, %(name)!)
+%greet(World)
+```
+Output: `Hello, World!`
+
+```
+%def(square, x, %{
+%(x) * %(x)
+%})
+%square(7)
+```
+Output: `7 * 7`
+
+#### `%set` — set a variable
+
+```
+%set(version, 1.0.0)
+Version: %(version)
+```
+Output: `Version: 1.0.0`
+
+#### `%if` — conditional
+
+```
+%if(condition, then-branch, else-branch)
+```
+
+Empty string is falsy; any non-empty string is truthy.
+
+```
+%set(debug, yes)
+%if(%(debug), [DEBUG MODE], )
+```
+Output: `[DEBUG MODE]`
+
+#### `%equal` — equality test
+
+Returns the value if both arguments are equal, otherwise empty string.
+
+```
+%equal(%(mode), release)
+```
+
+#### `%include` / `%import`
+
+`%include` expands the included file inline. `%import` expands it but discards the output
+(useful for loading macro definitions).
+
+```
+%import(macros/common.txt)
+%my_macro(arg)
+```
+
+#### `%capitalize`, `%decapitalize`, `%to_snake_case`, `%to_camel_case`, `%to_pascal_case`, `%to_screaming_case`
+
+Case-conversion helpers.
+
+```
+%to_snake_case(MyFancyName)
+```
+Output: `my_fancy_name`
+
+#### `%rhaidef` — define a Rhai-scripted macro
+
+```
+%rhaidef(name, param1, param2, ..., body)
+```
+
+The body is a [Rhai](https://rhai.rs) script. It is evaluated at call time; its return
+value (converted to string) becomes the macro output.
+
+All visible azadi scope variables are injected into the Rhai script as string variables.
+The body **must** be wrapped in `%{ ... %}` whenever it contains parentheses, so that
+azadi does not misparse them as argument separators.
+
+**Registered Rhai helpers:**
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `parse_int(s)` | `String → i64` | Parse string to integer (returns 0 on error) |
+| `parse_float(s)` | `String → f64` | Parse string to float (returns 0.0 on error) |
+| `to_hex(n)` | `i64 → String` | Format integer as `0xHEX` |
+
+Rhai does **not** support Rust turbofish syntax — use the helpers above instead of
+`.parse::<i64>()`.
+
+**Examples:**
+
+```
+%rhaidef(double, x, %{(parse_int(x) * 2).to_string()%})
+%double(21)
+```
+Output: `42`
+
+```
+%rhaidef(offset, base, size, %{
+  let b = parse_int(base);
+  let s = parse_int(size);
+  (b + s).to_string()
+%})
+%offset(256, 64)
+```
+Output: `320`
+
+```
+%rhaidef(as_hex, n, %{to_hex(parse_int(n))%})
+%as_hex(255)
+```
+Output: `0xFF`
+
+```
+%rhaidef(factorial, n, %{
+  fn fact(k) { if k <= 1 { 1 } else { k * fact(k - 1) } }
+  fact(parse_int(n)).to_string()
+%})
+%factorial(10)
+```
+Output: `3628800`
+
+Outer azadi scope variables are also available inside the script:
+
+```
+%set(prefix, item_)
+%rhaidef(prefixed, name, %{
+  prefix + name
+%})
+%prefixed(count)
+```
+Output: `item_count`
+
+#### `%eval` — indirect macro call
+
+```
+%eval(%(macro_name), arg1, arg2)
+```
+
+Calls the macro whose name is stored in a variable.
+
+#### `%export` — export a variable or macro to the parent scope
+
+```
+%def(init, %{
+  %set(x, 10)
+  %export(x)
+%})
+%init()
+x is: %(x)
+```
+
+#### `%here` — in-place expansion (modifies the source file)
+
+Evaluates its argument and writes the result back into the source file at the call site.
+Useful for one-time code generation.
+
+---
+
+## azadi-noweb
+
+A noweb-style chunk extractor. Reads literate source files, resolves chunk references, and
+writes output files.
+
+### Usage
 
 ```bash
 azadi-noweb [OPTIONS] <FILES>...
 ```
 
-#### Options
+### Options
 
-- `--output <PATH>`: Output file for `--chunks` (default: stdout).
-- `--chunks <NAMES>`: Names of chunks to extract (comma separated).
-- `--priv-dir <PATH>`: Private work directory (default: `_azadi_work`).
-- `--gen <PATH>`: Base directory of generated files (default: `gen`).
-- `--open-delim <STRING>`: Delimiter used to open a chunk (default: `<<`).
-- `--close-delim <STRING>`: Delimiter used to close a chunk definition (default: `>>`).
-- `--chunk-end <STRING>`: Delimiter for chunk-end lines (default: `@`).
-- `--comment-markers <STRINGS>`: Comment markers, comma separated (default: `#,//`).
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--gen <PATH>` | `gen` | Base directory for generated output files |
+| `--priv-dir <PATH>` | `_azadi_work` | Private work directory |
+| `--output <PATH>` | stdout | Output for `--chunks` extraction |
+| `--chunks <NAMES>` | | Comma-separated chunk names to extract to stdout |
+| `--open-delim <STR>` | `<<` | Chunk-open delimiter |
+| `--close-delim <STR>` | `>>` | Chunk-close delimiter |
+| `--chunk-end <STR>` | `@` | End-of-chunk marker |
+| `--comment-markers <STR>` | `#,//` | Comment prefixes (comma-separated) |
+| `--formatter <EXT=CMD>` | | Run a formatter after writing a file (e.g. `rs=rustfmt`) |
 
-### azadi-macros
+### Chunk syntax
 
-`azadi-macros` is a macro translator and evaluator.
+Comment markers (`#` or `//` by default) are stripped before the delimiters are
+recognised, so chunks blend naturally into any host language's comment syntax.
 
-#### Usage
+```rust
+// <<@file src/hello.rs>>=
+fn main() {
+    // <<greeting>>
+}
+// @
 
-```bash
-```bash
-azadi-macros [OPTIONS] <INPUTS>...
+// <<greeting>>=
+println!("Hello, world!");
+// @
 ```
 
-#### Options
+- `<<@file path>>=` declares a file output chunk.
+- `<<name>>=` declares a named chunk.
+- `<<name>>` inside a chunk body references (expands) another chunk, preserving indentation.
+- A line matching `// @` (or `# @`) ends the current chunk.
 
-- `--output <PATH>`: Output path (default: current directory).
-- `--special <CHAR>`: Special character for macros (default: `%`).
-- `--work-dir <PATH>`: Working directory for backups (default: `_azadi_work`).
-- `--include <PATHS>`: List of include paths separated by the path separator (default: `.`).
-- `--pathsep <STRING>`: Path separator (default: system specific, `:` or `;`).
-- `--python-path <PATH>`: Path to Python executable or venv directory.
-- `--pydef`: Enable Python macros (default: false).
-- `--input-dir <PATH>`: Base directory for input files (default: `.`).
+Modifiers go **before** the chunk name, inside the delimiters.
 
-## Building
+**`@replace`** — on a definition line: discards all prior definitions of that chunk and
+starts a new one.
 
-To build the project, run:
+```rust
+// <<@replace @file src/main.rs>>=
+… new content …
+// @
+```
+
+**`@reversed`** — on a reference line: expands the referenced chunk's accumulated
+definitions in reverse order (last-defined first). Useful for stack / LIFO patterns.
+
+```rust
+// <<@reversed items>>
+```
+
+### Full pipeline example
+
+Given `src/app.md`:
+
+````markdown
+# My App
+
+## Entry point
+
+// <<@file src/main.rs>>=
+fn main() {
+    // <<setup>>
+    // <<run>>
+}
+// @
+
+// <<setup>>=
+let config = Config::default();
+// @
+
+// <<run>>=
+app::run(config);
+// @
+````
+
+Run:
 
 ```bash
-cargo build --release
+azadi-macros src/app.md | azadi-noweb --gen .
 ```
+
+This writes `src/main.rs` with all chunks expanded in place.
+
+---
 
 ## License
 
-This project is licensed under MIT or Apache-2.0.
+MIT OR Apache-2.0

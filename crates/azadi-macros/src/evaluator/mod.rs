@@ -6,7 +6,7 @@ mod core;
 mod errors;
 mod eval_api;
 pub mod lexer_parser;
-pub mod python;
+pub mod rhai_eval;
 mod source_utils;
 mod state;
 
@@ -22,6 +22,5 @@ pub use eval_api::{
     eval_string_with_defaults,
 };
 pub use lexer_parser::lex_parse_content;
+pub use rhai_eval::RhaiEvaluator;
 pub use state::{EvalConfig, MacroDefinition};
-
-pub use python::{PyO3Evaluator, PythonConfig, PythonEvaluator};
