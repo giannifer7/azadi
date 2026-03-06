@@ -2,6 +2,7 @@
 
 use crate::types::ASTNode;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -25,7 +26,7 @@ impl Default for EvalConfig {
 pub struct MacroDefinition {
     pub name: String,
     pub params: Vec<String>,
-    pub body: ASTNode,
+    pub body: Arc<ASTNode>,
     pub is_rhai: bool,
     pub frozen_args: HashMap<String, String>,
 }
@@ -51,25 +52,25 @@ impl SourceManager {
         }
     }
 
-    pub fn add_source_if_not_present(&mut self, file_path: PathBuf) -> Result<i32, std::io::Error> {
+    pub fn add_source_if_not_present(&mut self, file_path: PathBuf) -> Result<u32, std::io::Error> {
         let file_path = file_path.canonicalize()?;
         if let Some(&src) = self.sources_by_path.get(&file_path) {
-            return Ok(src as i32);
+            return Ok(src as u32);
         }
         let content = std::fs::read(file_path.clone())?;
         let src = self.add_source_bytes(content, file_path.clone());
         Ok(src)
     }
 
-    pub fn add_source_bytes(&mut self, content: Vec<u8>, path: PathBuf) -> i32 {
+    pub fn add_source_bytes(&mut self, content: Vec<u8>, path: PathBuf) -> u32 {
         let index = self.source_files.len();
         self.source_files.push(content);
         self.file_names.push(path.clone());
         self.sources_by_path.insert(path, index);
-        index as i32
+        index as u32
     }
 
-    pub fn get_source(&self, src: i32) -> Option<&[u8]> {
+    pub fn get_source(&self, src: u32) -> Option<&[u8]> {
         self.source_files.get(src as usize).map(|v| v.as_slice())
     }
 
@@ -78,12 +79,17 @@ impl SourceManager {
     }
 }
 
+pub const MAX_RECURSION_DEPTH: usize = 100;
+
 pub struct EvaluatorState {
     pub config: EvalConfig,
     pub scope_stack: Vec<ScopeFrame>,
     pub open_includes: HashSet<PathBuf>,
     pub current_file: PathBuf,
     pub source_manager: SourceManager,
+    pub call_depth: usize,
+    /// Set by `%here` to stop further evaluation cleanly (not an error).
+    pub early_exit: bool,
 }
 
 impl EvaluatorState {
@@ -94,6 +100,8 @@ impl EvaluatorState {
             open_includes: HashSet::new(),
             current_file: PathBuf::from(""),
             source_manager: SourceManager::new(),
+            call_depth: 0,
+            early_exit: false,
         }
     }
 

@@ -3,11 +3,12 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use super::builtins::{default_builtins, BuiltinFn};
 use super::errors::{EvalError, EvalResult};
 use super::rhai_eval::RhaiEvaluator;
-use super::state::{EvalConfig, EvaluatorState, MacroDefinition};
+use super::state::{EvalConfig, EvaluatorState, MacroDefinition, MAX_RECURSION_DEPTH};
 use crate::types::{ASTNode, NodeKind, Token, TokenKind};
 
 pub struct Evaluator {
@@ -33,13 +34,13 @@ impl Evaluator {
         self.state.set_variable(name, value);
     }
 
-    pub fn add_source_if_not_present(&mut self, file_path: PathBuf) -> Result<i32, std::io::Error> {
+    pub fn add_source_if_not_present(&mut self, file_path: PathBuf) -> Result<u32, std::io::Error> {
         self.state
             .source_manager
             .add_source_if_not_present(file_path)
     }
 
-    pub fn add_source_bytes(&mut self, content: Vec<u8>, path: PathBuf) -> i32 {
+    pub fn add_source_bytes(&mut self, content: Vec<u8>, path: PathBuf) -> u32 {
         self.state.source_manager.add_source_bytes(content, path)
     }
 
@@ -59,7 +60,14 @@ impl Evaluator {
         self.state.get_special_char()
     }
 
+    pub fn set_early_exit(&mut self) {
+        self.state.early_exit = true;
+    }
+
     pub fn evaluate(&mut self, node: &ASTNode) -> EvalResult<String> {
+        if self.state.early_exit {
+            return Ok(String::new());
+        }
         let mut out = String::new();
         match node.kind {
             NodeKind::Text | NodeKind::Space | NodeKind::Ident => {
@@ -167,6 +175,13 @@ impl Evaluator {
             return bf(self, node);
         }
 
+        if self.state.call_depth >= MAX_RECURSION_DEPTH {
+            return Err(EvalError::Runtime(format!(
+                "maximum recursion depth ({}) exceeded in macro '{}'",
+                MAX_RECURSION_DEPTH, name
+            )));
+        }
+
         let mac = match self.state.get_macro(name) {
             Some(m) => m,
             None => return Err(EvalError::UndefinedMacro(name.into())),
@@ -212,7 +227,10 @@ impl Evaluator {
             self.state.set_variable(param_name, &val);
         }
 
-        let mut result = self.evaluate(&mac.body)?;
+        self.state.call_depth += 1;
+        let body_result = self.evaluate(&*mac.body);
+        self.state.call_depth -= 1;
+        let mut result = body_result?;
 
         if mac.is_rhai {
             // Collect all visible variables (outer scopes first so inner ones win)
@@ -279,12 +297,12 @@ impl Evaluator {
     pub fn freeze_macro_definition(&mut self, mac: &MacroDefinition) -> MacroDefinition {
         let mut frozen = HashMap::new();
         let keep: HashSet<String> = mac.params.iter().cloned().collect();
-        self.collect_freeze_vars(&mac.body, &keep, &mut frozen);
+        self.collect_freeze_vars(&*mac.body, &keep, &mut frozen);
 
         MacroDefinition {
             name: mac.name.clone(),
             params: mac.params.clone(),
-            body: mac.body.clone(),
+            body: Arc::clone(&mac.body),
             is_rhai: mac.is_rhai,
             frozen_args: frozen,
         }
@@ -317,7 +335,7 @@ impl Evaluator {
         let result = crate::evaluator::lexer_parser::lex_parse_content(
             text,
             self.state.config.special_char,
-            src as i32,
+            src,
         );
         result.map_err(|e| EvalError::ParseError(e))
     }

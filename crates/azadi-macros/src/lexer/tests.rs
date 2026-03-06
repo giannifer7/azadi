@@ -2,54 +2,18 @@
 
 use crate::lexer::Lexer;
 use crate::types::{Token, TokenKind};
-use std::sync::mpsc::{channel, Receiver};
-use std::time::Duration;
 
-/// Collect tokens from the lexer, with a small timeout to prevent hangs.
+/// Collect tokens from the lexer (non-EOF tokens only).
 fn collect_tokens_with_timeout(input: &str) -> Result<Vec<Token>, String> {
-    // Create a channel.
-    let (sender, receiver) = channel();
-
-    // Convert input to a static str we can safely reference in a thread.
-    let input_string = Box::leak(input.to_string().into_boxed_str());
-
-    // Spawn a thread that runs the lexer.
-    std::thread::spawn(move || {
-        let mut lexer = Lexer::new(input_string, '%', 0, sender);
-        lexer.run();
-    });
-
-    // Collect tokens until EOF or channel close.
-    collect_from_receiver(receiver)
-}
-
-/// Helper to read tokens from the receiver with a timeout.
-fn collect_from_receiver(receiver: Receiver<Token>) -> Result<Vec<Token>, String> {
-    let mut tokens = Vec::new();
-    let timeout = Duration::from_secs(2); // or whatever
-
-    loop {
-        match receiver.recv_timeout(timeout) {
-            Ok(token) => {
-                // If we see TokenKind::EOF, return the tokens (no EOF token included).
-                if token.kind == TokenKind::EOF {
-                    return Ok(tokens);
-                }
-                tokens.push(token);
-            }
-            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                // Channel closed, return what we have.
-                return Ok(tokens);
-            }
-            Err(_) => {
-                return Err(format!(
-                    "Lexer timed out. Collected {} tokens: {:?}",
-                    tokens.len(),
-                    tokens
-                ));
-            }
-        }
+    let (tokens, errors) = Lexer::new(input, '%', 0).lex();
+    if !errors.is_empty() {
+        // Errors are non-fatal for these tests; just return what was produced.
+        let _ = errors;
     }
+    Ok(tokens
+        .into_iter()
+        .filter(|t| t.kind != TokenKind::EOF)
+        .collect())
 }
 
 /// Helper to assert tokens match an expected sequence of (TokenKind, &str).

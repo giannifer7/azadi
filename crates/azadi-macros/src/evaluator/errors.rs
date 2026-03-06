@@ -2,10 +2,6 @@
 
 use thiserror::Error;
 
-/// Custom type to signal termination (not an error).
-#[derive(Debug)]
-pub struct Terminate;
-
 #[derive(Error, Debug)]
 pub enum EvalError {
     #[error("Undefined macro: {0}")]
@@ -28,9 +24,6 @@ pub enum EvalError {
 
     #[error("Parse error: {0}")]
     ParseError(String),
-
-    #[error("Terminate execution")]
-    Terminate(Terminate),
 
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),

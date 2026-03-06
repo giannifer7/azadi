@@ -1,7 +1,6 @@
 // crates/azadi-macros/src/lexer/mod.rs
 
 use crate::types::{LexerError, Token, TokenKind};
-use std::sync::mpsc::Sender;
 
 #[cfg(test)]
 mod tests;
@@ -36,8 +35,8 @@ pub struct Lexer<'a> {
     pos: usize,
     line: usize,
     column: usize,
-    src: i32,
-    tokens: Sender<Token>,
+    src: u32,
+    tokens: Vec<Token>,
     special_char: char,
     state_stack: Vec<State>,
     pub errors: Vec<LexerError>,
@@ -47,7 +46,7 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     /// Create a new lexer.
-    pub fn new(input: &'a str, special_char: char, src: i32, tokens: Sender<Token>) -> Self {
+    pub fn new(input: &'a str, special_char: char, src: u32) -> Self {
         let bytes = input.as_bytes();
         let mut lexer = Lexer {
             input,
@@ -56,7 +55,7 @@ impl<'a> Lexer<'a> {
             line: 1,
             column: 1,
             src,
-            tokens,
+            tokens: Vec::new(),
             special_char,
             state_stack: Vec::new(),
             errors: Vec::new(),
@@ -65,6 +64,12 @@ impl<'a> Lexer<'a> {
         };
         lexer.state_stack.push(State::Block);
         lexer
+    }
+
+    /// Run the lexer and return the collected tokens.
+    pub fn lex(mut self) -> (Vec<Token>, Vec<LexerError>) {
+        self.run();
+        (self.tokens, self.errors)
     }
 
     /// Record the current line/column (used to silence warnings about unused variables).
@@ -180,13 +185,12 @@ impl<'a> Lexer<'a> {
         if length == 0 && kind != TokenKind::EOF {
             return;
         }
-        let token = Token {
+        self.tokens.push(Token {
             kind,
             src: self.src,
             pos,
             length,
-        };
-        let _ = self.tokens.send(token);
+        });
     }
 
     /// Record an error at the given (row, col) with the specified message.

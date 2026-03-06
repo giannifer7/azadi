@@ -4,23 +4,16 @@ use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::types::ASTNode;
 
-pub fn lex_parse_content(source: &str, special_char: char, src: i32) -> Result<ASTNode, String> {
-    use std::sync::mpsc::channel;
-    let (tx, rx) = channel();
-    {
-        let mut lexer = Lexer::new(source, special_char, src, tx);
-        lexer.run();
-        if !lexer.errors.is_empty() {
-            let errs = lexer
-                .errors
-                .iter()
-                .map(|e| format!("{:?}", e))
-                .collect::<Vec<_>>()
-                .join("; ");
-            return Err(format!("Lexer errors: {}", errs));
-        }
+pub fn lex_parse_content(source: &str, special_char: char, src: u32) -> Result<ASTNode, String> {
+    let (tokens, lex_errors) = Lexer::new(source, special_char, src).lex();
+    if !lex_errors.is_empty() {
+        let errs = lex_errors
+            .iter()
+            .map(|e| format!("{:?}", e))
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Err(format!("Lexer errors: {}", errs));
     }
-    let tokens: Vec<_> = rx.try_iter().collect();
 
     let mut parser = Parser::new();
     parser

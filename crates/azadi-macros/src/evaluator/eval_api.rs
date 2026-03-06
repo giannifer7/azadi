@@ -62,11 +62,10 @@ pub fn eval_files(
         .map_err(|e| EvalError::Runtime(format!("Cannot create {output_dir:?}: {e}")))?;
 
     for input_path in inputs {
-        let mut out_name = match input_path.file_name() {
+        let out_name = match input_path.file_name() {
             Some(n) => n.to_os_string(),
             None => "output".into(),
         };
-        out_name.push(".txt");
         let out_file = output_dir.join(out_name);
 
         eval_file(input_path, &out_file, evaluator)?;

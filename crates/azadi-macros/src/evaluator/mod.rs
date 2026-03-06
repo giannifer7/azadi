@@ -16,7 +16,7 @@ mod tests;
 // Re-export everything needed by the rest of the crate
 pub use crate::types::ASTNode;
 pub use core::Evaluator;
-pub use errors::{EvalError, EvalResult, Terminate};
+pub use errors::{EvalError, EvalResult};
 pub use eval_api::{
     eval_file, eval_file_with_config, eval_files, eval_files_with_config, eval_string,
     eval_string_with_defaults,

@@ -43,7 +43,7 @@ pub enum NodeKind {
 #[derive(Debug, Clone, Copy)]
 pub struct Token {
     pub kind: TokenKind,
-    pub src: i32,
+    pub src: u32,
     pub pos: usize,
     pub length: usize,
 }
@@ -58,7 +58,7 @@ pub struct LexerError {
 #[derive(Debug, Clone)]
 pub struct ParseNode {
     pub kind: NodeKind,
-    pub src: i32,
+    pub src: u32,
     pub token: Token,
     pub end_pos: usize,
     pub parts: Vec<usize>,
@@ -67,7 +67,7 @@ pub struct ParseNode {
 #[derive(Debug, Clone)]
 pub struct ASTNode {
     pub kind: NodeKind,
-    pub src: i32,
+    pub src: u32,
     pub token: Token,
     pub end_pos: usize,
     pub parts: Vec<ASTNode>,

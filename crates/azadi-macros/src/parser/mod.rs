@@ -82,7 +82,7 @@ impl Parser {
         }
     }
 
-    fn create_node(&mut self, kind: NodeKind, src: i32, token: Token) -> usize {
+    fn create_node(&mut self, kind: NodeKind, src: u32, token: Token) -> usize {
         let node = ParseNode {
             kind,
             src,
@@ -100,7 +100,7 @@ impl Parser {
         }
     }
 
-    fn create_add_node(&mut self, kind: NodeKind, src: i32, token: Token) -> usize {
+    fn create_add_node(&mut self, kind: NodeKind, src: u32, token: Token) -> usize {
         let new_idx = self.create_node(kind, src, token);
         // Attach it to the node on top of the stack
         if let Some(&(_, parent_idx)) = self.stack.last() {

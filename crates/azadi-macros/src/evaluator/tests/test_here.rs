@@ -52,6 +52,6 @@ fn test_here_with_macros() {
         "%def(insert_content, greeting, %{\n            Inserted content, %(greeting)!\n        %})\n        Before %%here(insert_content, Hello)\n            Inserted content, Hello!\n                After"
     );
 
-    // Verify that the result indicates termination
-    assert!(result.is_err()); // %here terminates execution
+    // Verify that processing succeeded (early exit is a clean stop, not an error)
+    assert!(result.is_ok());
 }

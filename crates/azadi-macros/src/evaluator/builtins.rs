@@ -2,10 +2,11 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use super::case_conversion::convert_case_str;
 use super::core::Evaluator;
-use super::errors::{EvalError, EvalResult, Terminate};
+use super::errors::{EvalError, EvalResult};
 use crate::types::{ASTNode, NodeKind};
 
 /// Type for a builtin macro function: (Evaluator, node) -> String
@@ -149,7 +150,7 @@ fn define_macro(
     let mac = crate::evaluator::state::MacroDefinition {
         name: macro_name,
         params: param_list,
-        body: body_node,
+        body: Arc::new(body_node),
         is_rhai: config.is_rhai,
         frozen_args: HashMap::new(),
     };
@@ -276,11 +277,14 @@ pub fn builtin_eval(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> 
     } else {
         vec![]
     };
+    // Use the name-argument's token so source locations in errors point to
+    // the macro name in the %eval() call, not to the %eval token itself.
+    let name_token = parts[0].token;
     let call_node = ASTNode {
         kind: NodeKind::Macro,
-        src: node.src,
-        token: node.token.clone(),
-        end_pos: node.end_pos,
+        src: name_token.src,
+        token: name_token,
+        end_pos: parts[0].end_pos,
         parts: rest,
         name: None,
     };
@@ -305,7 +309,8 @@ pub fn builtin_here(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> 
         Some(&eval.get_backup_dir_path()),
     )?;
 
-    Err(EvalError::Terminate(Terminate))
+    eval.set_early_exit();
+    Ok("".into())
 }
 
 pub fn builtin_capitalize(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
