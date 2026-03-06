@@ -23,11 +23,35 @@ pub fn eval_string(
     evaluator.evaluate(&ast)
 }
 
+/// Returns the canonical path of `p`, resolving through the parent directory
+/// when `p` itself does not yet exist (common for output files).
+fn canonical(p: &Path) -> std::io::Result<PathBuf> {
+    if p.exists() {
+        return p.canonicalize();
+    }
+    let parent = p.parent().unwrap_or(Path::new("."));
+    let name = p.file_name().unwrap_or_default();
+    Ok(parent.canonicalize()?.join(name))
+}
+
 pub fn eval_file(
     input_file: &Path,
     output_file: &Path,
     evaluator: &mut Evaluator,
 ) -> EvalResult<()> {
+    // Guard: refuse to overwrite the input file.
+    let canon_in = input_file.canonicalize().map_err(|e| {
+        EvalError::Runtime(format!("Cannot resolve input path {input_file:?}: {e}"))
+    })?;
+    let canon_out = canonical(output_file).map_err(|e| {
+        EvalError::Runtime(format!("Cannot resolve output path {output_file:?}: {e}"))
+    })?;
+    if canon_in == canon_out {
+        return Err(EvalError::Runtime(format!(
+            "Output path {output_file:?} is the same as the input file — refusing to overwrite"
+        )));
+    }
+
     let content = fs::read_to_string(input_file)
         .map_err(|e| EvalError::Runtime(format!("Cannot read {input_file:?}: {e}")))?;
 
