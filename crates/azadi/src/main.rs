@@ -28,6 +28,10 @@ struct Args {
 
     // ── azadi-macros options ──────────────────────────────────────────────────
 
+    /// Base directory prepended to every input path
+    #[arg(long, default_value = ".")]
+    input_dir: PathBuf,
+
     /// Special character for macros
     #[arg(long, default_value = "%")]
     special: char,
@@ -39,6 +43,12 @@ struct Args {
     /// Work directory (macro backups + noweb private files)
     #[arg(long, default_value = "_azadi_work")]
     work_dir: PathBuf,
+
+    // ── debugging ─────────────────────────────────────────────────────────────
+
+    /// Print macro-expanded text to stderr before noweb processing
+    #[arg(long)]
+    dump_expanded: bool,
 
     // ── azadi-noweb options ───────────────────────────────────────────────────
 
@@ -138,10 +148,16 @@ fn run(args: Args) -> Result<(), Error> {
 
     // Phase 1: macro-expand each input file, feed result to noweb.
     for input_path in &args.inputs {
-        let content = std::fs::read_to_string(input_path)?;
-        let expanded = process_string(&content, Some(input_path), &mut evaluator)?;
+        let full_path = args.input_dir.join(input_path);
+        let content = std::fs::read_to_string(&full_path)?;
+        let expanded = process_string(&content, Some(&full_path), &mut evaluator)?;
         let expanded_str = String::from_utf8_lossy(&expanded);
-        clip.read(&expanded_str, &input_path.to_string_lossy());
+        if args.dump_expanded {
+            eprintln!("=== expanded: {} ===", full_path.display());
+            eprintln!("{}", expanded_str);
+            eprintln!("=== end: {} ===", full_path.display());
+        }
+        clip.read(&expanded_str, &full_path.to_string_lossy());
     }
 
     // Phase 2: write all @file chunks.
