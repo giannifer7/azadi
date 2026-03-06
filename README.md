@@ -71,8 +71,8 @@ argument is bound to the variable whose name matches the identifier, regardless
 of position:
 
 ```
-%def(greet, name, msg, Hello, %(name)! %(msg))
-%greet(msg = Good morning, name = Alice)
+%def(greet, name, msg, %{Hello, %(name)! %(msg)%})
+%greet(name = Alice, msg = %{Good morning%})
 ```
 Output: `Hello, Alice! Good morning`
 
@@ -126,10 +126,11 @@ Tags are purely documentary; they do not affect evaluation.
 ```
 
 All arguments except the first (name) and last (body) are formal parameters.
-Use `%{ ... %}` for multi-line bodies.
+Wrap the body in `%{ %}` — it is required whenever the body contains commas or
+parentheses, and good style otherwise:
 
 ```
-%def(greet, name, Hello, %(name)!)
+%def(greet, name, %{Hello, %(name)!%})
 %greet(World)
 ```
 Output: `Hello, World!`
