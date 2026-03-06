@@ -75,10 +75,10 @@ azadi notes.md --gen src --dump-expanded 2>expanded.txt
 sources in a subdirectory. Every input path is joined with `--input-dir` before
 reading.
 
-`--dump-expanded` writes the macro-expanded intermediate text to stderr — one
-fenced block per input file — so you can inspect exactly what azadi-noweb
-receives. This is the first thing to check when a chunk cannot be found or
-expands unexpectedly.
+`--dump-expanded` writes the macro-expanded intermediate text to stderr, one
+section per input file delimited by `=== expanded: <path> ===` / `=== end: <path> ===`
+headers, so you can inspect exactly what azadi-noweb receives. This is the
+first thing to check when a chunk cannot be found or expands unexpectedly.
 
 ---
 
