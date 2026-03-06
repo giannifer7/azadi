@@ -377,7 +377,8 @@ gamma
 fn test_tilde_expansion_in_file_chunk() {
     let fake_home = tempfile::TempDir::new().unwrap();
     // Override HOME for this test
-    std::env::set_var("HOME", fake_home.path());
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::set_var("HOME", fake_home.path()) };
 
     let mut setup = TestSetup::new(&["#"]);
     setup.clip.read(

@@ -104,10 +104,10 @@ impl SafeFileWriter {
         fs::create_dir_all(gen_base.as_ref())?;
         fs::create_dir_all(private_dir.as_ref())?;
 
-        let gen = gen_base.as_ref().canonicalize()?;
+        let gen_dir = gen_base.as_ref().canonicalize()?;
         let private = private_dir.as_ref().canonicalize()?;
 
-        Ok((gen, private))
+        Ok((gen_dir, private))
     }
 
     fn atomic_copy<P: AsRef<Path>>(&self, source: P, destination: P) -> io::Result<()> {

@@ -25,8 +25,8 @@ struct Args {
     priv_dir: PathBuf,
 
     /// Base directory of generated files
-    #[arg(long, default_value = "gen")]
-    gen: PathBuf,
+    #[arg(long = "gen", default_value = "gen")]
+    gen_dir: PathBuf,
 
     /// Delimiter used to open a chunk
     #[arg(long, default_value = "<<")]
@@ -80,7 +80,7 @@ fn run(args: Args) -> Result<(), AzadiError> {
         .collect();
 
     let safe_writer = SafeFileWriter::with_config(
-        &args.gen,
+        &args.gen_dir,
         &args.priv_dir,
         SafeWriterConfig {
             formatters,
