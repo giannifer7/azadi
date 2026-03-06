@@ -143,7 +143,7 @@ Output: `Hello, World!`
 ```
 Output: `7 * 7`
 
-Macros can be nested — a macro body may call other macros:
+A macro body may call other macros:
 
 ```
 %def(bold,   text, %{**%(text)**%})
@@ -160,6 +160,22 @@ Output:
 
 **This text will be bold**
 ```
+
+A macro body may also contain `%def` calls that define new macros. Those macros
+are local to the invocation scope; use `%export` to promote them to the
+caller's scope:
+
+```
+%def(make_pair, a, b, %{
+%def(first,  %{%(a)%})
+%def(second, %{%(b)%})
+%export(first)
+%export(second)
+%})
+%make_pair(hello, world)
+(%first(), %second())
+```
+Output: `(hello, world)`
 
 #### `%set` — set a variable
 
