@@ -1,14 +1,23 @@
 # Azadi
 
-Azadi is a literate-programming toolchain. It consists of two tools that work together in
-a pipeline:
+Azadi is a literate-programming toolchain. Write your source code inside
+Markdown (or any text file), expand macros, extract named chunks, and let
+the tool write the real files.
 
-```
-azadi-macros source.md | azadi-noweb
+The recommended entry point is the combined `azadi` command:
+
+```bash
+azadi source.md --gen src
 ```
 
-1. **azadi-macros** — expands macro definitions embedded in a source document
-2. **azadi-noweb** — extracts named code chunks and writes them to output files
+Under the hood it runs two passes in sequence:
+
+1. **azadi-macros** — expands `%macro(...)` calls in the source document
+2. **azadi-noweb** — extracts `<<@file ...>>` chunks and writes them to disk
+
+Both passes run in-process; no intermediate files or subprocesses are needed.
+The individual `azadi-macros` and `azadi-noweb` binaries are also available for
+advanced or step-by-step use.
 
 ---
 
@@ -16,15 +25,67 @@ azadi-macros source.md | azadi-noweb
 
 ```bash
 cargo build --release
-# binaries land in target/release/azadi-macros and target/release/azadi-noweb
+# binaries: target/release/azadi  target/release/azadi-macros  target/release/azadi-noweb
 ```
+
+Run the built-in example:
+
+```bash
+cd examples/c_enum
+azadi status.md --gen src
+```
+
+---
+
+## `azadi` — combined tool
+
+### Usage
+
+```bash
+azadi [OPTIONS] <INPUTS>...
+```
+
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--input-dir <PATH>` | `.` | Base directory prepended to every input path |
+| `--special <CHAR>` | `%` | Macro invocation character |
+| `--include <PATHS>` | `.` | Include search paths for `%include`/`%import` (colon-separated on Unix) |
+| `--work-dir <PATH>` | `_azadi_work` | Work directory for backups and private noweb files |
+| `--gen <PATH>` | `gen` | Base directory for generated output files |
+| `--open-delim <STR>` | `<<` | Chunk-open delimiter |
+| `--close-delim <STR>` | `>>` | Chunk-close delimiter |
+| `--chunk-end <STR>` | `@` | End-of-chunk marker |
+| `--comment-markers <STR>` | `#,//` | Comment prefixes recognised before chunk delimiters (comma-separated) |
+| `--formatter <EXT=CMD>` | | Run a formatter after writing a file (e.g. `rs=rustfmt`), repeatable |
+| `--dump-expanded` | off | Print macro-expanded text to stderr before noweb processes it |
+
+### Example
+
+```bash
+# Run from the project root; inputs live in docs/
+azadi notes.md --input-dir docs --gen src --formatter rs=rustfmt
+
+# Debug: see what the macro expander produced
+azadi notes.md --gen src --dump-expanded 2>expanded.txt
+```
+
+`--input-dir` lets you run from the project root while keeping your literate
+sources in a subdirectory. Every input path is joined with `--input-dir` before
+reading.
+
+`--dump-expanded` writes the macro-expanded intermediate text to stderr — one
+fenced block per input file — so you can inspect exactly what azadi-noweb
+receives. This is the first thing to check when a chunk cannot be found or
+expands unexpectedly.
 
 ---
 
 ## azadi-macros
 
-A macro expander. Reads one or more source files, evaluates `%macro(...)` calls, and
-writes the result to `--output`.
+A macro expander. Reads source files, evaluates `%macro(...)` calls, and writes
+the result to `--output`.
 
 ### Usage
 
@@ -36,7 +97,7 @@ azadi-macros [OPTIONS] <INPUTS>...
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--output <PATH>` | `.` | Output file (or directory when processing multiple inputs) |
+| `--output <PATH>` | `.` | Output file or directory (`-` for stdout) |
 | `--special <CHAR>` | `%` | Macro invocation character |
 | `--work-dir <PATH>` | `_azadi_work` | Directory for backup / intermediate files |
 | `--include <PATHS>` | `.` | Include search paths (separated by `--pathsep`) |
@@ -209,8 +270,8 @@ Returns the value if both arguments are equal, otherwise empty string.
 
 #### `%include` / `%import`
 
-`%include` expands the included file inline. `%import` expands it but discards the output
-(useful for loading macro definitions).
+`%include` expands the included file inline. `%import` expands it but discards
+the output (useful for loading macro definitions).
 
 ```
 %import(macros/common.txt)
@@ -232,12 +293,12 @@ Output: `my_fancy_name`
 %rhaidef(name, param1, param2, ..., body)
 ```
 
-The body is a [Rhai](https://rhai.rs) script. It is evaluated at call time; its return
-value (converted to string) becomes the macro output.
+The body is a [Rhai](https://rhai.rs) script. It is evaluated at call time; its
+return value (converted to string) becomes the macro output.
 
-All visible azadi scope variables are injected into the Rhai script as string variables.
-The body **must** be wrapped in `%{ ... %}` whenever it contains parentheses, so that
-azadi does not misparse them as argument separators.
+All visible azadi scope variables are injected into the Rhai script as string
+variables. The body **must** be wrapped in `%{ ... %}` whenever it contains
+parentheses, so that azadi does not misparse them as argument separators.
 
 **Registered Rhai helpers:**
 
@@ -247,8 +308,8 @@ azadi does not misparse them as argument separators.
 | `parse_float(s)` | `String → f64` | Parse string to float (returns 0.0 on error) |
 | `to_hex(n)` | `i64 → String` | Format integer as `0xHEX` |
 
-Rhai does **not** support Rust turbofish syntax — use the helpers above instead of
-`.parse::<i64>()`.
+Rhai does **not** support Rust turbofish syntax — use the helpers above instead
+of `.parse::<i64>()`.
 
 **Examples:**
 
@@ -315,15 +376,15 @@ x is: %(x)
 
 #### `%here` — in-place expansion (modifies the source file)
 
-Evaluates its argument and writes the result back into the source file at the call site.
-Useful for one-time code generation.
+Evaluates its argument and writes the result back into the source file at the
+call site. Useful for one-time code generation.
 
 ---
 
 ## azadi-noweb
 
-A noweb-style chunk extractor. Reads literate source files, resolves chunk references, and
-writes output files.
+A noweb-style chunk extractor. Reads literate source files, resolves chunk
+references, and writes output files.
 
 ### Usage
 
@@ -347,8 +408,9 @@ azadi-noweb [OPTIONS] <FILES>...
 
 ### Chunk syntax
 
-Comment markers (`#` or `//` by default) are stripped before the delimiters are
-recognised, so chunks blend naturally into any host language's comment syntax.
+Comment markers (`#` or `//` by default) are stripped before the delimiters
+are recognised, so chunks blend naturally into any host language's comment
+syntax.
 
 ```rust
 // <<@file src/hello.rs>>=
@@ -362,15 +424,17 @@ println!("Hello, world!");
 // @
 ```
 
-- `<<@file path>>=` declares a file output chunk.
+- `<<@file path>>=` declares a file output chunk. The path may begin with `~/`
+  to write to the home directory.
 - `<<name>>=` declares a named chunk.
-- `<<name>>` inside a chunk body references (expands) another chunk, preserving indentation.
+- `<<name>>` inside a chunk body references (expands) another chunk, preserving
+  indentation.
 - A line matching `// @` (or `# @`) ends the current chunk.
 
 Modifiers go **before** the chunk name, inside the delimiters.
 
-**`@replace`** — on a definition line: discards all prior definitions of that chunk and
-starts a new one.
+**`@replace`** — discards all prior definitions of that chunk and starts a new
+one:
 
 ```rust
 // <<@replace @file src/main.rs>>=
@@ -378,45 +442,13 @@ starts a new one.
 // @
 ```
 
-**`@reversed`** — on a reference line: expands the referenced chunk's accumulated
-definitions in reverse order (last-defined first). Useful for stack / LIFO patterns.
+**`@reversed`** — on a reference line: expands the referenced chunk's
+accumulated definitions in reverse order (last-defined first). Useful for
+stack / LIFO patterns.
 
 ```rust
 // <<@reversed items>>
 ```
-
-### Full pipeline example
-
-Given `src/app.md`:
-
-````markdown
-# My App
-
-## Entry point
-
-// <<@file src/main.rs>>=
-fn main() {
-    // <<setup>>
-    // <<run>>
-}
-// @
-
-// <<setup>>=
-let config = Config::default();
-// @
-
-// <<run>>=
-app::run(config);
-// @
-````
-
-Run:
-
-```bash
-azadi-macros src/app.md | azadi-noweb --gen .
-```
-
-This writes `src/main.rs` with all chunks expanded in place.
 
 ---
 
