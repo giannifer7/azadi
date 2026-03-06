@@ -4,6 +4,7 @@
 resolver = "2"
 
 members = [
+    "crates/azadi",
     "crates/azadi-macros",
     "crates/azadi-noweb",
 ]

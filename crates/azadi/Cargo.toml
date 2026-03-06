@@ -1,0 +1,15 @@
+[package]
+name = "azadi"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "azadi"
+path = "src/main.rs"
+
+[dependencies]
+azadi-macros.workspace = true
+azadi-noweb.workspace = true
+clap = { workspace = true }

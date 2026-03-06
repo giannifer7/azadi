@@ -44,6 +44,10 @@ fmt:
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 
+# Run the combined azadi tool (usage: just azadi src/foo.md)
+azadi FILE:
+    cargo run --package azadi -- "{{FILE}}"
+
 # Run azadi-macros on a file (usage: just macros src/foo.md)
 macros FILE:
     cargo run --package azadi-macros -- "{{FILE}}"
@@ -52,18 +56,11 @@ macros FILE:
 noweb FILE:
     cargo run --package azadi-noweb -- "{{FILE}}"
 
-# Run the full pipeline on a file: macros | noweb (Linux only — uses /dev/stdin)
-pipeline FILE:
-    cargo run --package azadi-macros -- "{{FILE}}" --output - 2>/dev/null | \
-    cargo run --package azadi-noweb -- /dev/stdin
-
 # ── Examples ──────────────────────────────────────────────────────────────────
 
 # Regenerate the c_enum example
 example-c-enum:
-    cd examples/c_enum && \
-    cargo run --package azadi-macros -- status.md --output - 2>/dev/null | \
-    cargo run --package azadi-noweb -- /dev/stdin --gen src
+    cd examples/c_enum && cargo run --package azadi -- status.md --gen src
 
 # ── Clean ─────────────────────────────────────────────────────────────────────
 
