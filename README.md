@@ -143,6 +143,24 @@ Output: `Hello, World!`
 ```
 Output: `7 * 7`
 
+Macros can be nested — a macro body may call other macros:
+
+```
+%def(bold,   text, %{**%(text)**%})
+%def(titled, name, body, %{
+### %(name)
+
+%bold(%(body))
+%})
+%titled(Introduction, %{This text will be bold%})
+```
+Output:
+```
+### Introduction
+
+**This text will be bold**
+```
+
 #### `%set` — set a variable
 
 ```
