@@ -228,7 +228,7 @@ impl Evaluator {
         }
 
         self.state.call_depth += 1;
-        let body_result = self.evaluate(&*mac.body);
+        let body_result = self.evaluate(&mac.body);
         self.state.call_depth -= 1;
         let mut result = body_result?;
 
@@ -297,7 +297,7 @@ impl Evaluator {
     pub fn freeze_macro_definition(&mut self, mac: &MacroDefinition) -> MacroDefinition {
         let mut frozen = HashMap::new();
         let keep: HashSet<String> = mac.params.iter().cloned().collect();
-        self.collect_freeze_vars(&*mac.body, &keep, &mut frozen);
+        self.collect_freeze_vars(&mac.body, &keep, &mut frozen);
 
         MacroDefinition {
             name: mac.name.clone(),
@@ -337,7 +337,7 @@ impl Evaluator {
             self.state.config.special_char,
             src,
         );
-        result.map_err(|e| EvalError::ParseError(e))
+        result.map_err(EvalError::ParseError)
     }
 
     fn find_file(&self, filename: &str) -> EvalResult<PathBuf> {

@@ -129,10 +129,7 @@ impl From<io::Error> for ChunkError {
 
 impl From<AzadiError> for ChunkError {
     fn from(e: AzadiError) -> Self {
-        ChunkError::IoError(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            e.to_string(),
-        ))
+        ChunkError::IoError(std::io::Error::other(e.to_string()))
     }
 }
 
@@ -270,6 +267,7 @@ impl ChunkStore {
     /// - If the line opens a chunk, we define it (or replace it).
     /// - If the line closes a chunk, we end the current one.
     /// - Otherwise, if we’re inside a chunk, we add lines to it.
+    ///
     /// Then we fill out file_chunks for any chunk name that starts with @file .
     pub fn read(&mut self, text: &str, file_idx: usize) {
         debug!("Reading text for file_idx: {}", file_idx);
@@ -358,15 +356,15 @@ impl ChunkStore {
             }
 
             // If we're in a chunk, add lines to it
-            if let Some((ref cname, idx)) = current_chunk {
-                if let Some(rc) = self.chunks.get(cname) {
-                    let mut borrowed = rc.borrow_mut();
-                    let def = borrowed.definitions.get_mut(idx).unwrap();
-                    if line.ends_with('\n') {
-                        def.content.push(line.to_string());
-                    } else {
-                        def.content.push(format!("{}\n", line));
-                    }
+            if let Some((ref cname, idx)) = current_chunk
+                && let Some(rc) = self.chunks.get(cname)
+            {
+                let mut borrowed = rc.borrow_mut();
+                let def = borrowed.definitions.get_mut(idx).unwrap();
+                if line.ends_with('\n') {
+                    def.content.push(line.to_string());
+                } else {
+                    def.content.push(format!("{}\n", line));
                 }
             }
         }
@@ -560,19 +558,19 @@ impl ChunkStore {
         for (name, rc) in &self.chunks {
             if !name.starts_with("@file ") {
                 let borrowed = rc.borrow();
-                if borrowed.references == 0 {
-                    if let Some(first_def) = borrowed.definitions.first() {
-                        let fname = self
-                            .file_names
-                            .get(first_def.file_idx)
-                            .cloned()
-                            .unwrap_or_default();
-                        let ln = first_def.line + 1;
-                        warns.push(format!(
-                            "Warning: {} line {}: chunk '{}' is defined but never referenced",
-                            fname, ln, name
-                        ));
-                    }
+                if borrowed.references == 0
+                    && let Some(first_def) = borrowed.definitions.first()
+                {
+                    let fname = self
+                        .file_names
+                        .get(first_def.file_idx)
+                        .cloned()
+                        .unwrap_or_default();
+                    let ln = first_def.line + 1;
+                    warns.push(format!(
+                        "Warning: {} line {}: chunk '{}' is defined but never referenced",
+                        fname, ln, name
+                    ));
                 }
             }
         }

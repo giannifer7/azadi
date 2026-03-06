@@ -102,11 +102,9 @@ impl<'a> Iterator for WordSplitter<'a> {
         while let Some((i, curr_char)) = chars.next() {
             let next_char = chars.clone().next().map(|(_, c)| c);
 
-            if Self::is_word_boundary(prev_char, curr_char, next_char) {
-                if i > 0 {
-                    self.pos += i;
-                    return Some(&self.input[start..start + i]);
-                }
+            if Self::is_word_boundary(prev_char, curr_char, next_char) && i > 0 {
+                self.pos += i;
+                return Some(&self.input[start..start + i]);
             }
 
             last_pos = i;

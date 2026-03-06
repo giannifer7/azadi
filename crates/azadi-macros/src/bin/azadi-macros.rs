@@ -78,10 +78,7 @@ fn run(args: Args) -> Result<(), EvalError> {
         final_inputs.push(full);
     }
 
-    let result =
-        azadi_macros::macro_api::process_files_from_config(&final_inputs, &args.output, config);
-
-    result
+    azadi_macros::macro_api::process_files_from_config(&final_inputs, &args.output, config)
 }
 
 fn main() {

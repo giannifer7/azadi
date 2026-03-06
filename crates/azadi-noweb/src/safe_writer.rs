@@ -248,10 +248,13 @@ impl SafeFileWriter {
         }
 
         // Step 2: Content-based modification detection
-        if self.config.modification_check && output_file.is_file() && old_file.is_file() {
-            if self.content_differs(&output_file, &old_file)? && !self.config.allow_overwrites {
-                return Err(SafeWriterError::ModifiedExternally(output_file));
-            }
+        if self.config.modification_check
+            && output_file.is_file()
+            && old_file.is_file()
+            && self.content_differs(&output_file, &old_file)?
+            && !self.config.allow_overwrites
+        {
+            return Err(SafeWriterError::ModifiedExternally(output_file));
         }
 
         // Step 3: Copy private → output (skip if identical)

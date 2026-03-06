@@ -192,7 +192,7 @@ pub fn strip_space_before_comments(
                 .get_node(part_idx)
                 .ok_or(ASTError::NodeNotFound(part_idx))?;
 
-            if node.parts.len() > 0 {
+            if !node.parts.is_empty() {
                 if nodes_to_process.is_none() {
                     nodes_to_process = Some(Vec::with_capacity(node.parts.len()));
                 }
@@ -209,28 +209,26 @@ pub fn strip_space_before_comments(
                     false
                 };
 
-                if is_line_comment || block_comment_newline {
-                    if i > 0 {
-                        let prev_idx = node.parts[i - 1];
-                        let prev = parser
-                            .get_node(prev_idx)
-                            .ok_or(ASTError::NodeNotFound(prev_idx))?;
+                if (is_line_comment || block_comment_newline) && i > 0 {
+                    let prev_idx = node.parts[i - 1];
+                    let prev = parser
+                        .get_node(prev_idx)
+                        .ok_or(ASTError::NodeNotFound(prev_idx))?;
 
-                        match prev.kind {
-                            NodeKind::Space => {
-                                if to_remove.is_none() {
-                                    to_remove = Some(Vec::new());
-                                }
-                                to_remove.as_mut().unwrap().push(i - 1);
+                    match prev.kind {
+                        NodeKind::Space => {
+                            if to_remove.is_none() {
+                                to_remove = Some(Vec::new());
                             }
-                            NodeKind::Text => {
-                                if spaces_to_strip.is_none() {
-                                    spaces_to_strip = Some(Vec::new());
-                                }
-                                spaces_to_strip.as_mut().unwrap().push(prev_idx);
-                            }
-                            _ => {}
+                            to_remove.as_mut().unwrap().push(i - 1);
                         }
+                        NodeKind::Text => {
+                            if spaces_to_strip.is_none() {
+                                spaces_to_strip = Some(Vec::new());
+                            }
+                            spaces_to_strip.as_mut().unwrap().push(prev_idx);
+                        }
+                        _ => {}
                     }
                 }
             }

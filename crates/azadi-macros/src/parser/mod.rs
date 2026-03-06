@@ -73,6 +73,12 @@ pub struct Parser {
     stack: Vec<(ParserState, usize)>,
 }
 
+impl Default for Parser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Parser {
     /// Create a new parser
     pub fn new() -> Self {
@@ -110,10 +116,10 @@ impl Parser {
     }
 
     fn close_node(&mut self, token: Token) {
-        if let Some(&(_, node_idx)) = self.stack.last() {
-            if let Some(node) = self.nodes.get_mut(node_idx) {
-                node.end_pos = Some(token).unwrap().pos + Some(token).unwrap().length;
-            }
+        if let Some(&(_, node_idx)) = self.stack.last()
+            && let Some(node) = self.nodes.get_mut(node_idx)
+        {
+            node.end_pos = token.pos + token.length;
         }
     }
 
@@ -134,7 +140,7 @@ impl Parser {
         self.stack.push((ParserState::Block, root_idx));
 
         for token in tokens {
-            let token = token.clone();
+            let token = *token;
 
             // Which state are we in?
             match self.stack.last().map(|&(st, _)| st) {
@@ -150,7 +156,7 @@ impl Parser {
                     match token.kind {
                         TokenKind::Comma => {
                             // Param boundary
-                            self.close_node(token.clone());
+                            self.close_node(token);
                             self.stack.pop();
                             let new_idx = self.create_add_node(NodeKind::Param, token.src, token);
                             self.stack.push((ParserState::Macro, new_idx));
@@ -158,7 +164,7 @@ impl Parser {
                         }
                         TokenKind::CloseParen => {
                             // close Param, close Macro
-                            self.close_node(token.clone());
+                            self.close_node(token);
                             self.stack.pop();
                             self.close_node(token);
                             self.stack.pop();
@@ -205,12 +211,12 @@ impl Parser {
             // Otherwise, handle "new" tokens
             match token.kind {
                 TokenKind::BlockOpen => {
-                    let new_idx = self.create_add_node(NodeKind::Block, token.src, token.clone());
+                    let new_idx = self.create_add_node(NodeKind::Block, token.src, token);
                     self.stack.push((ParserState::Block, new_idx));
                 }
                 TokenKind::Macro => {
                     // Start a Macro node + a Param node
-                    let macro_idx = self.create_add_node(NodeKind::Macro, token.src, token.clone());
+                    let macro_idx = self.create_add_node(NodeKind::Macro, token.src, token);
                     self.stack.push((ParserState::Macro, macro_idx));
                     let param_token = Token {
                         kind: TokenKind::Text,
@@ -223,7 +229,7 @@ impl Parser {
                 }
                 TokenKind::CommentOpen => {
                     let new_idx =
-                        self.create_add_node(NodeKind::BlockComment, token.src, token.clone());
+                        self.create_add_node(NodeKind::BlockComment, token.src, token);
                     self.stack.push((ParserState::Comment, new_idx));
                 }
                 TokenKind::Var => {
@@ -240,11 +246,10 @@ impl Parser {
         }
 
         // close + pop the root if it’s still open
-        if let Some((_, _root_idx)) = self.stack.pop() {
-            if let Some(last_token) = tokens.last() {
-                self.close_node(last_token.clone());
-            }
-            // root_idx is no longer used, but we could do something if we want
+        if let Some((_, _root_idx)) = self.stack.pop()
+            && let Some(last_token) = tokens.last()
+        {
+            self.close_node(*last_token);
         }
 
         Ok(())

@@ -288,7 +288,7 @@ pub fn builtin_eval(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> 
         parts: rest,
         name: None,
     };
-    eval.evaluate_macro_call(&call_node, &macro_name)
+    eval.evaluate_macro_call(&call_node, macro_name)
 }
 
 pub fn builtin_here(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {

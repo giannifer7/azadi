@@ -7,6 +7,12 @@ pub struct RhaiEvaluator {
     engine: Engine,
 }
 
+impl Default for RhaiEvaluator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RhaiEvaluator {
     pub fn new() -> Self {
         let mut engine = Engine::new();
