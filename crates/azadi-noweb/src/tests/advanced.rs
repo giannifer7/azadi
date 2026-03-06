@@ -3,6 +3,7 @@
 use super::*;
 use crate::AzadiError;
 use crate::ChunkError;
+use std::fs;
 
 /// Bug fix: duplicate @file chunk without @replace used to silently discard
 /// both definitions. Now it reports an error and keeps the first definition.
@@ -369,4 +370,25 @@ gamma
 
     let expanded = setup.clip.expand("list", "").unwrap();
     assert_eq!(expanded, vec!["gamma\n", "beta\n", "alpha\n"]);
+}
+
+/// `~` in an `@file` path is expanded to `$HOME` and the file is written there.
+#[test]
+fn test_tilde_expansion_in_file_chunk() {
+    let fake_home = tempfile::TempDir::new().unwrap();
+    // Override HOME for this test
+    std::env::set_var("HOME", fake_home.path());
+
+    let mut setup = TestSetup::new(&["#"]);
+    setup.clip.read(
+        "# <<@file ~/tilde_test.txt>>=\nhello tilde\n# @\n",
+        "tilde.nw",
+    );
+
+    setup.clip.write_files().unwrap();
+
+    let expected = fake_home.path().join("tilde_test.txt");
+    assert!(expected.exists(), "file should be written to expanded ~ path");
+    let content = fs::read_to_string(&expected).unwrap();
+    assert_eq!(content, "hello tilde\n");
 }

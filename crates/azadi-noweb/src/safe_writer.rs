@@ -161,7 +161,7 @@ impl SafeFileWriter {
         }; // Handles are dropped here
 
         if are_different {
-            println!("file {} changed", destination.display());
+            eprintln!("file {} changed", destination.display());
             std::thread::sleep(std::time::Duration::from_millis(10)); // Allow Windows to release handles
             self.atomic_copy(source, destination)?;
         }
@@ -292,20 +292,22 @@ impl SafeFileWriter {
 
 /// Validate that the filename does not specify an absolute path or attempt directory traversal.
 fn validate_filename(path: &Path) -> Result<(), SafeWriterError> {
-    let filename = path.to_string_lossy();
+    use std::path::Component;
 
-    // Check for Unix-style absolute path
-    if filename.starts_with('/') {
+    if path.is_absolute() {
         return Err(SafeWriterError::SecurityViolation(format!(
             "Absolute paths are not allowed: {}",
-            filename
+            path.display()
         )));
     }
 
-    // Check for Windows-style absolute paths, e.g., "C:" or "D:"
+    // Check for Windows-style drive letters, e.g., "C:" or "D:"
+    let filename = path.to_string_lossy();
     if filename.len() >= 2 {
-        let chars: Vec<char> = filename.chars().collect();
-        if chars[1] == ':' && chars[0].is_ascii_alphabetic() {
+        let mut chars = filename.chars();
+        let first = chars.next().unwrap();
+        let second = chars.next().unwrap();
+        if second == ':' && first.is_ascii_alphabetic() {
             return Err(SafeWriterError::SecurityViolation(format!(
                 "Windows-style absolute paths are not allowed: {}",
                 filename
@@ -313,11 +315,10 @@ fn validate_filename(path: &Path) -> Result<(), SafeWriterError> {
         }
     }
 
-    // Check if filename contains '..'
-    if filename.split('/').any(|component| component == "..") {
+    if path.components().any(|c| matches!(c, Component::ParentDir)) {
         return Err(SafeWriterError::SecurityViolation(format!(
             "Path traversal detected (..): {}",
-            filename
+            path.display()
         )));
     }
 

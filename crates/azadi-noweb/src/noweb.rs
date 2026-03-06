@@ -166,6 +166,18 @@ pub struct ChunkStore {
     file_names: Vec<String>,
 }
 
+/// Expand a leading `~` to `$HOME` (Unix only; no-op if HOME is unset).
+fn expand_tilde(path: &str) -> String {
+    if path == "~" {
+        return std::env::var("HOME").unwrap_or_else(|_| path.to_string());
+    }
+    if let Some(rest) = path.strip_prefix("~/") {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "~".to_string());
+        return format!("{}/{}", home, rest);
+    }
+    path.to_string()
+}
+
 /// Check if the given path is safe (not absolute, no .., no colon).
 fn path_is_safe(path: &str) -> Result<(), SafeWriterError> {
     let p = Path::new(path);
@@ -331,6 +343,9 @@ impl ChunkStore {
                     drop(borrowed);
 
                     current_chunk = Some((full_name.clone(), def_idx));
+                    if full_name.starts_with("@file ") && !self.file_chunks.contains(&full_name) {
+                        self.file_chunks.push(full_name.clone());
+                    }
                     debug!("Started chunk: {}", full_name);
                 }
                 continue;
@@ -356,14 +371,6 @@ impl ChunkStore {
             }
         }
 
-        // Update file_chunks array
-        let mut fc = Vec::new();
-        for (name, _) in &self.chunks {
-            if name.starts_with("@file ") {
-                fc.push(name.clone());
-            }
-        }
-        self.file_chunks = fc;
         debug!("Finished reading. File chunks: {:?}", self.file_chunks);
     }
 
@@ -591,12 +598,26 @@ impl<'a> ChunkWriter<'a> {
             return Ok(());
         }
         let path_str = chunk_name["@file ".len()..].trim();
-        let final_path = self.safe_file_writer.before_write(path_str)?;
-        let mut f = fs::File::create(&final_path)?;
-        for line in content {
-            f.write_all(line.as_bytes())?;
+        let expanded = expand_tilde(path_str);
+        let path = std::path::Path::new(&expanded);
+
+        if path.is_absolute() {
+            // Tilde-expanded (or explicitly absolute) path: write directly.
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            let mut f = fs::File::create(path)?;
+            for line in content {
+                f.write_all(line.as_bytes())?;
+            }
+        } else {
+            let final_path = self.safe_file_writer.before_write(path_str)?;
+            let mut f = fs::File::create(&final_path)?;
+            for line in content {
+                f.write_all(line.as_bytes())?;
+            }
+            self.safe_file_writer.after_write(path_str)?;
         }
-        self.safe_file_writer.after_write(path_str)?;
         Ok(())
     }
 }
