@@ -10,6 +10,11 @@ pub struct EvalConfig {
     pub special_char: char,
     pub include_paths: Vec<PathBuf>,
     pub backup_dir: PathBuf,
+    /// When true, `%include`/`%import` evaluate their path argument but do not
+    /// recurse into the file.  The resolved path is recorded in
+    /// `EvaluatorState::discovered_includes` instead.  Used by the directory
+    /// driver-discovery pass.
+    pub discovery_mode: bool,
 }
 
 impl Default for EvalConfig {
@@ -18,6 +23,7 @@ impl Default for EvalConfig {
             special_char: '%',
             include_paths: vec![PathBuf::from(".")],
             backup_dir: PathBuf::from("_azadi_work"),
+            discovery_mode: false,
         }
     }
 }
@@ -94,6 +100,8 @@ pub struct EvaluatorState {
     pub call_depth: usize,
     /// Set by `%here` to stop further evaluation cleanly (not an error).
     pub early_exit: bool,
+    /// Populated during discovery mode: every path resolved by `%include`/`%import`.
+    pub discovered_includes: Vec<PathBuf>,
 }
 
 impl EvaluatorState {
@@ -106,6 +114,7 @@ impl EvaluatorState {
             source_manager: SourceManager::new(),
             call_depth: 0,
             early_exit: false,
+            discovered_includes: Vec::new(),
         }
     }
 

@@ -5,7 +5,7 @@
 
 use azadi_macros::{
     evaluator::{EvalConfig, EvalError, Evaluator},
-    macro_api::{collect_direct_includes, process_string},
+    macro_api::process_string,
 };
 use azadi_noweb::{AzadiError, Clip, SafeFileWriter, SafeWriterConfig};
 use clap::{ArgGroup, Parser};
@@ -139,17 +139,6 @@ fn find_files(dir: &Path, ext: &str, out: &mut Vec<PathBuf>) -> std::io::Result<
     Ok(())
 }
 
-/// Parse `file` and return resolved paths for every `%include`/`%import` call
-/// whose path argument is a literal string.  Uses the real macro parser so
-/// that occurrences inside comments or macro definitions are handled correctly.
-fn collect_includes(file: &Path, config: &EvalConfig, include_root: &Path) -> Vec<PathBuf> {
-    let Ok(text) = std::fs::read_to_string(file) else { return vec![] };
-    collect_direct_includes(&text, Some(file), config)
-        .into_iter()
-        .map(|p| include_root.join(p))
-        .collect()
-}
-
 /// Escape a path for use in a Makefile depfile (spaces → `\ `).
 fn depfile_escape(p: &Path) -> String {
     p.to_string_lossy().replace(' ', "\\ ")
@@ -177,6 +166,7 @@ fn run(args: Args) -> Result<(), Error> {
         special_char: args.special,
         include_paths: include_paths.clone(),
         backup_dir: args.work_dir.clone(),
+        discovery_mode: false,
     };
     let mut evaluator = Evaluator::new(eval_config.clone());
 
@@ -211,14 +201,21 @@ fn run(args: Args) -> Result<(), Error> {
         find_files(dir, "adoc", &mut all).map_err(Error::Io)?;
         all.sort();
 
-        // include_root for resolving %include paths (first include_path or dir itself)
-        let include_root = include_paths.first().map(PathBuf::as_path).unwrap_or(dir.as_path());
-
-        // Collect all paths referenced by %include(...) across the tree.
+        // Discovery pass: evaluate each file with discovery_mode=true so that
+        // %include/%import resolve their path arguments fully (handling %if,
+        // computed paths, etc.) but do not recurse into the included file.
+        // Each file gets a fresh evaluator so scope does not leak between files.
+        let discovery_config = EvalConfig { discovery_mode: true, ..eval_config.clone() };
         let mut included: HashSet<PathBuf> = HashSet::new();
         for adoc in &all {
-            for p in collect_includes(adoc, &eval_config, include_root) {
-                included.insert(p.canonicalize().unwrap_or(p));
+            if let Ok(text) = std::fs::read_to_string(adoc) {
+                let mut disc = Evaluator::new(discovery_config.clone());
+                // Ignore evaluation errors — a broken file is not a fragment.
+                if process_string(&text, Some(adoc), &mut disc).is_ok() {
+                    for p in disc.take_discovered_includes() {
+                        included.insert(p.canonicalize().unwrap_or(p));
+                    }
+                }
             }
         }
 

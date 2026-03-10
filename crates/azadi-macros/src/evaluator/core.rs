@@ -360,6 +360,12 @@ impl Evaluator {
 
     pub fn do_include(&mut self, filename: &str) -> EvalResult<String> {
         let path = self.find_file(filename)?;
+
+        if self.state.config.discovery_mode {
+            self.state.discovered_includes.push(path);
+            return Ok("".into());
+        }
+
         if self.state.open_includes.contains(&path) {
             return Err(EvalError::CircularInclude(path.display().to_string()));
         }
@@ -374,6 +380,11 @@ impl Evaluator {
         // so that a reused evaluator does not permanently block future includes.
         self.state.open_includes.remove(&path);
         result
+    }
+
+    /// Return (and clear) the list of paths recorded during a discovery-mode run.
+    pub fn take_discovered_includes(&mut self) -> Vec<PathBuf> {
+        std::mem::take(&mut self.state.discovered_includes)
     }
 
     pub fn num_source_files(&self) -> usize {

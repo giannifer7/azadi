@@ -56,6 +56,7 @@ fn run(args: Args) -> Result<(), EvalError> {
         special_char: args.special,
         include_paths,
         backup_dir: args.work_dir.clone(),
+        discovery_mode: false,
     };
 
     // Ensure work directory exists

@@ -143,6 +143,49 @@ fn test_directory_mode_import_is_fragment() {
     );
 }
 
+/// A fragment included via a computed path (%include(%if(...))) is still
+/// correctly excluded from driver discovery.
+#[test]
+fn test_directory_mode_conditional_include_is_fragment() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().canonicalize().unwrap();
+
+    // extras.adoc: a fragment that is only included when a variable is set.
+    // The %if condition evaluates to empty (variable not set), so the include
+    // fires with an empty path — extras.adoc is NOT pulled in this run.
+    // But we also test the case where the path IS computed: cond_helper.adoc
+    // is always included via a macro that builds the path.
+    write(&root, "src/cond_helper.adoc", "%def(helper_msg, from helper)\n");
+
+    // driver.adoc: includes cond_helper.adoc via a macro-computed path.
+    write(
+        &root,
+        "src/driver.adoc",
+        "%def(helper_name, cond_helper.adoc)\n\
+         %include(%helper_name())\n\
+         # <<@file out.txt>>=\n\
+         %helper_msg()\n\
+         # @\n",
+    );
+
+    let gen_dir = root.join("gen");
+
+    azadi()
+        .arg("--directory").arg(root.join("src"))
+        .arg("--include").arg(&root.join("src"))
+        .arg("--gen").arg(&gen_dir)
+        .arg("--work-dir").arg(root.join("work"))
+        .args(delim_args())
+        .assert()
+        .success();
+
+    let output = fs::read_to_string(gen_dir.join("out.txt")).unwrap();
+    assert!(
+        output.contains("from helper"),
+        "macro-computed include path should be resolved and fragment excluded from drivers"
+    );
+}
+
 // ── Depfile and stamp ─────────────────────────────────────────────────────────
 
 /// --stamp creates an empty file on success.
