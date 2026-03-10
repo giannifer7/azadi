@@ -104,6 +104,45 @@ fn test_directory_mode_multiple_drivers() {
     assert_eq!(fs::read_to_string(gen_dir.join("b.txt")).unwrap().trim(), "from-b");
 }
 
+/// %import'd files are also treated as fragments and excluded from driver discovery.
+#[test]
+fn test_directory_mode_import_is_fragment() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().canonicalize().unwrap();
+
+    // macros.adoc: defines a macro via %import — no @file chunk.
+    // If mistakenly run as a driver it would produce no output but still be
+    // processed; we verify it is excluded from the driver set.
+    write(&root, "src/macros.adoc", "%def(item, world)\n");
+
+    // driver.adoc: uses %import (discard output) to load macros, then writes a file.
+    write(
+        &root,
+        "src/driver.adoc",
+        "%import(src/macros.adoc)\n\
+         # <<@file out.txt>>=\n\
+         Hello %item()\n\
+         # @\n",
+    );
+
+    let gen_dir = root.join("gen");
+
+    azadi()
+        .arg("--directory").arg(root.join("src"))
+        .arg("--include").arg(&root)
+        .arg("--gen").arg(&gen_dir)
+        .arg("--work-dir").arg(root.join("work"))
+        .args(delim_args())
+        .assert()
+        .success();
+
+    let output = fs::read_to_string(gen_dir.join("out.txt")).unwrap();
+    assert!(
+        output.contains("Hello world"),
+        "driver output should contain the macro expansion from the %import'd fragment"
+    );
+}
+
 // ── Depfile and stamp ─────────────────────────────────────────────────────────
 
 /// --stamp creates an empty file on success.

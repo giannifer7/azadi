@@ -142,15 +142,21 @@ fn find_files(dir: &Path, ext: &str, out: &mut Vec<PathBuf>) -> std::io::Result<
 /// Scan a file for `{special}include(path)` patterns and return resolved paths.
 fn collect_includes(file: &Path, special: char, include_root: &Path) -> Vec<PathBuf> {
     let Ok(text) = std::fs::read_to_string(file) else { return vec![] };
-    let prefix = format!("{}include(", special);
+    // Both %include and %import pull in another file and mark it as a fragment.
+    let prefixes = [
+        format!("{}include(", special),
+        format!("{}import(", special),
+    ];
     let mut result = Vec::new();
-    let mut rest = text.as_str();
-    while let Some(pos) = rest.find(&prefix) {
-        rest = &rest[pos + prefix.len()..];
-        if let Some(end) = rest.find(')') {
-            let path_str = rest[..end].trim();
-            result.push(include_root.join(path_str));
-            rest = &rest[end + 1..];
+    for prefix in &prefixes {
+        let mut rest = text.as_str();
+        while let Some(pos) = rest.find(prefix.as_str()) {
+            rest = &rest[pos + prefix.len()..];
+            if let Some(end) = rest.find(')') {
+                let path_str = rest[..end].trim();
+                result.push(include_root.join(path_str));
+                rest = &rest[end + 1..];
+            }
         }
     }
     result
