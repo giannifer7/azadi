@@ -56,6 +56,10 @@ impl Evaluator {
         self.state.config.backup_dir.clone()
     }
 
+    pub fn source_files(&self) -> &[PathBuf] {
+        self.state.source_manager.source_files()
+    }
+
     pub fn get_special_char(&self) -> Vec<u8> {
         self.state.get_special_char()
     }

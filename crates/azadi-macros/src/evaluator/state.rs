@@ -77,6 +77,10 @@ impl SourceManager {
     pub fn num_sources(&self) -> usize {
         self.source_files.len()
     }
+
+    pub fn source_files(&self) -> &[PathBuf] {
+        &self.file_names
+    }
 }
 
 pub const MAX_RECURSION_DEPTH: usize = 100;

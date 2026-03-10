@@ -13,3 +13,7 @@ path = "src/main.rs"
 azadi-macros.workspace = true
 azadi-noweb.workspace = true
 clap = { workspace = true }
+
+[dev-dependencies]
+assert_cmd.workspace = true
+tempfile.workspace = true

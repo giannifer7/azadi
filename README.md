@@ -42,7 +42,11 @@ azadi status.md --gen src
 ### Usage
 
 ```bash
+# Process explicit files
 azadi [OPTIONS] <INPUTS>...
+
+# Auto-discover all driver files in a directory
+azadi [OPTIONS] --directory <DIR>
 ```
 
 ### Options
@@ -60,8 +64,11 @@ azadi [OPTIONS] <INPUTS>...
 | `--comment-markers <STR>` | `#,//` | Comment prefixes recognised before chunk delimiters (comma-separated) |
 | `--formatter <EXT=CMD>` | | Run a formatter after writing a file (e.g. `rs=rustfmt`), repeatable |
 | `--dump-expanded` | off | Print macro-expanded text to stderr before noweb processes it |
+| `--directory <DIR>` | | Auto-discover and process all driver `.adoc` files under this directory (mutually exclusive with positional inputs) |
+| `--depfile <PATH>` | | Write a Makefile depfile listing every source file read |
+| `--stamp <PATH>` | | Touch this file on success (build-system stamp) |
 
-### Example
+### Examples
 
 ```bash
 # Run from the project root; inputs live in docs/
@@ -79,6 +86,43 @@ reading.
 section per input file delimited by `=== expanded: <path> ===` / `=== end: <path> ===`
 headers, so you can inspect exactly what azadi-noweb receives. This is the
 first thing to check when a chunk cannot be found or expands unexpectedly.
+
+### Directory mode
+
+`--directory <DIR>` scans a directory tree for `.adoc` files, automatically
+identifies which are *drivers* (top-level files) versus *fragments* (files
+referenced by a `%include()` in another `.adoc`), and processes each driver.
+No `--directory` changes are needed when new `.adoc` files are added to the
+tree.
+
+```bash
+azadi --directory src --include . --gen src
+```
+
+### Build-system integration (`--depfile` / `--stamp`)
+
+`--depfile <PATH>` writes a Makefile-format depfile after a successful run.
+In directory mode the depfile lists **all** `.adoc` files found in the tree
+(so adding a new file triggers a rebuild even before it is processed).
+In explicit-input mode it lists only the files actually read by the evaluator.
+
+`--stamp <PATH>` writes an empty file on success, suitable as a build-system
+output marker.
+
+Together they let a single build rule replace an entire list of per-file rules:
+
+```meson
+# meson.build — one rule for all .adoc files; no edits needed when adding new ones
+custom_target('gen-nim',
+  output  : ['gen.stamp', 'gen.d'],
+  depfile : 'gen.d',
+  command : [azadi, '--directory', meson.current_source_dir() / 'src',
+                    '--include',   meson.current_source_dir(),
+                    '--stamp',     '@OUTPUT0@',
+                    '--depfile',   '@OUTPUT1@',
+                    ...other flags...],
+)
+```
 
 ---
 
