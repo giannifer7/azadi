@@ -5,7 +5,7 @@
 
 use azadi_macros::{
     evaluator::{EvalConfig, EvalError, Evaluator},
-    macro_api::process_string,
+    macro_api::{collect_direct_includes, process_string},
 };
 use azadi_noweb::{AzadiError, Clip, SafeFileWriter, SafeWriterConfig};
 use clap::{ArgGroup, Parser};
@@ -139,27 +139,15 @@ fn find_files(dir: &Path, ext: &str, out: &mut Vec<PathBuf>) -> std::io::Result<
     Ok(())
 }
 
-/// Scan a file for `{special}include(path)` patterns and return resolved paths.
-fn collect_includes(file: &Path, special: char, include_root: &Path) -> Vec<PathBuf> {
+/// Parse `file` and return resolved paths for every `%include`/`%import` call
+/// whose path argument is a literal string.  Uses the real macro parser so
+/// that occurrences inside comments or macro definitions are handled correctly.
+fn collect_includes(file: &Path, config: &EvalConfig, include_root: &Path) -> Vec<PathBuf> {
     let Ok(text) = std::fs::read_to_string(file) else { return vec![] };
-    // Both %include and %import pull in another file and mark it as a fragment.
-    let prefixes = [
-        format!("{}include(", special),
-        format!("{}import(", special),
-    ];
-    let mut result = Vec::new();
-    for prefix in &prefixes {
-        let mut rest = text.as_str();
-        while let Some(pos) = rest.find(prefix.as_str()) {
-            rest = &rest[pos + prefix.len()..];
-            if let Some(end) = rest.find(')') {
-                let path_str = rest[..end].trim();
-                result.push(include_root.join(path_str));
-                rest = &rest[end + 1..];
-            }
-        }
-    }
-    result
+    collect_direct_includes(&text, Some(file), config)
+        .into_iter()
+        .map(|p| include_root.join(p))
+        .collect()
 }
 
 /// Escape a path for use in a Makefile depfile (spaces → `\ `).
@@ -190,7 +178,7 @@ fn run(args: Args) -> Result<(), Error> {
         include_paths: include_paths.clone(),
         backup_dir: args.work_dir.clone(),
     };
-    let mut evaluator = Evaluator::new(eval_config);
+    let mut evaluator = Evaluator::new(eval_config.clone());
 
     let comment_markers: Vec<String> = args
         .comment_markers
@@ -229,7 +217,7 @@ fn run(args: Args) -> Result<(), Error> {
         // Collect all paths referenced by %include(...) across the tree.
         let mut included: HashSet<PathBuf> = HashSet::new();
         for adoc in &all {
-            for p in collect_includes(adoc, args.special, include_root) {
+            for p in collect_includes(adoc, &eval_config, include_root) {
                 included.insert(p.canonicalize().unwrap_or(p));
             }
         }
