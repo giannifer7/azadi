@@ -15,6 +15,10 @@ pub struct EvalConfig {
     /// `EvaluatorState::discovered_includes` instead.  Used by the directory
     /// driver-discovery pass.
     pub discovery_mode: bool,
+    /// When true, the `%env(NAME)` builtin is permitted to read environment
+    /// variables.  Disabled by default so that templates cannot silently
+    /// exfiltrate secrets without the user opting in via `--allow-env`.
+    pub allow_env: bool,
 }
 
 impl Default for EvalConfig {
@@ -24,6 +28,7 @@ impl Default for EvalConfig {
             include_paths: vec![PathBuf::from(".")],
             backup_dir: PathBuf::from("_azadi_work"),
             discovery_mode: false,
+            allow_env: false,
         }
     }
 }

@@ -387,6 +387,10 @@ impl Evaluator {
         std::mem::take(&mut self.state.discovered_includes)
     }
 
+    pub fn allow_env(&self) -> bool {
+        self.state.config.allow_env
+    }
+
     pub fn num_source_files(&self) -> usize {
         self.state.source_manager.num_sources()
     }

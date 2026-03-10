@@ -5,6 +5,7 @@
 //   - --depfile and --stamp (build-system integration)
 
 use assert_cmd::Command;
+use predicates::str::contains;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
@@ -209,6 +210,64 @@ fn test_stamp_is_written_on_success() {
         .success();
 
     assert!(stamp.exists(), "--stamp file should be created on success");
+}
+
+// ── %env builtin ──────────────────────────────────────────────────────────────
+
+/// %env(NAME) expands to the value of the environment variable when --allow-env
+/// is passed.
+#[test]
+fn test_env_builtin_with_allow_env() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().canonicalize().unwrap();
+
+    write(
+        &root,
+        "src/driver.adoc",
+        "# <<@file out.txt>>=\n%env(AZADI_TEST_VAR)\n# @\n",
+    );
+
+    let gen_dir = root.join("gen");
+
+    azadi()
+        .env("AZADI_TEST_VAR", "hello-from-env")
+        .arg("--directory").arg(root.join("src"))
+        .arg("--include").arg(&root)
+        .arg("--gen").arg(&gen_dir)
+        .arg("--work-dir").arg(root.join("work"))
+        .arg("--allow-env")
+        .args(delim_args())
+        .assert()
+        .success();
+
+    let output = fs::read_to_string(gen_dir.join("out.txt")).unwrap();
+    assert!(
+        output.contains("hello-from-env"),
+        "output should contain the env var value; got:\n{output}"
+    );
+}
+
+/// %env(NAME) fails with a clear error when --allow-env is NOT passed.
+#[test]
+fn test_env_builtin_disabled_by_default() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().canonicalize().unwrap();
+
+    write(
+        &root,
+        "src/driver.adoc",
+        "# <<@file out.txt>>=\n%env(HOME)\n# @\n",
+    );
+
+    azadi()
+        .arg("--directory").arg(root.join("src"))
+        .arg("--include").arg(&root)
+        .arg("--gen").arg(root.join("gen"))
+        .arg("--work-dir").arg(root.join("work"))
+        .args(delim_args())
+        .assert()
+        .failure()
+        .stderr(contains("--allow-env"));
 }
 
 /// --depfile lists all discovered .adoc files as dependencies and names the

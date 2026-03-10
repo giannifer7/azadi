@@ -120,6 +120,7 @@ dependencies = [
  "azadi-macros",
  "azadi-noweb",
  "clap",
+ "predicates",
  "tempfile",
 ]
 

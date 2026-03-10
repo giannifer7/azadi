@@ -96,6 +96,13 @@ struct Args {
     /// Touch this file on success (build-system stamp).
     #[arg(long)]
     stamp: Option<PathBuf>,
+
+    // ── security ──────────────────────────────────────────────────────────────
+
+    /// Allow %env(NAME) to read environment variables.
+    /// Disabled by default to prevent templates from silently reading secrets.
+    #[arg(long)]
+    allow_env: bool,
 }
 
 #[derive(Debug)]
@@ -167,6 +174,7 @@ fn run(args: Args) -> Result<(), Error> {
         include_paths: include_paths.clone(),
         backup_dir: args.work_dir.clone(),
         discovery_mode: false,
+        allow_env: args.allow_env,
     };
     let mut evaluator = Evaluator::new(eval_config.clone());
 

@@ -53,6 +53,7 @@ pub fn default_builtins() -> HashMap<String, BuiltinFn> {
         "to_screaming_case".to_string(),
         builtin_to_screaming_case as BuiltinFn,
     );
+    map.insert("env".to_string(), builtin_env as BuiltinFn);
     map
 }
 
@@ -396,4 +397,17 @@ pub fn builtin_to_screaming_case(eval: &mut Evaluator, node: &ASTNode) -> EvalRe
         return Ok("".into());
     }
     Ok(convert_case_str(&original, "screaming")?)
+}
+
+pub fn builtin_env(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    if !eval.allow_env() {
+        return Err(EvalError::InvalidUsage(
+            "env: environment variable access is disabled; pass --allow-env to enable".into(),
+        ));
+    }
+    if node.parts.is_empty() {
+        return Ok("".into());
+    }
+    let name = eval.evaluate(&node.parts[0])?;
+    Ok(std::env::var(name.trim()).unwrap_or_default())
 }

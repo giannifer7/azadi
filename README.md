@@ -67,6 +67,7 @@ azadi [OPTIONS] --directory <DIR>
 | `--directory <DIR>` | | Auto-discover and process all driver `.adoc` files under this directory (mutually exclusive with positional inputs) |
 | `--depfile <PATH>` | | Write a Makefile depfile listing every source file read |
 | `--stamp <PATH>` | | Touch this file on success (build-system stamp) |
+| `--allow-env` | off | Enable the `%env(NAME)` builtin (disabled by default) |
 
 ### Examples
 
@@ -320,6 +321,24 @@ the output (useful for loading macro definitions).
 ```
 %import(macros/common.txt)
 %my_macro(arg)
+```
+
+#### `%env` — read an environment variable
+
+```
+%env(NAME)
+```
+
+Expands to the value of environment variable `NAME`, or empty string if unset.
+Requires `--allow-env` to be passed on the command line; without it the macro
+raises an error, preventing templates from silently reading secrets.
+
+```
+azadi --allow-env notes.md --gen src
+```
+
+```
+Prefix: %env(MY_PREFIX)_
 ```
 
 #### `%capitalize`, `%decapitalize`, `%to_snake_case`, `%to_camel_case`, `%to_pascal_case`, `%to_screaming_case`

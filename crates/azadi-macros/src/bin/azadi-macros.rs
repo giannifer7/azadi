@@ -40,6 +40,10 @@ struct Args {
     #[arg(long = "input-dir", default_value = ".")]
     input_dir: PathBuf,
 
+    /// Allow %env(NAME) to read environment variables.
+    #[arg(long)]
+    allow_env: bool,
+
     /// The input files
     #[arg(required = true)]
     inputs: Vec<PathBuf>,
@@ -57,6 +61,7 @@ fn run(args: Args) -> Result<(), EvalError> {
         include_paths,
         backup_dir: args.work_dir.clone(),
         discovery_mode: false,
+        allow_env: args.allow_env,
     };
 
     // Ensure work directory exists
