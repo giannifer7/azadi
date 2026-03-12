@@ -1,0 +1,255 @@
+[
+  {
+    "type": "argument",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "arg_text",
+          "named": true
+        },
+        {
+          "type": "block",
+          "named": true
+        },
+        {
+          "type": "block_comment",
+          "named": true
+        },
+        {
+          "type": "escaped_special",
+          "named": true
+        },
+        {
+          "type": "line_comment",
+          "named": true
+        },
+        {
+          "type": "macro_call",
+          "named": true
+        },
+        {
+          "type": "variable",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "block",
+    "named": true,
+    "fields": {
+      "close": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "block_close",
+            "named": true
+          }
+        ]
+      },
+      "open": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "block_open",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "block",
+          "named": true
+        },
+        {
+          "type": "block_comment",
+          "named": true
+        },
+        {
+          "type": "escaped_special",
+          "named": true
+        },
+        {
+          "type": "line_comment",
+          "named": true
+        },
+        {
+          "type": "macro_call",
+          "named": true
+        },
+        {
+          "type": "text",
+          "named": true
+        },
+        {
+          "type": "variable",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "block_comment",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "block_comment",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "macro_call",
+    "named": true,
+    "fields": {
+      "arg": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "argument",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "macro_name",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "source_file",
+    "named": true,
+    "root": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "block",
+          "named": true
+        },
+        {
+          "type": "block_comment",
+          "named": true
+        },
+        {
+          "type": "escaped_special",
+          "named": true
+        },
+        {
+          "type": "line_comment",
+          "named": true
+        },
+        {
+          "type": "macro_call",
+          "named": true
+        },
+        {
+          "type": "text",
+          "named": true
+        },
+        {
+          "type": "variable",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "text",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "variable",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "%(",
+    "named": false
+  },
+  {
+    "type": "%*/",
+    "named": false
+  },
+  {
+    "type": "%/*",
+    "named": false
+  },
+  {
+    "type": "(",
+    "named": false
+  },
+  {
+    "type": ")",
+    "named": false
+  },
+  {
+    "type": ",",
+    "named": false
+  },
+  {
+    "type": "arg_text",
+    "named": true
+  },
+  {
+    "type": "block_close",
+    "named": true
+  },
+  {
+    "type": "block_open",
+    "named": true
+  },
+  {
+    "type": "escaped_special",
+    "named": true
+  },
+  {
+    "type": "identifier",
+    "named": true
+  },
+  {
+    "type": "line_comment",
+    "named": true
+  },
+  {
+    "type": "macro_name",
+    "named": true
+  }
+]
