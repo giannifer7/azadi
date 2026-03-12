@@ -440,6 +440,57 @@ Outer azadi scope variables are also available inside the script:
 ```
 Output: `item_count`
 
+#### `%pydef` — define a Python-scripted macro
+
+```
+%pydef(name, param1, param2, ..., body)
+```
+
+The body is a Python script powered by [monty](https://github.com/pydantic/monty),
+pydantic's sandboxed Python interpreter. It is evaluated at call time; its return value
+(converted to string) becomes the macro output.
+
+Unlike `%rhaidef`, only the explicitly declared parameters are available inside the
+script — they arrive as plain Python string variables. There is no implicit azadi scope
+injection. The script must return a value: either an explicit `return` or the value of
+the last expression.
+
+The body **must** be wrapped in `%{ ... %}` whenever it contains parentheses.
+
+**Note:** monty is at an early stage of development. Only a subset of Python is
+supported (arithmetic, string ops, `re`, basic control flow). No third-party libraries,
+no file I/O, no `print`. See the monty repository for the current feature set and known
+limitations.
+
+**Note:** the `python` feature is enabled by default. To build without it:
+```
+cargo build -p azadi-macros --no-default-features
+```
+
+**Examples:**
+
+```
+%pydef(double, x, %{str(int(x) * 2)%})
+%double(21)
+```
+Output: `42`
+
+```
+%pydef(offset, base, size, %{
+  str(int(base) + int(size))
+%})
+%offset(256, 64)
+```
+Output: `320`
+
+```
+%pydef(greet, name, %{
+  "Hello, " + name + "!"
+%})
+%greet(world)
+```
+Output: `Hello, world!`
+
 #### `%eval` — indirect macro call
 
 ```
