@@ -10,7 +10,7 @@ The **Azadi** system provides a powerful way to manage complex codebases through
 ## Core Components
 
 1.  **`azadi-macros`**: A macro translator and evaluator. It transforms custom macro definitions and calls into raw text (typically `noweb` chunks).
-    -   Supported and extensible via Python-based macros (`--pydef`).
+    -   Extensible via Rhai-scripted macros (`%rhaidef`) and Python-scripted macros (`%pydef`, powered by monty).
 2.  **`azadi-noweb`**: A literate programming tool that extracts code chunks from literate source files (Markdown, Org-mode, etc.) into final source-code files.
 
 ## General Workflow Pattern
@@ -24,7 +24,7 @@ The **Azadi** system provides a powerful way to manage complex codebases through
 
 -   **Variable Interpolation**: Use `%(var)X` to insert variables into your macros.
 -   **Nesting**: Macros can call other macros, allowing for deep abstraction.
--   **Python Integration**: Enable `--pydef` to use Python logic within your macro definitions for complex transformations.
+-   **Scripted Macros**: Use `%rhaidef` (Rhai, always available) or `%pydef` (Python via monty, enabled by default) for logic-heavy transformations.
 
 ## Literate Extraction (noweb)
 

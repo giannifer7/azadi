@@ -245,7 +245,7 @@ fn test_custom_special_char() -> Result<(), Box<dyn std::error::Error>> {
 
 // 5) Test rhaidef: arithmetic via Rhai scripting
 #[test]
-fn test_pydef_flag() -> Result<(), Box<dyn std::error::Error>> {
+fn test_rhaidef_arithmetic() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TempDir::new()?;
     let temp_path = temp.path().canonicalize()?;
 
