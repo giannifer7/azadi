@@ -23,7 +23,7 @@ fn default_pathsep() -> String {
     group(ArgGroup::new("source").required(true).args(["inputs", "directory"]))
 )]
 struct Args {
-    /// Input files (mutually exclusive with --directory)
+    /// Input files (mutually exclusive with --dir)
     #[arg(required = false)]
     inputs: Vec<PathBuf>,
 
@@ -82,18 +82,18 @@ struct Args {
     /// Discover and process driver files under this directory.
     /// A driver is any file (matching --ext) not referenced by a %include() in another such file.
     /// Mutually exclusive with positional input files.
-    #[arg(long, conflicts_with = "inputs")]
+    #[arg(long = "dir", conflicts_with = "inputs")]
     directory: Option<PathBuf>,
 
-    /// File extension(s) to scan in --directory mode (can be repeated).
-    /// Defaults to "adoc". Use --ext md for Markdown-based literate documents.
-    #[arg(long, default_value = "adoc")]
+    /// File extension(s) to scan in --dir mode (can be repeated).
+    /// Default: md. Example: --ext adoc --ext md to scan both.
+    #[arg(long, default_value = "md")]
     ext: Vec<String>,
 
     // ── build-system integration ──────────────────────────────────────────────
 
     /// Write a Makefile depfile listing every source file read.
-    /// In --directory mode the depfile lists ALL .adoc files found so that
+    /// In --dir mode the depfile lists ALL matching files found so that
     /// adding a new file triggers a rebuild.
     #[arg(long)]
     depfile: Option<PathBuf>,

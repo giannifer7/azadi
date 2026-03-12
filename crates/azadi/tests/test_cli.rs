@@ -1,7 +1,7 @@
 // crates/azadi/tests/test_cli.rs
 //
 // Integration tests for the azadi combined CLI, covering:
-//   - --directory mode (auto-discovers drivers, skips %include'd fragments)
+//   - --dir mode (auto-discovers drivers, skips %include'd fragments)
 //   - --depfile and --stamp (build-system integration)
 
 use assert_cmd::Command;
@@ -32,24 +32,24 @@ fn delim_args() -> Vec<&'static str> {
 
 // ── Directory mode ────────────────────────────────────────────────────────────
 
-/// --directory discovers driver files and processes them, while %include'd
+/// --dir discovers driver files and processes them, while %include'd
 /// fragments are skipped as standalone inputs.
 #[test]
 fn test_directory_mode_processes_drivers() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path().canonicalize().unwrap();
 
-    // fragment.adoc: just defines a macro — no @file chunk of its own.
+    // fragment.md: just defines a macro — no @file chunk of its own.
     // It would produce no output if run standalone, but here we verify it is
     // correctly identified as a fragment (referenced via %include) and not
     // run as an independent driver.
-    write(&root, "src/fragment.adoc", "%def(greeting, Hello from fragment)\n");
+    write(&root, "src/fragment.md", "%def(greeting, Hello from fragment)\n");
 
-    // driver.adoc: includes the fragment and writes one @file output.
+    // driver.md: includes the fragment and writes one @file output.
     write(
         &root,
-        "src/driver.adoc",
-        "%include(src/fragment.adoc)\n\
+        "src/driver.md",
+        "%include(src/fragment.md)\n\
          # <<@file out.txt>>=\n\
          %greeting()\n\
          # @\n",
@@ -58,7 +58,7 @@ fn test_directory_mode_processes_drivers() {
     let gen_dir = root.join("gen");
 
     azadi()
-        .arg("--directory").arg(root.join("src"))
+        .arg("--dir").arg(root.join("src"))
         .arg("--include").arg(&root)
         .arg("--gen").arg(&gen_dir)
         .arg("--work-dir").arg(root.join("work"))
@@ -81,19 +81,19 @@ fn test_directory_mode_multiple_drivers() {
 
     write(
         &root,
-        "src/a.adoc",
+        "src/a.md",
         "# <<@file a.txt>>=\nfrom-a\n# @\n",
     );
     write(
         &root,
-        "src/b.adoc",
+        "src/b.md",
         "# <<@file b.txt>>=\nfrom-b\n# @\n",
     );
 
     let gen_dir = root.join("gen");
 
     azadi()
-        .arg("--directory").arg(root.join("src"))
+        .arg("--dir").arg(root.join("src"))
         .arg("--include").arg(&root)
         .arg("--gen").arg(&gen_dir)
         .arg("--work-dir").arg(root.join("work"))
@@ -111,16 +111,16 @@ fn test_directory_mode_import_is_fragment() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path().canonicalize().unwrap();
 
-    // macros.adoc: defines a macro via %import — no @file chunk.
+    // macros.md: defines a macro via %import — no @file chunk.
     // If mistakenly run as a driver it would produce no output but still be
     // processed; we verify it is excluded from the driver set.
-    write(&root, "src/macros.adoc", "%def(item, world)\n");
+    write(&root, "src/macros.md", "%def(item, world)\n");
 
-    // driver.adoc: uses %import (discard output) to load macros, then writes a file.
+    // driver.md: uses %import (discard output) to load macros, then writes a file.
     write(
         &root,
-        "src/driver.adoc",
-        "%import(src/macros.adoc)\n\
+        "src/driver.md",
+        "%import(src/macros.md)\n\
          # <<@file out.txt>>=\n\
          Hello %item()\n\
          # @\n",
@@ -129,7 +129,7 @@ fn test_directory_mode_import_is_fragment() {
     let gen_dir = root.join("gen");
 
     azadi()
-        .arg("--directory").arg(root.join("src"))
+        .arg("--dir").arg(root.join("src"))
         .arg("--include").arg(&root)
         .arg("--gen").arg(&gen_dir)
         .arg("--work-dir").arg(root.join("work"))
@@ -154,15 +154,15 @@ fn test_directory_mode_conditional_include_is_fragment() {
     // extras.adoc: a fragment that is only included when a variable is set.
     // The %if condition evaluates to empty (variable not set), so the include
     // fires with an empty path — extras.adoc is NOT pulled in this run.
-    // But we also test the case where the path IS computed: cond_helper.adoc
+    // But we also test the case where the path IS computed: cond_helper.md
     // is always included via a macro that builds the path.
-    write(&root, "src/cond_helper.adoc", "%def(helper_msg, from helper)\n");
+    write(&root, "src/cond_helper.md", "%def(helper_msg, from helper)\n");
 
-    // driver.adoc: includes cond_helper.adoc via a macro-computed path.
+    // driver.md: includes cond_helper.md via a macro-computed path.
     write(
         &root,
-        "src/driver.adoc",
-        "%def(helper_name, cond_helper.adoc)\n\
+        "src/driver.md",
+        "%def(helper_name, cond_helper.md)\n\
          %include(%helper_name())\n\
          # <<@file out.txt>>=\n\
          %helper_msg()\n\
@@ -172,7 +172,7 @@ fn test_directory_mode_conditional_include_is_fragment() {
     let gen_dir = root.join("gen");
 
     azadi()
-        .arg("--directory").arg(root.join("src"))
+        .arg("--dir").arg(root.join("src"))
         .arg("--include").arg(&root.join("src"))
         .arg("--gen").arg(&gen_dir)
         .arg("--work-dir").arg(root.join("work"))
@@ -187,17 +187,17 @@ fn test_directory_mode_conditional_include_is_fragment() {
     );
 }
 
-/// --ext md scans .md files instead of the default .adoc.
+/// --ext adoc overrides the default .md extension to scan .adoc files.
 #[test]
 fn test_directory_mode_custom_ext() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path().canonicalize().unwrap();
 
-    write(&root, "src/fragment.md", "%def(greeting, Hello from md)\n");
+    write(&root, "src/fragment.adoc", "%def(greeting, Hello from adoc)\n");
     write(
         &root,
-        "src/driver.md",
-        "%include(src/fragment.md)\n\
+        "src/driver.adoc",
+        "%include(src/fragment.adoc)\n\
          # <<@file out.txt>>=\n\
          %greeting()\n\
          # @\n",
@@ -206,8 +206,8 @@ fn test_directory_mode_custom_ext() {
     let gen_dir = root.join("gen");
 
     azadi()
-        .arg("--directory").arg(root.join("src"))
-        .arg("--ext").arg("md")
+        .arg("--dir").arg(root.join("src"))
+        .arg("--ext").arg("adoc")
         .arg("--include").arg(&root)
         .arg("--gen").arg(&gen_dir)
         .arg("--work-dir").arg(root.join("work"))
@@ -217,8 +217,8 @@ fn test_directory_mode_custom_ext() {
 
     let output = fs::read_to_string(gen_dir.join("out.txt")).unwrap();
     assert!(
-        output.contains("Hello from md"),
-        "--ext md should discover .md driver files; got:\n{output}"
+        output.contains("Hello from adoc"),
+        "--ext adoc should discover .adoc driver files; got:\n{output}"
     );
 }
 
@@ -230,8 +230,8 @@ fn test_directory_mode_multiple_exts() {
 
     write(
         &root,
-        "src/a.adoc",
-        "# <<@file a.txt>>=\nfrom-adoc\n# @\n",
+        "src/a.md",
+        "# <<@file a.txt>>=\nfrom-md-a\n# @\n",
     );
     write(
         &root,
@@ -242,7 +242,7 @@ fn test_directory_mode_multiple_exts() {
     let gen_dir = root.join("gen");
 
     azadi()
-        .arg("--directory").arg(root.join("src"))
+        .arg("--dir").arg(root.join("src"))
         .arg("--ext").arg("adoc")
         .arg("--ext").arg("md")
         .arg("--include").arg(&root)
@@ -252,7 +252,7 @@ fn test_directory_mode_multiple_exts() {
         .assert()
         .success();
 
-    assert_eq!(fs::read_to_string(gen_dir.join("a.txt")).unwrap().trim(), "from-adoc");
+    assert_eq!(fs::read_to_string(gen_dir.join("a.txt")).unwrap().trim(), "from-md-a");
     assert_eq!(fs::read_to_string(gen_dir.join("b.txt")).unwrap().trim(), "from-md");
 }
 
@@ -264,12 +264,12 @@ fn test_stamp_is_written_on_success() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path().canonicalize().unwrap();
 
-    write(&root, "src/driver.adoc", "# <<@file out.txt>>=\nok\n# @\n");
+    write(&root, "src/driver.md", "# <<@file out.txt>>=\nok\n# @\n");
 
     let stamp = root.join("build.stamp");
 
     azadi()
-        .arg("--directory").arg(root.join("src"))
+        .arg("--dir").arg(root.join("src"))
         .arg("--include").arg(&root)
         .arg("--gen").arg(root.join("gen"))
         .arg("--work-dir").arg(root.join("work"))
@@ -292,7 +292,7 @@ fn test_env_builtin_with_allow_env() {
 
     write(
         &root,
-        "src/driver.adoc",
+        "src/driver.md",
         "# <<@file out.txt>>=\n%env(AZADI_TEST_VAR)\n# @\n",
     );
 
@@ -300,7 +300,7 @@ fn test_env_builtin_with_allow_env() {
 
     azadi()
         .env("AZADI_TEST_VAR", "hello-from-env")
-        .arg("--directory").arg(root.join("src"))
+        .arg("--dir").arg(root.join("src"))
         .arg("--include").arg(&root)
         .arg("--gen").arg(&gen_dir)
         .arg("--work-dir").arg(root.join("work"))
@@ -324,12 +324,12 @@ fn test_env_builtin_disabled_by_default() {
 
     write(
         &root,
-        "src/driver.adoc",
+        "src/driver.md",
         "# <<@file out.txt>>=\n%env(HOME)\n# @\n",
     );
 
     azadi()
-        .arg("--directory").arg(root.join("src"))
+        .arg("--dir").arg(root.join("src"))
         .arg("--include").arg(&root)
         .arg("--gen").arg(root.join("gen"))
         .arg("--work-dir").arg(root.join("work"))
@@ -339,25 +339,25 @@ fn test_env_builtin_disabled_by_default() {
         .stderr(contains("--allow-env"));
 }
 
-/// --depfile lists all discovered .adoc files as dependencies and names the
+/// --depfile lists all discovered files as dependencies and names the
 /// stamp as the Makefile target.
 #[test]
-fn test_depfile_lists_adoc_files() {
+fn test_depfile_lists_source_files() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path().canonicalize().unwrap();
 
-    write(&root, "src/fragment.adoc", "%def(msg, hi)\n");
+    write(&root, "src/fragment.md", "%def(msg, hi)\n");
     write(
         &root,
-        "src/driver.adoc",
-        "%include(src/fragment.adoc)\n# <<@file out.txt>>=\n%msg()\n# @\n",
+        "src/driver.md",
+        "%include(src/fragment.md)\n# <<@file out.txt>>=\n%msg()\n# @\n",
     );
 
     let stamp = root.join("build.stamp");
     let depfile = root.join("build.d");
 
     azadi()
-        .arg("--directory").arg(root.join("src"))
+        .arg("--dir").arg(root.join("src"))
         .arg("--include").arg(&root)
         .arg("--gen").arg(root.join("gen"))
         .arg("--work-dir").arg(root.join("work"))
@@ -374,13 +374,13 @@ fn test_depfile_lists_adoc_files() {
         dep_content.contains("build.stamp"),
         "depfile should name the stamp as target; got:\n{dep_content}"
     );
-    // Both .adoc files should appear as dependencies.
+    // Both source files should appear as dependencies.
     assert!(
-        dep_content.contains("driver.adoc"),
-        "depfile should list driver.adoc; got:\n{dep_content}"
+        dep_content.contains("driver.md"),
+        "depfile should list driver.md; got:\n{dep_content}"
     );
     assert!(
-        dep_content.contains("fragment.adoc"),
-        "depfile should list fragment.adoc; got:\n{dep_content}"
+        dep_content.contains("fragment.md"),
+        "depfile should list fragment.md; got:\n{dep_content}"
     );
 }

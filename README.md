@@ -46,7 +46,7 @@ azadi status.md --gen src
 azadi [OPTIONS] <INPUTS>...
 
 # Auto-discover all driver files in a directory
-azadi [OPTIONS] --directory <DIR>
+azadi [OPTIONS] --dir <DIR>
 ```
 
 ### Options
@@ -64,8 +64,8 @@ azadi [OPTIONS] --directory <DIR>
 | `--comment-markers <STR>` | `#,//` | Comment prefixes recognised before chunk delimiters (comma-separated) |
 | `--formatter <EXT=CMD>` | | Run a formatter after writing a file (e.g. `rs=rustfmt`), repeatable |
 | `--dump-expanded` | off | Print macro-expanded text to stderr before noweb processes it |
-| `--directory <DIR>` | | Auto-discover and process driver files under this directory (mutually exclusive with positional inputs) |
-| `--ext <EXT>` | `adoc` | File extension to scan in `--directory` mode; repeatable for multiple extensions |
+| `--dir <DIR>` | | Auto-discover and process driver files under this directory (mutually exclusive with positional inputs) |
+| `--ext <EXT>` | `md` | File extension to scan in `--dir` mode; repeatable for multiple extensions |
 | `--depfile <PATH>` | | Write a Makefile depfile listing every source file read |
 | `--stamp <PATH>` | | Touch this file on success (build-system stamp) |
 | `--allow-env` | off | Enable the `%env(NAME)` builtin (disabled by default) |
@@ -91,21 +91,21 @@ first thing to check when a chunk cannot be found or expands unexpectedly.
 
 ### Directory mode
 
-`--directory <DIR>` scans a directory tree recursively for files matching
-`--ext` (default: `adoc`), automatically identifies which are *drivers*
+`--dir <DIR>` scans a directory tree recursively for files matching
+`--ext` (default: `md`), automatically identifies which are *drivers*
 (top-level files) versus *fragments* (files referenced by a `%include()` in
 another file), and processes each driver. No changes are needed when new files
 are added to the tree.
 
 ```bash
-# Default: scan for .adoc files
-azadi --directory src --include . --gen src
+# Default: scan for .md files
+azadi --dir src --include . --gen src
 
-# Markdown-based literate documents
-azadi --directory src --ext md --include . --gen src
+# Scan for AsciiDoc files instead
+azadi --dir src --ext adoc --include . --gen src
 
 # Multiple extensions at once
-azadi --directory src --ext adoc --ext md --include . --gen src
+azadi --dir src --ext md --ext adoc --include . --gen src
 ```
 
 The driver/fragment distinction is determined by a *discovery pass*: every
@@ -130,7 +130,7 @@ Together they let a single build rule replace an entire list of per-file rules:
 custom_target('gen-nim',
   output  : ['gen.stamp', 'gen.d'],
   depfile : 'gen.d',
-  command : [azadi, '--directory', meson.current_source_dir() / 'src',
+  command : [azadi, '--dir', meson.current_source_dir() / 'src',
                     '--ext',       'md',
                     '--include',   meson.current_source_dir(),
                     '--stamp',     '@OUTPUT0@',
@@ -154,7 +154,7 @@ auto-discovery (same driver/fragment logic as the combined `azadi` tool).
 azadi-macros [OPTIONS] <INPUTS>...
 
 # Auto-discover driver files in a directory
-azadi-macros [OPTIONS] --directory <DIR>
+azadi-macros [OPTIONS] --dir <DIR>
 ```
 
 ### Options
@@ -168,8 +168,8 @@ azadi-macros [OPTIONS] --directory <DIR>
 | `--pathsep <STR>` | `:` / `;` | Path separator (platform default) |
 | `--input-dir <PATH>` | `.` | Base directory prepended to each input path |
 | `--allow-env` | off | Enable the `%env(NAME)` builtin (disabled by default) |
-| `--directory <DIR>` | | Auto-discover driver files under this directory (mutually exclusive with positional inputs) |
-| `--ext <EXT>` | `adoc` | File extension to scan in `--directory` mode; repeatable |
+| `--dir <DIR>` | | Auto-discover driver files under this directory (mutually exclusive with positional inputs) |
+| `--ext <EXT>` | `md` | File extension to scan in `--dir` mode; repeatable |
 
 ### Syntax
 

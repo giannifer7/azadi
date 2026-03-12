@@ -38,6 +38,7 @@ fn find_files(dir: &Path, exts: &[String], out: &mut Vec<PathBuf>) -> std::io::R
     group(ArgGroup::new("source").required(true).args(["inputs", "directory"]))
 )]
 struct Args {
+
     /// Output path (file or '-' for stdout)
     #[arg(long = "output", default_value = "-")]
     output: PathBuf,
@@ -66,19 +67,19 @@ struct Args {
     #[arg(long)]
     allow_env: bool,
 
-    /// The input files (mutually exclusive with --directory)
+    /// The input files (mutually exclusive with --dir)
     #[arg(required = false)]
     inputs: Vec<PathBuf>,
 
     /// Discover and process driver files under this directory.
     /// A driver is any file (matching --ext) not referenced by a %include() in another such file.
     /// Mutually exclusive with positional input files.
-    #[arg(long, conflicts_with = "inputs")]
+    #[arg(long = "dir", conflicts_with = "inputs")]
     directory: Option<PathBuf>,
 
-    /// File extension(s) to scan in --directory mode (can be repeated).
-    /// Defaults to "adoc". Use --ext md for Markdown-based literate documents.
-    #[arg(long, default_value = "adoc")]
+    /// File extension(s) to scan in --dir mode (can be repeated).
+    /// Default: md. Example: --ext adoc --ext md to scan both.
+    #[arg(long, default_value = "md")]
     ext: Vec<String>,
 }
 
