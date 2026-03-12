@@ -187,6 +187,75 @@ fn test_directory_mode_conditional_include_is_fragment() {
     );
 }
 
+/// --ext md scans .md files instead of the default .adoc.
+#[test]
+fn test_directory_mode_custom_ext() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().canonicalize().unwrap();
+
+    write(&root, "src/fragment.md", "%def(greeting, Hello from md)\n");
+    write(
+        &root,
+        "src/driver.md",
+        "%include(src/fragment.md)\n\
+         # <<@file out.txt>>=\n\
+         %greeting()\n\
+         # @\n",
+    );
+
+    let gen_dir = root.join("gen");
+
+    azadi()
+        .arg("--directory").arg(root.join("src"))
+        .arg("--ext").arg("md")
+        .arg("--include").arg(&root)
+        .arg("--gen").arg(&gen_dir)
+        .arg("--work-dir").arg(root.join("work"))
+        .args(delim_args())
+        .assert()
+        .success();
+
+    let output = fs::read_to_string(gen_dir.join("out.txt")).unwrap();
+    assert!(
+        output.contains("Hello from md"),
+        "--ext md should discover .md driver files; got:\n{output}"
+    );
+}
+
+/// --ext can be repeated to scan multiple extensions at once.
+#[test]
+fn test_directory_mode_multiple_exts() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().canonicalize().unwrap();
+
+    write(
+        &root,
+        "src/a.adoc",
+        "# <<@file a.txt>>=\nfrom-adoc\n# @\n",
+    );
+    write(
+        &root,
+        "src/b.md",
+        "# <<@file b.txt>>=\nfrom-md\n# @\n",
+    );
+
+    let gen_dir = root.join("gen");
+
+    azadi()
+        .arg("--directory").arg(root.join("src"))
+        .arg("--ext").arg("adoc")
+        .arg("--ext").arg("md")
+        .arg("--include").arg(&root)
+        .arg("--gen").arg(&gen_dir)
+        .arg("--work-dir").arg(root.join("work"))
+        .args(delim_args())
+        .assert()
+        .success();
+
+    assert_eq!(fs::read_to_string(gen_dir.join("a.txt")).unwrap().trim(), "from-adoc");
+    assert_eq!(fs::read_to_string(gen_dir.join("b.txt")).unwrap().trim(), "from-md");
+}
+
 // ── Depfile and stamp ─────────────────────────────────────────────────────────
 
 /// --stamp creates an empty file on success.

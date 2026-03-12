@@ -1,8 +1,10 @@
 // crates/azadi-macros/src/bin/macro_cli.rs
 
-use azadi_macros::evaluator::{EvalConfig, EvalError};
-use clap::Parser;
-use std::path::PathBuf;
+use azadi_macros::evaluator::{EvalConfig, EvalError, Evaluator};
+use azadi_macros::macro_api::process_string;
+use clap::{ArgGroup, Parser};
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 
 /// Returns the default path separator based on the platform
 fn default_pathsep() -> String {
@@ -13,11 +15,31 @@ fn default_pathsep() -> String {
     }
 }
 
+/// Recursively collect all files whose extension matches any entry in `exts` under `dir`.
+fn find_files(dir: &Path, exts: &[String], out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            find_files(&path, exts, out)?;
+        } else if let Some(e) = path.extension().and_then(|e| e.to_str()) {
+            if exts.iter().any(|x| x == e) {
+                out.push(path);
+            }
+        }
+    }
+    Ok(())
+}
+
 #[derive(Parser, Debug)]
-#[command(name = "azadi-macros", about = "Azadi macros translator (Rust)")]
+#[command(
+    name = "azadi-macros",
+    about = "Azadi macros translator (Rust)",
+    group(ArgGroup::new("source").required(true).args(["inputs", "directory"]))
+)]
 struct Args {
     /// Output path (file or '-' for stdout)
-    #[arg(long = "output", default_value = ".")]
+    #[arg(long = "output", default_value = "-")]
     output: PathBuf,
 
     /// Special character for macros
@@ -44,9 +66,20 @@ struct Args {
     #[arg(long)]
     allow_env: bool,
 
-    /// The input files
-    #[arg(required = true)]
+    /// The input files (mutually exclusive with --directory)
+    #[arg(required = false)]
     inputs: Vec<PathBuf>,
+
+    /// Discover and process driver files under this directory.
+    /// A driver is any file (matching --ext) not referenced by a %include() in another such file.
+    /// Mutually exclusive with positional input files.
+    #[arg(long, conflicts_with = "inputs")]
+    directory: Option<PathBuf>,
+
+    /// File extension(s) to scan in --directory mode (can be repeated).
+    /// Defaults to "adoc". Use --ext md for Markdown-based literate documents.
+    #[arg(long, default_value = "adoc")]
+    ext: Vec<String>,
 }
 
 fn run(args: Args) -> Result<(), EvalError> {
@@ -70,19 +103,47 @@ fn run(args: Args) -> Result<(), EvalError> {
             .map_err(|e| EvalError::Runtime(format!("Failed to create work directory: {}", e)))?;
     }
 
-    let mut final_inputs = Vec::new();
-    for inp in &args.inputs {
-        let full = args.input_dir.join(inp);
-        // Try to get canonical path for better error messages
-        let canon = full.canonicalize().unwrap_or_else(|_| full.clone());
-        if !full.exists() {
-            return Err(EvalError::Runtime(format!(
-                "Input file does not exist: {:?}",
-                canon
-            )));
+    let final_inputs: Vec<PathBuf> = if let Some(ref dir) = args.directory {
+        let mut all = Vec::new();
+        find_files(dir, &args.ext, &mut all)
+            .map_err(|e| EvalError::Runtime(format!("Directory scan failed: {e}")))?;
+        all.sort();
+
+        // Discovery pass: identify which files are %include'd by others (fragments).
+        let discovery_config = EvalConfig { discovery_mode: true, ..config.clone() };
+        let mut included: HashSet<PathBuf> = HashSet::new();
+        for f in &all {
+            if let Ok(text) = std::fs::read_to_string(f) {
+                let mut disc = Evaluator::new(discovery_config.clone());
+                if process_string(&text, Some(f), &mut disc).is_ok() {
+                    for p in disc.take_discovered_includes() {
+                        included.insert(p.canonicalize().unwrap_or(p));
+                    }
+                }
+            }
         }
-        final_inputs.push(full);
-    }
+
+        all.into_iter()
+            .filter(|f| {
+                let canon = f.canonicalize().unwrap_or_else(|_| f.to_path_buf());
+                !included.contains(&canon)
+            })
+            .collect()
+    } else {
+        let mut inputs = Vec::new();
+        for inp in &args.inputs {
+            let full = args.input_dir.join(inp);
+            let canon = full.canonicalize().unwrap_or_else(|_| full.clone());
+            if !full.exists() {
+                return Err(EvalError::Runtime(format!(
+                    "Input file does not exist: {:?}",
+                    canon
+                )));
+            }
+            inputs.push(full);
+        }
+        inputs
+    };
 
     azadi_macros::macro_api::process_files_from_config(&final_inputs, &args.output, config)
 }

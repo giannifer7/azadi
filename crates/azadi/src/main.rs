@@ -79,11 +79,16 @@ struct Args {
 
     // ── batch/directory mode ──────────────────────────────────────────────────
 
-    /// Discover and process all .adoc driver files under this directory.
-    /// A driver is any .adoc not referenced by a %include() in another .adoc.
+    /// Discover and process driver files under this directory.
+    /// A driver is any file (matching --ext) not referenced by a %include() in another such file.
     /// Mutually exclusive with positional input files.
     #[arg(long, conflicts_with = "inputs")]
     directory: Option<PathBuf>,
+
+    /// File extension(s) to scan in --directory mode (can be repeated).
+    /// Defaults to "adoc". Use --ext md for Markdown-based literate documents.
+    #[arg(long, default_value = "adoc")]
+    ext: Vec<String>,
 
     // ── build-system integration ──────────────────────────────────────────────
 
@@ -132,15 +137,17 @@ impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self { Error::Io(e) }
 }
 
-/// Recursively collect all files matching `ext` under `dir`.
-fn find_files(dir: &Path, ext: &str, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+/// Recursively collect all files whose extension matches any entry in `exts` under `dir`.
+fn find_files(dir: &Path, exts: &[String], out: &mut Vec<PathBuf>) -> std::io::Result<()> {
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            find_files(&path, ext, out)?;
-        } else if path.extension().and_then(|e| e.to_str()) == Some(ext) {
-            out.push(path);
+            find_files(&path, exts, out)?;
+        } else if let Some(e) = path.extension().and_then(|e| e.to_str()) {
+            if exts.iter().any(|x| x == e) {
+                out.push(path);
+            }
         }
     }
     Ok(())
@@ -206,7 +213,7 @@ fn run(args: Args) -> Result<(), Error> {
     // Determine the set of driver files to process and all .adoc files for the depfile.
     let (drivers, all_adoc): (Vec<PathBuf>, Vec<PathBuf>) = if let Some(ref dir) = args.directory {
         let mut all = Vec::new();
-        find_files(dir, "adoc", &mut all).map_err(Error::Io)?;
+        find_files(dir, &args.ext, &mut all).map_err(Error::Io)?;
         all.sort();
 
         // Discovery pass: evaluate each file with discovery_mode=true so that

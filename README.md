@@ -64,7 +64,8 @@ azadi [OPTIONS] --directory <DIR>
 | `--comment-markers <STR>` | `#,//` | Comment prefixes recognised before chunk delimiters (comma-separated) |
 | `--formatter <EXT=CMD>` | | Run a formatter after writing a file (e.g. `rs=rustfmt`), repeatable |
 | `--dump-expanded` | off | Print macro-expanded text to stderr before noweb processes it |
-| `--directory <DIR>` | | Auto-discover and process all driver `.adoc` files under this directory (mutually exclusive with positional inputs) |
+| `--directory <DIR>` | | Auto-discover and process driver files under this directory (mutually exclusive with positional inputs) |
+| `--ext <EXT>` | `adoc` | File extension to scan in `--directory` mode; repeatable for multiple extensions |
 | `--depfile <PATH>` | | Write a Makefile depfile listing every source file read |
 | `--stamp <PATH>` | | Touch this file on success (build-system stamp) |
 | `--allow-env` | off | Enable the `%env(NAME)` builtin (disabled by default) |
@@ -90,21 +91,33 @@ first thing to check when a chunk cannot be found or expands unexpectedly.
 
 ### Directory mode
 
-`--directory <DIR>` scans a directory tree for `.adoc` files, automatically
-identifies which are *drivers* (top-level files) versus *fragments* (files
-referenced by a `%include()` in another `.adoc`), and processes each driver.
-No `--directory` changes are needed when new `.adoc` files are added to the
-tree.
+`--directory <DIR>` scans a directory tree recursively for files matching
+`--ext` (default: `adoc`), automatically identifies which are *drivers*
+(top-level files) versus *fragments* (files referenced by a `%include()` in
+another file), and processes each driver. No changes are needed when new files
+are added to the tree.
 
 ```bash
+# Default: scan for .adoc files
 azadi --directory src --include . --gen src
+
+# Markdown-based literate documents
+azadi --directory src --ext md --include . --gen src
+
+# Multiple extensions at once
+azadi --directory src --ext adoc --ext md --include . --gen src
 ```
+
+The driver/fragment distinction is determined by a *discovery pass*: every
+file is evaluated with macro expansion to resolve `%include`/`%import` paths
+(including computed ones), and any file referenced from another is marked as a
+fragment and excluded from standalone processing.
 
 ### Build-system integration (`--depfile` / `--stamp`)
 
 `--depfile <PATH>` writes a Makefile-format depfile after a successful run.
-In directory mode the depfile lists **all** `.adoc` files found in the tree
-(so adding a new file triggers a rebuild even before it is processed).
+In directory mode the depfile lists **all** files found in the tree matching
+`--ext` (so adding a new file triggers a rebuild even before it is processed).
 In explicit-input mode it lists only the files actually read by the evaluator.
 
 `--stamp <PATH>` writes an empty file on success, suitable as a build-system
@@ -113,11 +126,12 @@ output marker.
 Together they let a single build rule replace an entire list of per-file rules:
 
 ```meson
-# meson.build — one rule for all .adoc files; no edits needed when adding new ones
+# meson.build — one rule for all .md files; no edits needed when adding new ones
 custom_target('gen-nim',
   output  : ['gen.stamp', 'gen.d'],
   depfile : 'gen.d',
   command : [azadi, '--directory', meson.current_source_dir() / 'src',
+                    '--ext',       'md',
                     '--include',   meson.current_source_dir(),
                     '--stamp',     '@OUTPUT0@',
                     '--depfile',   '@OUTPUT1@',
@@ -130,24 +144,32 @@ custom_target('gen-nim',
 ## azadi-macros
 
 A macro expander. Reads source files, evaluates `%macro(...)` calls, and writes
-the result to `--output`.
+the result to `--output`. Supports both explicit file lists and directory-mode
+auto-discovery (same driver/fragment logic as the combined `azadi` tool).
 
 ### Usage
 
 ```bash
+# Process explicit files
 azadi-macros [OPTIONS] <INPUTS>...
+
+# Auto-discover driver files in a directory
+azadi-macros [OPTIONS] --directory <DIR>
 ```
 
 ### Options
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--output <PATH>` | `.` | Output file or directory (`-` for stdout) |
+| `--output <PATH>` | `-` | Output file (`-` for stdout) |
 | `--special <CHAR>` | `%` | Macro invocation character |
 | `--work-dir <PATH>` | `_azadi_work` | Directory for backup / intermediate files |
 | `--include <PATHS>` | `.` | Include search paths (separated by `--pathsep`) |
 | `--pathsep <STR>` | `:` / `;` | Path separator (platform default) |
 | `--input-dir <PATH>` | `.` | Base directory prepended to each input path |
+| `--allow-env` | off | Enable the `%env(NAME)` builtin (disabled by default) |
+| `--directory <DIR>` | | Auto-discover driver files under this directory (mutually exclusive with positional inputs) |
+| `--ext <EXT>` | `adoc` | File extension to scan in `--directory` mode; repeatable |
 
 ### Syntax
 
