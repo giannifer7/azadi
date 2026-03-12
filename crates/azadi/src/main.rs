@@ -144,10 +144,10 @@ fn find_files(dir: &Path, exts: &[String], out: &mut Vec<PathBuf>) -> std::io::R
         let path = entry.path();
         if path.is_dir() {
             find_files(&path, exts, out)?;
-        } else if let Some(e) = path.extension().and_then(|e| e.to_str()) {
-            if exts.iter().any(|x| x == e) {
-                out.push(path);
-            }
+        } else if let Some(e) = path.extension().and_then(|e| e.to_str())
+            && exts.iter().any(|x| x == e)
+        {
+            out.push(path);
         }
     }
     Ok(())
