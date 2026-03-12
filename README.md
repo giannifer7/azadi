@@ -476,30 +476,46 @@ then redefine `X` before each use to project the list onto a different shape.
 **Example — generating an enum and a name table from one list:**
 
 ```
-%def(X, value, )
-
-%def(COLORS,
+%def(Colors,
   %X(Red)
   %X(Green)
   %X(Blue)
 )
 
 %# Project 1: emit enum variants
-%def(X, value, %{%(value),
-%})
-typedef enum { %COLORS() } Color;
+%def(X, value, %{%(value),%})
+typedef enum {
+  %Colors()
+} Color;
 
 %# Project 2: emit a string table
-%def(X, value, %{[%(value)] = "%(value)",
-%})
-const char *color_names[] = { %COLORS() };
+%def(X, value, %{[%(value)] = "%(value)",%})
+const char *color_names[] = {
+  %Colors()
+};
 ```
 
 Output:
 ```c
-typedef enum { Red, Green, Blue, } Color;
-const char *color_names[] = { [Red] = "Red", [Green] = "Green", [Blue] = "Blue", };
+typedef enum {
+  Red,
+  Green,
+  Blue,
+
+} Color;
+const char *color_names[] = {
+  [Red] = "Red",
+  [Green] = "Green",
+  [Blue] = "Blue",
+
+};
 ```
+
+The trailing blank line before `}` comes from the final newline in the `Colors`
+body; a formatter such as `clang-format` removes it.
+Note that `X` need not be defined before `Colors` is defined — only before it
+is called. The definition of `Colors` is not evaluated until `%Colors()` is
+invoked, at which point whatever `X` is currently bound to is used.
 
 The list is written once; each projection only defines what `X` means for that
 context. Adding a new entry to `COLORS` automatically propagates to every
