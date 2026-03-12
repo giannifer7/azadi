@@ -466,6 +466,52 @@ call site. Useful for one-time code generation.
 
 ---
 
+### Macro redefinition and the X macro pattern
+
+A `%def` with the same name as an existing macro silently replaces it. This
+enables the [X macro](https://en.wikipedia.org/wiki/X_macro) idiom: define a
+*list* macro whose body calls a configurable inner macro (`X`) for each entry,
+then redefine `X` before each use to project the list onto a different shape.
+
+**Example — generating an enum and a name table from one list:**
+
+```
+%def(X, value, %# discard by default
+)
+
+%def(COLORS,
+  %X(Red)
+  %X(Green)
+  %X(Blue)
+)
+
+%# Project 1: emit enum variants
+%def(X, value, %(value),
+)
+typedef enum { %COLORS() } Color;
+
+%# Project 2: emit a string table
+%def(X, value, [%(value)] = "%(value)",
+)
+const char *color_names[] = { %COLORS() };
+```
+
+Output:
+```c
+typedef enum { Red, Green, Blue, } Color;
+const char *color_names[] = { [Red] = "Red", [Green] = "Green", [Blue] = "Blue", };
+```
+
+The list is written once; each projection only defines what `X` means for that
+context. Adding a new entry to `COLORS` automatically propagates to every
+projection.
+
+This composes with `%rhaidef` for projections that require computation, and
+with noweb chunks for projections that emit to different output files
+simultaneously.
+
+---
+
 ## azadi-noweb
 
 A noweb-style chunk extractor. Reads literate source files, resolves chunk
