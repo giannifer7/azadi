@@ -8,13 +8,17 @@ use std::sync::Arc;
 use super::builtins::{default_builtins, BuiltinFn};
 use super::errors::{EvalError, EvalResult};
 use super::rhai_eval::RhaiEvaluator;
-use super::state::{EvalConfig, EvaluatorState, MacroDefinition, MAX_RECURSION_DEPTH};
+use super::state::{EvalConfig, EvaluatorState, MacroDefinition, ScriptKind, MAX_RECURSION_DEPTH};
 use crate::types::{ASTNode, NodeKind, Token, TokenKind};
+#[cfg(feature = "python")]
+use super::monty_eval::MontyEvaluator;
 
 pub struct Evaluator {
     state: EvaluatorState,
     builtins: HashMap<String, BuiltinFn>,
     rhai_evaluator: RhaiEvaluator,
+    #[cfg(feature = "python")]
+    monty_evaluator: MontyEvaluator,
 }
 
 impl Evaluator {
@@ -23,6 +27,8 @@ impl Evaluator {
             state: EvaluatorState::new(config),
             builtins: default_builtins(),
             rhai_evaluator: RhaiEvaluator::new(),
+            #[cfg(feature = "python")]
+            monty_evaluator: MontyEvaluator::new(),
         }
     }
 
@@ -236,18 +242,32 @@ impl Evaluator {
         self.state.call_depth -= 1;
         let mut result = body_result?;
 
-        if mac.is_rhai {
-            // Collect all visible variables (outer scopes first so inner ones win)
-            let mut variables = std::collections::HashMap::new();
-            for frame in self.state.scope_stack.iter() {
-                for (k, v) in &frame.variables {
-                    variables.insert(k.clone(), v.clone());
+        match mac.script_kind {
+            ScriptKind::None => {}
+            ScriptKind::Rhai => {
+                // Collect all visible variables (outer scopes first so inner ones win)
+                let mut variables = std::collections::HashMap::new();
+                for frame in self.state.scope_stack.iter() {
+                    for (k, v) in &frame.variables {
+                        variables.insert(k.clone(), v.clone());
+                    }
                 }
+                result = self
+                    .rhai_evaluator
+                    .evaluate(&result, &variables, Some(&mac.name))
+                    .map_err(EvalError::Runtime)?;
             }
-            result = self
-                .rhai_evaluator
-                .evaluate(&result, &variables, Some(&mac.name))
-                .map_err(EvalError::Runtime)?;
+            #[cfg(feature = "python")]
+            ScriptKind::Python => {
+                // Pass only the explicitly declared parameters to the Python script
+                let args: Vec<String> = mac.params.iter()
+                    .map(|p| self.state.get_variable(p))
+                    .collect();
+                result = self
+                    .monty_evaluator
+                    .evaluate(&result, &mac.params, &args, Some(&mac.name))
+                    .map_err(EvalError::Runtime)?;
+            }
         }
 
         self.state.pop_scope();
@@ -307,7 +327,7 @@ impl Evaluator {
             name: mac.name.clone(),
             params: mac.params.clone(),
             body: Arc::clone(&mac.body),
-            is_rhai: mac.is_rhai,
+            script_kind: mac.script_kind.clone(),
             frozen_args: frozen,
         }
     }

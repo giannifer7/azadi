@@ -33,12 +33,20 @@ impl Default for EvalConfig {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ScriptKind {
+    None,
+    Rhai,
+    #[cfg(feature = "python")]
+    Python,
+}
+
 #[derive(Debug, Clone)]
 pub struct MacroDefinition {
     pub name: String,
     pub params: Vec<String>,
     pub body: Arc<ASTNode>,
-    pub is_rhai: bool,
+    pub script_kind: ScriptKind,
     pub frozen_args: HashMap<String, String>,
 }
 

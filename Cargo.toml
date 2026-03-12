@@ -27,6 +27,7 @@ chrono = "0.4"
 
 
 rhai = "1"
+monty = { git = "https://github.com/pydantic/monty" }
 
 # Other potential shared dependencies:
 wasm-bindgen = "0.2.84"
