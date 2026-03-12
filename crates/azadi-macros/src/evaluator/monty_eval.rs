@@ -5,6 +5,12 @@ use monty::{MontyObject, MontyRun};
 
 pub struct MontyEvaluator;
 
+impl Default for MontyEvaluator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MontyEvaluator {
     pub fn new() -> Self {
         Self
