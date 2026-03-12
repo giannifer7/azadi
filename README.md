@@ -476,8 +476,7 @@ then redefine `X` before each use to project the list onto a different shape.
 **Example — generating an enum and a name table from one list:**
 
 ```
-%def(X, value, %# discard by default
-)
+%def(X, value, )
 
 %def(COLORS,
   %X(Red)
@@ -486,13 +485,13 @@ then redefine `X` before each use to project the list onto a different shape.
 )
 
 %# Project 1: emit enum variants
-%def(X, value, %(value),
-)
+%def(X, value, %{%(value),
+%})
 typedef enum { %COLORS() } Color;
 
 %# Project 2: emit a string table
-%def(X, value, [%(value)] = "%(value)",
-)
+%def(X, value, %{[%(value)] = "%(value)",
+%})
 const char *color_names[] = { %COLORS() };
 ```
 
