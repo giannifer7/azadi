@@ -440,6 +440,83 @@ Outer azadi scope variables are also available inside the script:
 ```
 Output: `item_count`
 
+#### `%rhaiset`, `%rhaiget`, `%rhaiexpr` — Rhai store
+
+A typed, persistent store that survives across all `%rhaidef` calls in a run.
+Every store entry is injected into every `%rhaidef` script as a Rhai variable
+with its native type (integer, float, string, array, map, …). Store keys take
+priority over same-named azadi scope variables.
+
+After each script runs, any store key that the script modified is automatically
+written back — no explicit write-back syntax needed.
+
+```
+%rhaiset(key, value)      — store a string or number (auto-parsed to i64/f64)
+%rhaiget(key)             — read a store value as string
+%rhaiexpr(key, rhai_expr) — store the result of a Rhai expression (for typed
+                            literals: [], #{}, 3.14, true, …)
+```
+
+**Example — counter with auto write-back:**
+
+```
+%rhaiset(counter, 0)
+%rhaidef(tick, %{
+  counter += 1;
+  counter.to_string()
+%})
+%tick()
+%tick()
+%tick()
+```
+Output:
+```
+1
+2
+3
+```
+
+**Example — accumulating an array:**
+
+```
+%rhaiexpr(items, [])
+%rhaidef(push_item, x, %{
+  items.push(x);
+  items.len().to_string()
+%})
+%push_item(apple)
+%push_item(banana)
+%push_item(cherry)
+```
+Output:
+```
+1
+2
+3
+```
+
+**Example — building and traversing a tree:**
+
+```
+%rhaiexpr(root, #{})
+%rhaidef(build_tree, %{
+  root = #{
+    name: "root",
+    children: [
+      #{ name: "a", children: [] },
+      #{ name: "b", children: [] }
+    ]
+  };
+  ""
+%})
+%rhaidef(child_count, %{
+  root.children.len().to_string()
+%})
+%build_tree()
+Tree has %child_count() children.
+```
+Output: `Tree has 2 children.`
+
 #### `%pydef` — define a Python-scripted macro
 
 ```

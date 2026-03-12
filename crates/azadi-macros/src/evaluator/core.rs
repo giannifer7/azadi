@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use super::builtins::{default_builtins, BuiltinFn};
 use super::errors::{EvalError, EvalResult};
-use super::rhai_eval::RhaiEvaluator;
+use super::rhai_eval::{self, RhaiEvaluator};
 use super::state::{EvalConfig, EvaluatorState, MacroDefinition, ScriptKind, MAX_RECURSION_DEPTH};
 use crate::types::{ASTNode, NodeKind, Token, TokenKind};
 #[cfg(feature = "python")]
@@ -17,6 +17,7 @@ pub struct Evaluator {
     state: EvaluatorState,
     builtins: HashMap<String, BuiltinFn>,
     rhai_evaluator: RhaiEvaluator,
+    rhai_store: HashMap<String, rhai::Dynamic>,
     #[cfg(feature = "python")]
     monty_evaluator: MontyEvaluator,
     #[cfg(feature = "python")]
@@ -29,11 +30,48 @@ impl Evaluator {
             state: EvaluatorState::new(config),
             builtins: default_builtins(),
             rhai_evaluator: RhaiEvaluator::new(),
+            rhai_store: HashMap::new(),
             #[cfg(feature = "python")]
             monty_evaluator: MontyEvaluator::new(),
             #[cfg(feature = "python")]
             py_store: HashMap::new(),
         }
+    }
+
+    /// Insert a value into the Rhai store.
+    /// Integers and floats are stored with their native Rhai type so that
+    /// arithmetic operators work inside scripts without explicit conversion.
+    pub fn rhaistore_set_str(&mut self, key: String, value: String) {
+        let dynamic = if let Ok(n) = value.trim().parse::<i64>() {
+            rhai::Dynamic::from(n)
+        } else if let Ok(f) = value.trim().parse::<f64>() {
+            rhai::Dynamic::from(f)
+        } else {
+            rhai::Dynamic::from(value)
+        };
+        self.rhai_store.insert(key, dynamic);
+    }
+
+    /// Evaluate a Rhai expression and store the resulting Dynamic value.
+    /// Use this to initialise store entries with typed literals like `[]` or `#{}`.
+    pub fn rhaistore_set_expr(
+        &mut self,
+        key: String,
+        expr: &str,
+    ) -> Result<(), String> {
+        let val = self.rhai_evaluator
+            .eval_expr(expr)
+            .map_err(|e| format!("rhaiexpr: {e}"))?;
+        self.rhai_store.insert(key, val);
+        Ok(())
+    }
+
+    /// Read a value from the Rhai store, converting it to String.
+    pub fn rhaistore_get(&self, key: &str) -> String {
+        self.rhai_store
+            .get(key)
+            .map(|d| rhai_eval::dynamic_to_string(d.clone()))
+            .unwrap_or_default()
     }
 
     #[cfg(feature = "python")]
@@ -259,16 +297,17 @@ impl Evaluator {
         match mac.script_kind {
             ScriptKind::None => {}
             ScriptKind::Rhai => {
-                // Collect all visible variables (outer scopes first so inner ones win)
+                // Collect all visible azadi string variables (outer scopes first)
                 let mut variables = std::collections::HashMap::new();
                 for frame in self.state.scope_stack.iter() {
                     for (k, v) in &frame.variables {
                         variables.insert(k.clone(), v.clone());
                     }
                 }
+                let mac_name = mac.name.clone();
                 result = self
                     .rhai_evaluator
-                    .evaluate(&result, &variables, Some(&mac.name))
+                    .evaluate(&result, &variables, &mut self.rhai_store, Some(&mac_name))
                     .map_err(EvalError::Runtime)?;
             }
             #[cfg(feature = "python")]

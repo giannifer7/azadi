@@ -61,3 +61,105 @@ fn test_error_propagation() {
     let result = eval_string(src, None, &mut ev);
     assert!(result.is_err(), "expected error from bad Rhai code");
 }
+
+// --- store tests ---
+
+#[test]
+fn test_rhaiset_rhaiget_roundtrip() {
+    let mut ev = evaluator();
+    let src = r#"%rhaiset(color, red)
+%rhaiget(color)"#;
+    let result = eval_string(src, None, &mut ev).expect("eval failed");
+    assert_eq!(result.trim(), "red");
+}
+
+#[test]
+fn test_store_counter_auto_writeback() {
+    // The script mutates `counter` directly; the store write-back persists it.
+    let mut ev = evaluator();
+    let src = r#"%rhaiset(counter, 0)
+%rhaidef(tick, %{
+  counter += 1;
+  counter.to_string()
+%})
+%tick()
+%tick()
+%tick()"#;
+    let result = eval_string(src, None, &mut ev).expect("eval failed");
+    // Each call emits the new counter value; trim whitespace between them
+    let values: Vec<&str> = result.split_whitespace().collect();
+    assert_eq!(values, ["1", "2", "3"]);
+}
+
+#[test]
+fn test_store_integer_type_preserved() {
+    // %rhaiset auto-parses numeric strings, so arithmetic works natively
+    let mut ev = evaluator();
+    let src = r#"%rhaiset(n, 10)
+%rhaidef(double_n, %{
+  n *= 2;
+  n.to_string()
+%})
+%double_n()
+%double_n()"#;
+    let result = eval_string(src, None, &mut ev).expect("eval failed");
+    let values: Vec<&str> = result.split_whitespace().collect();
+    // First call: n=10 → *2 = 20; second call: n=20 → *2 = 40
+    assert_eq!(values, ["20", "40"]);
+}
+
+#[test]
+fn test_store_map_tree() {
+    // Build a tree as nested Rhai maps, then query it across calls.
+    // %rhaiexpr initialises the store key with a typed Rhai value.
+    let mut ev = evaluator();
+    let src = r#"%rhaiexpr(root, #{})
+%rhaidef(build_tree, %{
+  root = #{
+    name: "root",
+    children: [
+      #{ name: "a", children: [] },
+      #{ name: "b", children: [] }
+    ]
+  };
+  ""
+%})
+%rhaidef(child_count, %{
+  root.children.len().to_string()
+%})
+%build_tree()
+%child_count()"#;
+    let result = eval_string(src, None, &mut ev).expect("eval failed");
+    assert_eq!(result.trim(), "2");
+}
+
+#[test]
+fn test_store_array_accumulation() {
+    // Accumulate items into a Rhai array across calls.
+    // %rhaiexpr initialises `items` as a typed Rhai array, not a string.
+    let mut ev = evaluator();
+    let src = r#"%rhaiexpr(items, [])
+%rhaidef(push_item, x, %{
+  items.push(x);
+  items.len().to_string()
+%})
+%push_item(apple)
+%push_item(banana)
+%push_item(cherry)"#;
+    let result = eval_string(src, None, &mut ev).expect("eval failed");
+    let counts: Vec<&str> = result.split_whitespace().collect();
+    assert_eq!(counts, ["1", "2", "3"]);
+}
+
+#[test]
+fn test_store_shadowed_by_azadi_scope() {
+    // An azadi %set variable does NOT override a same-named store key —
+    // store takes priority so scripts see the persistent value.
+    let mut ev = evaluator();
+    let src = r#"%rhaiset(x, store_val)
+%set(x, azadi_val)
+%rhaidef(get_x, %{x%})
+%get_x()"#;
+    let result = eval_string(src, None, &mut ev).expect("eval failed");
+    assert_eq!(result.trim(), "store_val");
+}
