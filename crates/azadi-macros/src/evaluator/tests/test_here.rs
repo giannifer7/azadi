@@ -1,18 +1,13 @@
 // crates/azadi-macros/src/evaluator/tests/test_here.rs
 
-use crate::evaluator::{EvalConfig, Evaluator};
+use crate::evaluator::Evaluator;
+use crate::evaluator::tests::test_utils::evaluator_in_temp_dir;
 use crate::macro_api::process_string;
 use std::fs;
-use std::path::Path;
 use tempfile::TempDir;
 
-/// Helper function to create an Evaluator with a temporary directory as the include path
-fn create_evaluator_with_temp_dir(temp_dir: &Path) -> Evaluator {
-    let config = EvalConfig {
-        include_paths: vec![temp_dir.to_path_buf()],
-        ..Default::default()
-    };
-    Evaluator::new(config)
+fn create_evaluator_with_temp_dir(temp_dir: &std::path::Path) -> Evaluator {
+    evaluator_in_temp_dir(temp_dir)
 }
 
 #[test]
