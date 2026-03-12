@@ -62,4 +62,65 @@ str(int(base) + int(size))
         let result = eval_string(src, None, &mut ev);
         assert!(result.is_err(), "expected error from division by zero");
     }
+
+    // --- store tests ---
+
+    // %pyset writes, %pyget reads
+    #[test]
+    fn test_pyset_pyget_roundtrip() {
+        let mut ev = evaluator();
+        let src = r#"%pyset(color, red)
+%pyget(color)"#;
+        let result = eval_string(src, None, &mut ev).expect("eval failed");
+        assert_eq!(result.trim(), "red");
+    }
+
+    // Store persists across separate pydef calls
+    #[test]
+    fn test_store_persists_across_calls() {
+        let mut ev = evaluator();
+        let src = r#"%pyset(counter, 0)
+%pydef(increment, %{str(int(counter) + 1)%})
+%pyset(counter, %increment())
+%pyset(counter, %increment())
+%pyget(counter)"#;
+        let result = eval_string(src, None, &mut ev).expect("eval failed");
+        assert_eq!(result.trim(), "2");
+    }
+
+    // Store is visible inside the script as a plain variable
+    #[test]
+    fn test_store_visible_in_script() {
+        let mut ev = evaluator();
+        let src = r#"%pyset(prefix, item_)
+%pydef(tagged, name, %{prefix + name%})
+%tagged(count)"#;
+        let result = eval_string(src, None, &mut ev).expect("eval failed");
+        assert_eq!(result.trim(), "item_count");
+    }
+
+    // Declared param shadows a store key with the same name
+    #[test]
+    fn test_param_shadows_store_key() {
+        let mut ev = evaluator();
+        let src = r#"%pyset(x, store_value)
+%pydef(identity, x, %{x%})
+%identity(param_value)"#;
+        let result = eval_string(src, None, &mut ev).expect("eval failed");
+        assert_eq!(result.trim(), "param_value");
+    }
+
+    // Accumulate a running sum via the store
+    #[test]
+    fn test_running_sum() {
+        let mut ev = evaluator();
+        let src = r#"%pyset(total, 0)
+%pydef(add, n, %{str(int(total) + int(n))%})
+%pyset(total, %add(10))
+%pyset(total, %add(20))
+%pyset(total, %add(12))
+%pyget(total)"#;
+        let result = eval_string(src, None, &mut ev).expect("eval failed");
+        assert_eq!(result.trim(), "42");
+    }
 }

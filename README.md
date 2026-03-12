@@ -491,6 +491,46 @@ Output: `320`
 ```
 Output: `Hello, world!`
 
+#### `%pyset` and `%pyget` — Python store
+
+A key/value store that persists across all `%pydef` calls within a single run.
+All store entries are automatically visible inside every `%pydef` script as plain
+Python string variables. Declared parameters shadow any store key with the same name.
+
+```
+%pyset(key, value)   — write a string value into the store
+%pyget(key)          — read a value from the store (empty string if absent)
+```
+
+Write-back is explicit: the script returns its result as usual, and the caller
+captures it with `%pyset` if the store needs updating.
+
+**Example — running sum:**
+
+```
+%pyset(total, 0)
+%pydef(add, n, %{str(int(total) + int(n))%})
+%pyset(total, %add(10))
+%pyset(total, %add(20))
+%pyset(total, %add(12))
+Total: %pyget(total)
+```
+Output: `Total: 42`
+
+**Example — shared prefix:**
+
+```
+%pyset(prefix, item_)
+%pydef(tagged, name, %{prefix + name%})
+%tagged(count)
+%tagged(label)
+```
+Output:
+```
+item_count
+item_label
+```
+
 #### `%eval` — indirect macro call
 
 ```

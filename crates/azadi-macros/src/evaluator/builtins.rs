@@ -20,6 +20,10 @@ pub fn default_builtins() -> HashMap<String, BuiltinFn> {
     map.insert("rhaidef".to_string(), builtin_rhaidef as BuiltinFn);
     #[cfg(feature = "python")]
     map.insert("pydef".to_string(), builtin_pydef as BuiltinFn);
+    #[cfg(feature = "python")]
+    map.insert("pyset".to_string(), builtin_pyset as BuiltinFn);
+    #[cfg(feature = "python")]
+    map.insert("pyget".to_string(), builtin_pyget as BuiltinFn);
     map.insert("include".to_string(), builtin_include as BuiltinFn);
     map.insert(
         "import".to_string(),
@@ -415,6 +419,27 @@ pub fn builtin_to_screaming_case(eval: &mut Evaluator, node: &ASTNode) -> EvalRe
         return Ok("".into());
     }
     Ok(convert_case_str(&original, "screaming")?)
+}
+
+#[cfg(feature = "python")]
+pub fn builtin_pyset(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    let parts = &node.parts;
+    if parts.len() != 2 {
+        return Err(EvalError::InvalidUsage("pyset: exactly 2 args (key, value)".into()));
+    }
+    let key = single_ident_param(eval, &node.parts[0], "store key")?;
+    let value = eval.evaluate(&parts[1])?;
+    eval.pystore_set(key, value);
+    Ok("".into())
+}
+
+#[cfg(feature = "python")]
+pub fn builtin_pyget(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    if node.parts.is_empty() {
+        return Err(EvalError::InvalidUsage("pyget: requires a key".into()));
+    }
+    let key = single_ident_param(eval, &node.parts[0], "store key")?;
+    Ok(eval.pystore_get(&key))
 }
 
 pub fn builtin_env(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {

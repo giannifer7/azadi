@@ -1,5 +1,6 @@
 // crates/azadi-macros/src/evaluator/monty_eval.rs
 
+use std::collections::{HashMap, HashSet};
 use monty::{MontyObject, MontyRun};
 
 pub struct MontyEvaluator;
@@ -14,23 +15,37 @@ impl MontyEvaluator {
         code: &str,
         params: &[String],
         args: &[String],
+        store: &HashMap<String, String>,
         name: Option<&str>,
     ) -> Result<String, String> {
         let macro_name = name.unwrap_or("pydef");
+
+        // Inject store entries as additional parameters that come before the
+        // declared params. Declared params shadow any store key with the same name.
+        let param_set: HashSet<&str> = params.iter().map(String::as_str).collect();
+        let mut all_params: Vec<String> = store
+            .keys()
+            .filter(|k| !param_set.contains(k.as_str()))
+            .cloned()
+            .collect();
+        all_params.extend_from_slice(params);
+
+        let mut all_args: Vec<MontyObject> = store
+            .iter()
+            .filter(|(k, _)| !param_set.contains(k.as_str()))
+            .map(|(_, v)| MontyObject::String(v.clone()))
+            .collect();
+        all_args.extend(args.iter().map(|s| MontyObject::String(s.clone())));
+
         let runner = MontyRun::new(
             code.to_owned(),
             &format!("{macro_name}.py"),
-            params.to_vec(),
+            all_params,
         )
         .map_err(|e| format!("pydef '{macro_name}': compile error: {e:?}"))?;
 
-        let inputs: Vec<MontyObject> = args
-            .iter()
-            .map(|s| MontyObject::String(s.clone()))
-            .collect();
-
         let result = runner
-            .run_no_limits(inputs)
+            .run_no_limits(all_args)
             .map_err(|e| format!("pydef '{macro_name}': runtime error: {e:?}"))?;
 
         Ok(monty_object_to_string(result))

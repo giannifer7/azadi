@@ -19,6 +19,8 @@ pub struct Evaluator {
     rhai_evaluator: RhaiEvaluator,
     #[cfg(feature = "python")]
     monty_evaluator: MontyEvaluator,
+    #[cfg(feature = "python")]
+    py_store: HashMap<String, String>,
 }
 
 impl Evaluator {
@@ -29,7 +31,19 @@ impl Evaluator {
             rhai_evaluator: RhaiEvaluator::new(),
             #[cfg(feature = "python")]
             monty_evaluator: MontyEvaluator::new(),
+            #[cfg(feature = "python")]
+            py_store: HashMap::new(),
         }
+    }
+
+    #[cfg(feature = "python")]
+    pub fn pystore_set(&mut self, key: String, value: String) {
+        self.py_store.insert(key, value);
+    }
+
+    #[cfg(feature = "python")]
+    pub fn pystore_get(&self, key: &str) -> String {
+        self.py_store.get(key).cloned().unwrap_or_default()
     }
 
     pub fn define_macro(&mut self, mac: crate::evaluator::state::MacroDefinition) {
@@ -259,13 +273,14 @@ impl Evaluator {
             }
             #[cfg(feature = "python")]
             ScriptKind::Python => {
-                // Pass only the explicitly declared parameters to the Python script
+                // Pass only the explicitly declared parameters to the Python script;
+                // the store is injected as additional variables (params shadow store).
                 let args: Vec<String> = mac.params.iter()
                     .map(|p| self.state.get_variable(p))
                     .collect();
                 result = self
                     .monty_evaluator
-                    .evaluate(&result, &mac.params, &args, Some(&mac.name))
+                    .evaluate(&result, &mac.params, &args, &self.py_store, Some(&mac.name))
                     .map_err(EvalError::Runtime)?;
             }
         }
