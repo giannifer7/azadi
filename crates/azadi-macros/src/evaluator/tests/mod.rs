@@ -11,6 +11,7 @@ mod test_include;
 mod test_import;
 mod test_macro_api;
 mod test_macros;
+mod test_pydef;
 mod test_rhaidef;
 mod test_set;
 mod test_utils;

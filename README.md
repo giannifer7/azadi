@@ -446,8 +446,7 @@ Output: `item_count`
 %pydef(name, param1, param2, ..., body)
 ```
 
-The body is a Python script powered by [monty](https://github.com/pydantic/monty),
-pydantic's sandboxed Python interpreter. It is evaluated at call time; its return value
+The body is a Python script powered by monty, pydantic's sandboxed Python interpreter. It is evaluated at call time; its return value
 (converted to string) becomes the macro output.
 
 Unlike `%rhaidef`, only the explicitly declared parameters are available inside the
@@ -459,8 +458,9 @@ The body **must** be wrapped in `%{ ... %}` whenever it contains parentheses or 
 
 **Note:** monty is at an early stage of development. Only a subset of Python is
 supported (arithmetic, string ops, `re`, basic control flow). No third-party libraries,
-no file I/O, no `print`. See the monty repository for the current feature set and known
-limitations.
+no file I/O, no `print`. Top-level statements must not be indented. See the
+[monty repository](https://github.com/pydantic/monty) for the current feature set and
+known limitations.
 
 **Note:** the `python` feature is enabled by default. To build without it:
 ```
@@ -477,7 +477,7 @@ Output: `42`
 
 ```
 %pydef(offset, base, size, %{
-  str(int(base) + int(size))
+str(int(base) + int(size))
 %})
 %offset(256, 64)
 ```
@@ -485,7 +485,7 @@ Output: `320`
 
 ```
 %pydef(greet, name, %{
-  "Hello, " + name + "!"
+"Hello, " + name + "!"
 %})
 %greet(world)
 ```
