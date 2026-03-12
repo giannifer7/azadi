@@ -455,7 +455,7 @@ script — they arrive as plain Python string variables. There is no implicit az
 injection. The script must return a value: either an explicit `return` or the value of
 the last expression.
 
-The body **must** be wrapped in `%{ ... %}` whenever it contains parentheses.
+The body **must** be wrapped in `%{ ... %}` whenever it contains parentheses or commas.
 
 **Note:** monty is at an early stage of development. Only a subset of Python is
 supported (arithmetic, string ops, `re`, basic control flow). No third-party libraries,
