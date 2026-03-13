@@ -126,18 +126,23 @@ output marker.
 Together they let a single build rule replace an entire list of per-file rules:
 
 ```meson
-# meson.build — one rule for all .md files; no edits needed when adding new ones
+# meson.build — one rule for all .adoc files; no edits needed when adding new ones
 custom_target('gen-nim',
-  output  : ['gen.stamp', 'gen.d'],
+  output  : ['gen.stamp'],
   depfile : 'gen.d',
-  command : [azadi, '--dir', meson.current_source_dir() / 'src',
-                    '--ext',       'md',
-                    '--include',   meson.current_source_dir(),
-                    '--stamp',     '@OUTPUT0@',
-                    '--depfile',   '@OUTPUT1@',
+  command : [azadi, '--dir',    meson.current_source_dir() / 'src',
+                    '--ext',    'adoc',
+                    '--include', meson.current_source_dir(),
+                    '--stamp',  '@OUTPUT0@',
+                    '--depfile', '@DEPFILE@',
                     ...other flags...],
 )
 ```
+
+> **Note:** list only the stamp in `output`, never the `.d` file.
+> Ninja consumes the depfile into its internal database (`.ninja_deps`)
+> after the first run; if the `.d` file is also declared as an output,
+> ninja sees it as permanently missing and reruns the target on every build.
 
 ---
 
