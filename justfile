@@ -88,9 +88,9 @@ rpm:
     cargo build --release --workspace
     cargo generate-rpm -p crates/azadi
 
-# Update PKGBUILD checksum for a release (usage: just pkgbuild 0.2.0)
-pkgbuild VERSION:
-    python packaging/update_pkgbuild.py {{VERSION}}
+# Update PKGBUILD + flake.nix checksums for a release (usage: just update-release 0.2.0)
+update-release VERSION:
+    python packaging/update_release.py {{VERSION}}
 
 # Tag and push to trigger the release workflow
 tag VERSION:
