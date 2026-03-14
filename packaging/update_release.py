@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
-"""Update PKGBUILD and flake.nix checksums for a new release."""
+"""Generate PKGBUILD and flake.nix for a new release."""
 
 import argparse
 import base64
 import hashlib
-import re
 import urllib.request
 from pathlib import Path
 
 PACKAGING = Path(__file__).parent
 REPO_ROOT  = PACKAGING.parent
-PKGBUILD   = PACKAGING / "PKGBUILD"
-FLAKE      = REPO_ROOT  / "flake.nix"
 BASE_URL   = "https://github.com/giannifer7/azadi/releases/download"
 
 
@@ -29,12 +26,61 @@ def sha256_sri(data: bytes) -> str:
     return "sha256-" + base64.b64encode(hashlib.sha256(data).digest()).decode()
 
 
-def patch(path: Path, subs: list[tuple[str, str]]) -> None:
-    text = path.read_text()
-    for pattern, replacement in subs:
-        text = re.sub(pattern, replacement, text, flags=re.MULTILINE)
-    path.write_text(text)
-    print(f"  Updated {path.relative_to(REPO_ROOT)}")
+def pkgbuild(version: str, tarball_sha256: str) -> str:
+    return f"""\
+# Maintainer: Gianni Ferrarotti <gianni.ferrarotti@gmail.com>
+#
+# AUR package for azadi — literate programming toolchain.
+# Installs three binaries: azadi, azadi-macros, azadi-noweb.
+#
+# Regenerate after each release:
+#   python packaging/update_release.py <version>
+
+pkgname=azadi-bin
+pkgver={version}
+pkgrel=1
+pkgdesc="azadi — literate programming toolchain"
+url="https://github.com/giannifer7/azadi"
+license=('MIT' 'Apache-2.0')
+arch=('x86_64')
+provides=('azadi')
+conflicts=('azadi' 'azadi-git')
+depends=('gcc-libs' 'glibc')
+options=('!debug')
+source=("azadi-x86_64-linux.tar.gz::https://github.com/giannifer7/azadi/releases/download/v${{pkgver}}/azadi-x86_64-linux.tar.gz")
+sha256sums=('{tarball_sha256}')
+
+package() {{
+    install -Dm755 azadi        -t "${{pkgdir}}/usr/bin"
+    install -Dm755 azadi-macros -t "${{pkgdir}}/usr/bin"
+    install -Dm755 azadi-noweb  -t "${{pkgdir}}/usr/bin"
+}}
+"""
+
+
+def flake(version: str, sri_azadi: str, sri_macros: str, sri_noweb: str) -> str:
+    return f"""\
+{{
+  description = "azadi — literate programming toolchain";
+
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+  outputs = {{ self, nixpkgs }}:
+    let
+      pkgs    = nixpkgs.legacyPackages.x86_64-linux;
+      version = "{version}";
+      base    = "https://github.com/giannifer7/azadi/releases/download/v${{version}}";
+      fetch   = filename: sha256: pkgs.fetchurl {{ url = "${{base}}/${{filename}}"; inherit sha256; }};
+    in {{
+      packages.x86_64-linux.default = pkgs.runCommand "azadi-${{version}}" {{}} ''
+        mkdir -p $out/bin
+        install -m755 ${{fetch "azadi-musl"        "{sri_azadi}"}} $out/bin/azadi
+        install -m755 ${{fetch "azadi-macros-musl" "{sri_macros}"}} $out/bin/azadi-macros
+        install -m755 ${{fetch "azadi-noweb-musl"  "{sri_noweb}"}} $out/bin/azadi-noweb
+      '';
+    }};
+}}
+"""
 
 
 def main() -> None:
@@ -51,24 +97,14 @@ def main() -> None:
     azadi_macros = fetch(f"{base}/azadi-macros-musl")
     azadi_noweb  = fetch(f"{base}/azadi-noweb-musl")
 
-    print("\nPatching PKGBUILD...")
-    patch(PKGBUILD, [
-        (r"^pkgver=.*$",         f"pkgver={version}"),
-        (r"^sha256sums=\(.*?\)$", f"sha256sums=('{sha256_hex(tarball)}')"),
-    ])
+    out_pkgbuild = pkgbuild(version, sha256_hex(tarball))
+    out_flake    = flake(version, sha256_sri(azadi), sha256_sri(azadi_macros), sha256_sri(azadi_noweb))
 
-    print("Patching flake.nix...")
-    def flake_sub(filename: str, sri: str) -> tuple[str, str]:
-        return (
-            rf'(fetch\s+"{re.escape(filename)}"\s+)"[^"]*"',
-            rf'\1"{sri}"',
-        )
-    patch(FLAKE, [
-        (r'(version\s*=\s*)"[^"]*"', rf'\1"{version}"'),
-        flake_sub("azadi-musl",        sha256_sri(azadi)),
-        flake_sub("azadi-macros-musl", sha256_sri(azadi_macros)),
-        flake_sub("azadi-noweb-musl",  sha256_sri(azadi_noweb)),
-    ])
+    (PACKAGING / "PKGBUILD").write_text(out_pkgbuild)
+    print(f"  Written packaging/PKGBUILD")
+
+    (REPO_ROOT / "flake.nix").write_text(out_flake)
+    print(f"  Written flake.nix")
 
     print(f"""
 Done. Next steps:
