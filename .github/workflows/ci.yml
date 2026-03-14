@@ -5,9 +5,6 @@ on:
     branches: [ main ]
   pull_request:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build-containers:
     name: Build (${{ matrix.target }})
@@ -18,7 +15,7 @@ jobs:
         target: [ glibc, musl, windows, fedora ]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Podman
         run: |
@@ -36,7 +33,7 @@ jobs:
           podman rm azadi-export
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: azadi-${{ matrix.target }}
           path: dist/${{ matrix.target }}
@@ -45,7 +42,7 @@ jobs:
     name: Build (windows-native)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -59,7 +56,7 @@ jobs:
           copy target\release\azadi-macros.exe dist\windows-native\
           copy target\release\azadi-noweb.exe  dist\windows-native\
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: azadi-windows-native
           path: dist/windows-native
@@ -68,7 +65,7 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --workspace
       - run: cargo clippy --workspace -- -D warnings
