@@ -89,9 +89,9 @@ RUN PYO3_CROSS_PYTHON_VERSION=$(ls /usr/x86_64-w64-mingw32/sys-root/mingw/includ
     && rustup target add x86_64-pc-windows-gnu \
     && cargo build --release --target x86_64-pc-windows-gnu --workspace
 RUN mkdir -p /out \
-    && cp target/x86_64-pc-windows-gnu/release/azadi.exe        /out/ \
-    && cp target/x86_64-pc-windows-gnu/release/azadi-macros.exe /out/ \
-    && cp target/x86_64-pc-windows-gnu/release/azadi-noweb.exe  /out/
+    && cp target/x86_64-pc-windows-gnu/release/azadi.exe        /out/azadi-mingw64.exe \
+    && cp target/x86_64-pc-windows-gnu/release/azadi-macros.exe /out/azadi-macros-mingw64.exe \
+    && cp target/x86_64-pc-windows-gnu/release/azadi-noweb.exe  /out/azadi-noweb-mingw64.exe
 
 # ── fedora: RPM ───────────────────────────────────────────────────────────────
 FROM fedora:latest AS fedora
