@@ -71,7 +71,7 @@ FROM fedora:latest AS windows
 RUN dnf install -y \
         curl git gcc \
         mingw64-gcc \
-        mingw64-python3-devel \
+        mingw64-python3 \
     && dnf clean all
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
