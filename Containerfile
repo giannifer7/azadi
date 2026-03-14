@@ -48,7 +48,9 @@ RUN mkdir -p /out \
     && cp target/release/azadi        /out/azadi-glibc \
     && cp target/release/azadi-macros /out/azadi-macros-glibc \
     && cp target/release/azadi-noweb  /out/azadi-noweb-glibc \
-    && cp target/debian/*.deb         /out/
+    && cp target/debian/*.deb         /out/ \
+    && tar -czf /out/azadi-x86_64-linux.tar.gz \
+         -C target/release azadi azadi-macros azadi-noweb
 
 # ── musl: static binary (Alpine — musl-native Python for PyO3) ───────────────
 FROM alpine:latest AS musl

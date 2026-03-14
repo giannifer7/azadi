@@ -4,7 +4,7 @@
 # Installs three binaries: azadi, azadi-macros, azadi-noweb.
 #
 # Update sha256sums after each release:
-#   curl -sL https://github.com/giannifer7/azadi/releases/download/v$pkgver/azadi-$pkgver-x86_64-linux.tar.gz \
+#   curl -sL https://github.com/giannifer7/azadi/releases/download/v$pkgver/azadi-x86_64-linux.tar.gz \
 #     | sha256sum
 
 pkgname=azadi-bin
@@ -17,7 +17,7 @@ arch=('x86_64')
 provides=('azadi')
 conflicts=('azadi' 'azadi-git')
 depends=('gcc-libs' 'glibc')
-source=("azadi-${pkgver}-x86_64-linux.tar.gz::https://github.com/giannifer7/azadi/releases/download/v${pkgver}/azadi-${pkgver}-x86_64-linux.tar.gz")
+source=("azadi-x86_64-linux.tar.gz::https://github.com/giannifer7/azadi/releases/download/v${pkgver}/azadi-x86_64-linux.tar.gz")
 sha256sums=('SKIP')
 
 package() {
