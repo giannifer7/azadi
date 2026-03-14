@@ -66,10 +66,11 @@ RUN mkdir -p /out \
 FROM rust-base AS windows
 RUN apt-get update && apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 \
     && rm -rf /var/lib/apt/lists/*
-RUN rustup target add x86_64-pc-windows-gnu
+ENV CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
 WORKDIR /src
 COPY . .
-RUN cargo build --release --target x86_64-pc-windows-gnu --workspace
+RUN rustup target add x86_64-pc-windows-gnu \
+    && cargo build --release --target x86_64-pc-windows-gnu --workspace
 RUN mkdir -p /out \
     && cp target/x86_64-pc-windows-gnu/release/azadi.exe        /out/ \
     && cp target/x86_64-pc-windows-gnu/release/azadi-macros.exe /out/ \
