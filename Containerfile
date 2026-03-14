@@ -105,7 +105,7 @@ RUN cargo install cargo-generate-rpm
 WORKDIR /src
 COPY . .
 RUN cargo build --release --workspace
-RUN cargo generate-rpm -p azadi
+RUN cargo generate-rpm -p crates/azadi
 RUN mkdir -p /out \
     && cp target/release/azadi        /out/ \
     && cp target/release/azadi-macros /out/ \

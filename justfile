@@ -86,7 +86,7 @@ deb:
 # Build .rpm locally (requires cargo-generate-rpm)
 rpm:
     cargo build --release --workspace
-    cargo generate-rpm -p azadi
+    cargo generate-rpm -p crates/azadi
 
 # Tag and push to trigger the release workflow
 tag VERSION:
