@@ -101,7 +101,7 @@ tag VERSION:
 re-tag VERSION:
     -git push --delete origin {{VERSION}}
     -git tag -d {{VERSION}}
-    git tag {{VERSION}}
+    git tag {{VERSION}} HEAD
     git push origin {{VERSION}}
 
 # ── Clean ─────────────────────────────────────────────────────────────────────
