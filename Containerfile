@@ -3,7 +3,7 @@
 # Stages:
 #   glibc   — Debian binary + .deb  (cargo-deb)  — includes python feature
 #   musl    — Alpine static binary               — includes python feature (Alpine musl-native Python)
-#   windows — MinGW cross-compiled .exe          — no python (cross-compiling PyO3 unsupported)
+#   windows — MinGW cross-compiled .exe          — includes python feature (Fedora mingw64-python3-devel)
 #   fedora  — Fedora binary + .rpm               — includes python feature
 #
 # Usage:
@@ -66,16 +66,28 @@ RUN mkdir -p /out \
     && cp target/x86_64-unknown-linux-musl/release/azadi-macros /out/ \
     && cp target/x86_64-unknown-linux-musl/release/azadi-noweb  /out/
 
-# ── windows: MinGW cross-compilation ─────────────────────────────────────────
-# PyO3 cross-compilation to Windows requires a Windows Python SDK — not available here.
-FROM rust-base AS windows
-RUN apt-get update && apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 \
-    && rm -rf /var/lib/apt/lists/*
-ENV CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
+# ── windows: MinGW cross-compilation (Fedora — has mingw64-python3-devel) ────
+FROM fedora:latest AS windows
+RUN dnf install -y \
+        curl git gcc \
+        mingw64-gcc \
+        mingw64-python3-devel \
+    && dnf clean all
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH \
+    CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc \
+    PYO3_CROSS=1 \
+    PYO3_CROSS_LIB_DIR=/usr/x86_64-w64-mingw32/sys-root/mingw/lib
+RUN curl https://sh.rustup.rs -sSf \
+    | sh -s -- -y --default-toolchain stable --no-modify-path
 WORKDIR /src
 COPY . .
-RUN rustup target add x86_64-pc-windows-gnu \
-    && cargo build --release --no-default-features --target x86_64-pc-windows-gnu --workspace
+RUN PYO3_CROSS_PYTHON_VERSION=$(ls /usr/x86_64-w64-mingw32/sys-root/mingw/include/ \
+        | grep -oP '(?<=python)\d+\.\d+' | head -1) \
+    && export PYO3_CROSS_PYTHON_VERSION \
+    && rustup target add x86_64-pc-windows-gnu \
+    && cargo build --release --target x86_64-pc-windows-gnu --workspace
 RUN mkdir -p /out \
     && cp target/x86_64-pc-windows-gnu/release/azadi.exe        /out/ \
     && cp target/x86_64-pc-windows-gnu/release/azadi-macros.exe /out/ \

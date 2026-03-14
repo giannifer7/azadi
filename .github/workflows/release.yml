@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   release-containers:
     name: Release (${{ matrix.target }})
@@ -36,7 +39,7 @@ jobs:
           podman rm azadi-export
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: dist/${{ matrix.target }}/*
         env:
@@ -61,7 +64,7 @@ jobs:
           copy target\release\azadi-noweb.exe  dist\windows-native\
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: dist/windows-native/*
         env:
