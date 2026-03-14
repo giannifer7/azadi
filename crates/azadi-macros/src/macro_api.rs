@@ -95,4 +95,3 @@ pub fn process_string_defaults(source: &str) -> Result<Vec<u8>, EvalError> {
     let mut evaluator = Evaluator::new(EvalConfig::default());
     process_string(source, None, &mut evaluator)
 }
-

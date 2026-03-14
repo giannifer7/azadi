@@ -1,7 +1,7 @@
 // crates/azadi-macros/src/evaluator/monty_eval.rs
 
-use std::collections::{HashMap, HashSet};
 use monty::{MontyObject, MontyRun};
+use std::collections::{HashMap, HashSet};
 
 pub struct MontyEvaluator;
 
@@ -43,12 +43,8 @@ impl MontyEvaluator {
             .collect();
         all_args.extend(args.iter().map(|s| MontyObject::String(s.clone())));
 
-        let runner = MontyRun::new(
-            code.to_owned(),
-            &format!("{macro_name}.py"),
-            all_params,
-        )
-        .map_err(|e| format!("pydef '{macro_name}': compile error: {e:?}"))?;
+        let runner = MontyRun::new(code.to_owned(), &format!("{macro_name}.py"), all_params)
+            .map_err(|e| format!("pydef '{macro_name}': compile error: {e:?}"))?;
 
         let result = runner
             .run_no_limits(all_args)
@@ -63,7 +59,13 @@ fn monty_object_to_string(obj: MontyObject) -> String {
         MontyObject::String(s) => s,
         MontyObject::Int(n) => n.to_string(),
         MontyObject::Float(f) => f.to_string(),
-        MontyObject::Bool(b) => if b { "true".into() } else { "false".into() },
+        MontyObject::Bool(b) => {
+            if b {
+                "true".into()
+            } else {
+                "false".into()
+            }
+        }
         MontyObject::None => String::new(),
         MontyObject::List(items) => items
             .into_iter()

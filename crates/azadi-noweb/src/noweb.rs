@@ -76,10 +76,12 @@ impl std::fmt::Display for ChunkError {
                 location,
             } => {
                 write!(
-                f,
-                "Error: {} line {}: maximum recursion depth exceeded while expanding chunk '{}'",
-                file_name, location.line + 1, chunk
-            )
+                    f,
+                    "Error: {} line {}: maximum recursion depth exceeded while expanding chunk '{}'",
+                    file_name,
+                    location.line + 1,
+                    chunk
+                )
             }
             ChunkError::RecursiveReference {
                 chunk,
@@ -281,7 +283,10 @@ impl ChunkStore {
             if let Some(caps) = self.open_re.captures(line) {
                 let indentation = caps.get(1).map_or("", |m| m.as_str());
                 let base_name = caps.get(2).map_or("", |m| m.as_str()).to_string();
-                debug!("Found open pattern: indentation='{}', base_name='{}'", indentation, base_name);
+                debug!(
+                    "Found open pattern: indentation='{}', base_name='{}'",
+                    indentation, base_name
+                );
 
                 let is_replace = line.contains("@replace");
                 let is_file = line.contains("@file");

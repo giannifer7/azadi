@@ -12,7 +12,9 @@
 
 ; --- Variable interpolation -------------------------------------------------
 (variable
-  name: (identifier) @variable)
+  "%(" @punctuation.special
+  name: (identifier) @variable
+  ")" @punctuation.special)
 
 ; --- Block delimiters -------------------------------------------------------
 (block_open)  @punctuation.bracket

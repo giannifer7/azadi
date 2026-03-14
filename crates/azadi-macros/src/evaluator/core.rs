@@ -5,13 +5,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use super::builtins::{default_builtins, BuiltinFn};
+use super::builtins::{BuiltinFn, default_builtins};
 use super::errors::{EvalError, EvalResult};
-use super::rhai_eval::{self, RhaiEvaluator};
-use super::state::{EvalConfig, EvaluatorState, MacroDefinition, ScriptKind, MAX_RECURSION_DEPTH};
-use crate::types::{ASTNode, NodeKind, Token, TokenKind};
 #[cfg(feature = "python")]
 use super::monty_eval::MontyEvaluator;
+use super::rhai_eval::{self, RhaiEvaluator};
+use super::state::{EvalConfig, EvaluatorState, MAX_RECURSION_DEPTH, MacroDefinition, ScriptKind};
+use crate::types::{ASTNode, NodeKind, Token, TokenKind};
 
 pub struct Evaluator {
     state: EvaluatorState,
@@ -54,12 +54,9 @@ impl Evaluator {
 
     /// Evaluate a Rhai expression and store the resulting Dynamic value.
     /// Use this to initialise store entries with typed literals like `[]` or `#{}`.
-    pub fn rhaistore_set_expr(
-        &mut self,
-        key: String,
-        expr: &str,
-    ) -> Result<(), String> {
-        let val = self.rhai_evaluator
+    pub fn rhaistore_set_expr(&mut self, key: String, expr: &str) -> Result<(), String> {
+        let val = self
+            .rhai_evaluator
             .eval_expr(expr)
             .map_err(|e| format!("rhaiexpr: {e}"))?;
         self.rhai_store.insert(key, val);
@@ -314,7 +311,9 @@ impl Evaluator {
             ScriptKind::Python => {
                 // Pass only the explicitly declared parameters to the Python script;
                 // the store is injected as additional variables (params shadow store).
-                let args: Vec<String> = mac.params.iter()
+                let args: Vec<String> = mac
+                    .params
+                    .iter()
                     .map(|p| self.state.get_variable(p))
                     .collect();
                 result = self

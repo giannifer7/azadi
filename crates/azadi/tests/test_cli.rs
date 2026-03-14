@@ -23,10 +23,14 @@ fn azadi() -> Command {
 /// Common azadi-noweb delimiters used across tests.
 fn delim_args() -> Vec<&'static str> {
     vec![
-        "--open-delim", "<<",
-        "--close-delim", ">>",
-        "--chunk-end", "@",
-        "--comment-markers", "#",
+        "--open-delim",
+        "<<",
+        "--close-delim",
+        ">>",
+        "--chunk-end",
+        "@",
+        "--comment-markers",
+        "#",
     ]
 }
 
@@ -43,7 +47,11 @@ fn test_directory_mode_processes_drivers() {
     // It would produce no output if run standalone, but here we verify it is
     // correctly identified as a fragment (referenced via %include) and not
     // run as an independent driver.
-    write(&root, "src/fragment.md", "%def(greeting, Hello from fragment)\n");
+    write(
+        &root,
+        "src/fragment.md",
+        "%def(greeting, Hello from fragment)\n",
+    );
 
     // driver.md: includes the fragment and writes one @file output.
     write(
@@ -58,10 +66,14 @@ fn test_directory_mode_processes_drivers() {
     let gen_dir = root.join("gen");
 
     azadi()
-        .arg("--dir").arg(root.join("src"))
-        .arg("--include").arg(&root)
-        .arg("--gen").arg(&gen_dir)
-        .arg("--work-dir").arg(root.join("work"))
+        .arg("--dir")
+        .arg(root.join("src"))
+        .arg("--include")
+        .arg(&root)
+        .arg("--gen")
+        .arg(&gen_dir)
+        .arg("--work-dir")
+        .arg(root.join("work"))
         .args(delim_args())
         .assert()
         .success();
@@ -79,30 +91,32 @@ fn test_directory_mode_multiple_drivers() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path().canonicalize().unwrap();
 
-    write(
-        &root,
-        "src/a.md",
-        "# <<@file a.txt>>=\nfrom-a\n# @\n",
-    );
-    write(
-        &root,
-        "src/b.md",
-        "# <<@file b.txt>>=\nfrom-b\n# @\n",
-    );
+    write(&root, "src/a.md", "# <<@file a.txt>>=\nfrom-a\n# @\n");
+    write(&root, "src/b.md", "# <<@file b.txt>>=\nfrom-b\n# @\n");
 
     let gen_dir = root.join("gen");
 
     azadi()
-        .arg("--dir").arg(root.join("src"))
-        .arg("--include").arg(&root)
-        .arg("--gen").arg(&gen_dir)
-        .arg("--work-dir").arg(root.join("work"))
+        .arg("--dir")
+        .arg(root.join("src"))
+        .arg("--include")
+        .arg(&root)
+        .arg("--gen")
+        .arg(&gen_dir)
+        .arg("--work-dir")
+        .arg(root.join("work"))
         .args(delim_args())
         .assert()
         .success();
 
-    assert_eq!(fs::read_to_string(gen_dir.join("a.txt")).unwrap().trim(), "from-a");
-    assert_eq!(fs::read_to_string(gen_dir.join("b.txt")).unwrap().trim(), "from-b");
+    assert_eq!(
+        fs::read_to_string(gen_dir.join("a.txt")).unwrap().trim(),
+        "from-a"
+    );
+    assert_eq!(
+        fs::read_to_string(gen_dir.join("b.txt")).unwrap().trim(),
+        "from-b"
+    );
 }
 
 /// %import'd files are also treated as fragments and excluded from driver discovery.
@@ -129,10 +143,14 @@ fn test_directory_mode_import_is_fragment() {
     let gen_dir = root.join("gen");
 
     azadi()
-        .arg("--dir").arg(root.join("src"))
-        .arg("--include").arg(&root)
-        .arg("--gen").arg(&gen_dir)
-        .arg("--work-dir").arg(root.join("work"))
+        .arg("--dir")
+        .arg(root.join("src"))
+        .arg("--include")
+        .arg(&root)
+        .arg("--gen")
+        .arg(&gen_dir)
+        .arg("--work-dir")
+        .arg(root.join("work"))
         .args(delim_args())
         .assert()
         .success();
@@ -156,7 +174,11 @@ fn test_directory_mode_conditional_include_is_fragment() {
     // fires with an empty path — extras.adoc is NOT pulled in this run.
     // But we also test the case where the path IS computed: cond_helper.md
     // is always included via a macro that builds the path.
-    write(&root, "src/cond_helper.md", "%def(helper_msg, from helper)\n");
+    write(
+        &root,
+        "src/cond_helper.md",
+        "%def(helper_msg, from helper)\n",
+    );
 
     // driver.md: includes cond_helper.md via a macro-computed path.
     write(
@@ -172,10 +194,14 @@ fn test_directory_mode_conditional_include_is_fragment() {
     let gen_dir = root.join("gen");
 
     azadi()
-        .arg("--dir").arg(root.join("src"))
-        .arg("--include").arg(&root.join("src"))
-        .arg("--gen").arg(&gen_dir)
-        .arg("--work-dir").arg(root.join("work"))
+        .arg("--dir")
+        .arg(root.join("src"))
+        .arg("--include")
+        .arg(&root.join("src"))
+        .arg("--gen")
+        .arg(&gen_dir)
+        .arg("--work-dir")
+        .arg(root.join("work"))
         .args(delim_args())
         .assert()
         .success();
@@ -193,7 +219,11 @@ fn test_directory_mode_custom_ext() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path().canonicalize().unwrap();
 
-    write(&root, "src/fragment.adoc", "%def(greeting, Hello from adoc)\n");
+    write(
+        &root,
+        "src/fragment.adoc",
+        "%def(greeting, Hello from adoc)\n",
+    );
     write(
         &root,
         "src/driver.adoc",
@@ -206,11 +236,16 @@ fn test_directory_mode_custom_ext() {
     let gen_dir = root.join("gen");
 
     azadi()
-        .arg("--dir").arg(root.join("src"))
-        .arg("--ext").arg("adoc")
-        .arg("--include").arg(&root)
-        .arg("--gen").arg(&gen_dir)
-        .arg("--work-dir").arg(root.join("work"))
+        .arg("--dir")
+        .arg(root.join("src"))
+        .arg("--ext")
+        .arg("adoc")
+        .arg("--include")
+        .arg(&root)
+        .arg("--gen")
+        .arg(&gen_dir)
+        .arg("--work-dir")
+        .arg(root.join("work"))
         .args(delim_args())
         .assert()
         .success();
@@ -228,32 +263,36 @@ fn test_directory_mode_multiple_exts() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path().canonicalize().unwrap();
 
-    write(
-        &root,
-        "src/a.md",
-        "# <<@file a.txt>>=\nfrom-md-a\n# @\n",
-    );
-    write(
-        &root,
-        "src/b.md",
-        "# <<@file b.txt>>=\nfrom-md\n# @\n",
-    );
+    write(&root, "src/a.md", "# <<@file a.txt>>=\nfrom-md-a\n# @\n");
+    write(&root, "src/b.md", "# <<@file b.txt>>=\nfrom-md\n# @\n");
 
     let gen_dir = root.join("gen");
 
     azadi()
-        .arg("--dir").arg(root.join("src"))
-        .arg("--ext").arg("adoc")
-        .arg("--ext").arg("md")
-        .arg("--include").arg(&root)
-        .arg("--gen").arg(&gen_dir)
-        .arg("--work-dir").arg(root.join("work"))
+        .arg("--dir")
+        .arg(root.join("src"))
+        .arg("--ext")
+        .arg("adoc")
+        .arg("--ext")
+        .arg("md")
+        .arg("--include")
+        .arg(&root)
+        .arg("--gen")
+        .arg(&gen_dir)
+        .arg("--work-dir")
+        .arg(root.join("work"))
         .args(delim_args())
         .assert()
         .success();
 
-    assert_eq!(fs::read_to_string(gen_dir.join("a.txt")).unwrap().trim(), "from-md-a");
-    assert_eq!(fs::read_to_string(gen_dir.join("b.txt")).unwrap().trim(), "from-md");
+    assert_eq!(
+        fs::read_to_string(gen_dir.join("a.txt")).unwrap().trim(),
+        "from-md-a"
+    );
+    assert_eq!(
+        fs::read_to_string(gen_dir.join("b.txt")).unwrap().trim(),
+        "from-md"
+    );
 }
 
 // ── Depfile and stamp ─────────────────────────────────────────────────────────
@@ -269,11 +308,16 @@ fn test_stamp_is_written_on_success() {
     let stamp = root.join("build.stamp");
 
     azadi()
-        .arg("--dir").arg(root.join("src"))
-        .arg("--include").arg(&root)
-        .arg("--gen").arg(root.join("gen"))
-        .arg("--work-dir").arg(root.join("work"))
-        .arg("--stamp").arg(&stamp)
+        .arg("--dir")
+        .arg(root.join("src"))
+        .arg("--include")
+        .arg(&root)
+        .arg("--gen")
+        .arg(root.join("gen"))
+        .arg("--work-dir")
+        .arg(root.join("work"))
+        .arg("--stamp")
+        .arg(&stamp)
         .args(delim_args())
         .assert()
         .success();
@@ -300,10 +344,14 @@ fn test_env_builtin_with_allow_env() {
 
     azadi()
         .env("AZADI_TEST_VAR", "hello-from-env")
-        .arg("--dir").arg(root.join("src"))
-        .arg("--include").arg(&root)
-        .arg("--gen").arg(&gen_dir)
-        .arg("--work-dir").arg(root.join("work"))
+        .arg("--dir")
+        .arg(root.join("src"))
+        .arg("--include")
+        .arg(&root)
+        .arg("--gen")
+        .arg(&gen_dir)
+        .arg("--work-dir")
+        .arg(root.join("work"))
         .arg("--allow-env")
         .args(delim_args())
         .assert()
@@ -329,10 +377,14 @@ fn test_env_builtin_disabled_by_default() {
     );
 
     azadi()
-        .arg("--dir").arg(root.join("src"))
-        .arg("--include").arg(&root)
-        .arg("--gen").arg(root.join("gen"))
-        .arg("--work-dir").arg(root.join("work"))
+        .arg("--dir")
+        .arg(root.join("src"))
+        .arg("--include")
+        .arg(&root)
+        .arg("--gen")
+        .arg(root.join("gen"))
+        .arg("--work-dir")
+        .arg(root.join("work"))
         .args(delim_args())
         .assert()
         .failure()
@@ -357,12 +409,18 @@ fn test_depfile_lists_source_files() {
     let depfile = root.join("build.d");
 
     azadi()
-        .arg("--dir").arg(root.join("src"))
-        .arg("--include").arg(&root)
-        .arg("--gen").arg(root.join("gen"))
-        .arg("--work-dir").arg(root.join("work"))
-        .arg("--stamp").arg(&stamp)
-        .arg("--depfile").arg(&depfile)
+        .arg("--dir")
+        .arg(root.join("src"))
+        .arg("--include")
+        .arg(&root)
+        .arg("--gen")
+        .arg(root.join("gen"))
+        .arg("--work-dir")
+        .arg(root.join("work"))
+        .arg("--stamp")
+        .arg(&stamp)
+        .arg("--depfile")
+        .arg(&depfile)
         .args(delim_args())
         .assert()
         .success();

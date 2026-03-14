@@ -1,8 +1,8 @@
 // src/tests/utils.rs
+use crate::safe_writer::SafeWriterConfig;
+use crate::{AzadiError, SafeFileWriter};
 use std::{fs, io::Write, path::PathBuf};
 use tempfile::TempDir;
-use crate::{AzadiError, SafeFileWriter};
-use crate::safe_writer::SafeWriterConfig;
 
 pub(crate) fn create_test_writer() -> (TempDir, SafeFileWriter) {
     let temp = TempDir::new().unwrap();
@@ -13,11 +13,8 @@ pub(crate) fn create_test_writer() -> (TempDir, SafeFileWriter) {
         buffer_size: 8192,
         formatters: std::collections::HashMap::new(),
     };
-    let writer = SafeFileWriter::with_config(
-        temp.path().join("gen"),
-        temp.path().join("private"),
-        config,
-    );
+    let writer =
+        SafeFileWriter::with_config(temp.path().join("gen"), temp.path().join("private"), config);
     (temp, writer)
 }
 

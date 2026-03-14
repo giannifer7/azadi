@@ -1,6 +1,6 @@
 // crates/azadi-macros/src/evaluator/tests/test_rhaidef.rs
 
-use crate::evaluator::{eval_string, EvalConfig, Evaluator};
+use crate::evaluator::{EvalConfig, Evaluator, eval_string};
 
 fn evaluator() -> Evaluator {
     Evaluator::new(EvalConfig::default())

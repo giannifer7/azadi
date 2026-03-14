@@ -38,7 +38,6 @@ fn find_files(dir: &Path, exts: &[String], out: &mut Vec<PathBuf>) -> std::io::R
     group(ArgGroup::new("source").required(true).args(["inputs", "directory"]))
 )]
 struct Args {
-
     /// Output path (file or '-' for stdout)
     #[arg(long = "output", default_value = "-")]
     output: PathBuf,
@@ -111,7 +110,10 @@ fn run(args: Args) -> Result<(), EvalError> {
         all.sort();
 
         // Discovery pass: identify which files are %include'd by others (fragments).
-        let discovery_config = EvalConfig { discovery_mode: true, ..config.clone() };
+        let discovery_config = EvalConfig {
+            discovery_mode: true,
+            ..config.clone()
+        };
         let mut included: HashSet<PathBuf> = HashSet::new();
         for f in &all {
             if let Ok(text) = std::fs::read_to_string(f) {

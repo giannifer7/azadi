@@ -1,6 +1,6 @@
 // crates/azadi-macros/src/evaluator/tests/test_case_conversion.rs
 
-use crate::evaluator::case_conversion::{convert_case, convert_case_str, Case};
+use crate::evaluator::case_conversion::{Case, convert_case, convert_case_str};
 
 #[cfg(test)]
 mod basic_conversions {

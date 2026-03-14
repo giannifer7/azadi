@@ -2,8 +2,8 @@
 
 use crate::types::ASTNode;
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct EvalConfig {

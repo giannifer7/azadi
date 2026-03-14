@@ -1,8 +1,8 @@
 -- editors/neovim/azadi.lua
 --
--- Drop this file in your Neovim config, e.g.:
+-- Registers the azadi tree-sitter parser and filetype.
+-- Installed by editors/neovim/install.py to:
 --   ~/.config/nvim/after/plugin/azadi.lua
--- or require it from your init.lua.
 --
 -- Prerequisites: nvim-treesitter installed.
 -- The grammar is built from the local checkout (no internet needed after clone).
@@ -17,31 +17,20 @@ if not ok then
   return
 end
 
--- Adjust this path if your azadi checkout is elsewhere.
-local azadi_root = vim.fn.expand("~/_prj/azadi")
+-- Path to tree-sitter-azadi/ inside the azadi checkout.
+-- install.py substitutes __GRAMMAR_DIR__ with the actual absolute path.
+local grammar_dir = "__GRAMMAR_DIR__"
 
 parsers.get_parser_configs().azadi = {
   install_info = {
-    url            = azadi_root,
-    files          = { "tree-sitter-azadi/src/parser.c" },
-    location       = "tree-sitter-azadi",
-    branch         = "main",
-    generate_requires_npm = false,
+    url                          = grammar_dir,
+    files                        = { "src/parser.c" },
+    generate_requires_npm        = false,
     requires_generate_from_grammar = false,
   },
   filetype = "azadi",
 }
 
--- Associate file extensions with the azadi filetype.
--- .azadi  — dedicated azadi files
--- .md     — treat as azadi when you want macro highlighting in Markdown
---           (comment out if you prefer the markdown parser for .md files)
 vim.filetype.add({
-  extension = {
-    azadi = "azadi",
-  },
+  extension = { azadi = "azadi" },
 })
-
--- Treesitter config: make sure azadi is in the ensure_installed list
--- or call :TSInstall azadi manually.
--- The highlight / injection modules are auto-enabled for recognised filetypes.

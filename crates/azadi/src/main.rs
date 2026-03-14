@@ -13,7 +13,11 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 fn default_pathsep() -> String {
-    if cfg!(windows) { ";".to_string() } else { ":".to_string() }
+    if cfg!(windows) {
+        ";".to_string()
+    } else {
+        ":".to_string()
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -28,7 +32,6 @@ struct Args {
     inputs: Vec<PathBuf>,
 
     // ── azadi-macros options ──────────────────────────────────────────────────
-
     /// Base directory prepended to every input path
     #[arg(long, default_value = ".")]
     input_dir: PathBuf,
@@ -46,13 +49,11 @@ struct Args {
     work_dir: PathBuf,
 
     // ── debugging ─────────────────────────────────────────────────────────────
-
     /// Print macro-expanded text to stderr before noweb processing
     #[arg(long)]
     dump_expanded: bool,
 
     // ── azadi-noweb options ───────────────────────────────────────────────────
-
     /// Base directory for generated output files
     #[arg(long = "gen", default_value = "gen")]
     gen_dir: PathBuf,
@@ -78,7 +79,6 @@ struct Args {
     formatter: Vec<String>,
 
     // ── batch/directory mode ──────────────────────────────────────────────────
-
     /// Discover and process driver files under this directory.
     /// A driver is any file (matching --ext) not referenced by a %include() in another such file.
     /// Mutually exclusive with positional input files.
@@ -91,7 +91,6 @@ struct Args {
     ext: Vec<String>,
 
     // ── build-system integration ──────────────────────────────────────────────
-
     /// Write a Makefile depfile listing every source file read.
     /// In --dir mode the depfile lists ALL matching files found so that
     /// adding a new file triggers a rebuild.
@@ -103,7 +102,6 @@ struct Args {
     stamp: Option<PathBuf>,
 
     // ── security ──────────────────────────────────────────────────────────────
-
     /// Allow %env(NAME) to read environment variables.
     /// Disabled by default to prevent templates from silently reading secrets.
     #[arg(long)]
@@ -128,13 +126,19 @@ impl std::fmt::Display for Error {
 }
 
 impl From<EvalError> for Error {
-    fn from(e: EvalError) -> Self { Error::Macro(e) }
+    fn from(e: EvalError) -> Self {
+        Error::Macro(e)
+    }
 }
 impl From<AzadiError> for Error {
-    fn from(e: AzadiError) -> Self { Error::Noweb(e) }
+    fn from(e: AzadiError) -> Self {
+        Error::Noweb(e)
+    }
 }
 impl From<std::io::Error> for Error {
-    fn from(e: std::io::Error) -> Self { Error::Io(e) }
+    fn from(e: std::io::Error) -> Self {
+        Error::Io(e)
+    }
 }
 
 /// Recursively collect all files whose extension matches any entry in `exts` under `dir`.
@@ -194,13 +198,19 @@ fn run(args: Args) -> Result<(), Error> {
     let formatters: HashMap<String, String> = args
         .formatter
         .iter()
-        .filter_map(|s| s.split_once('=').map(|(e, c)| (e.to_string(), c.to_string())))
+        .filter_map(|s| {
+            s.split_once('=')
+                .map(|(e, c)| (e.to_string(), c.to_string()))
+        })
         .collect();
 
     let safe_writer = SafeFileWriter::with_config(
         &args.gen_dir,
         &args.work_dir,
-        SafeWriterConfig { formatters, ..SafeWriterConfig::default() },
+        SafeWriterConfig {
+            formatters,
+            ..SafeWriterConfig::default()
+        },
     );
     let mut clip = Clip::new(
         safe_writer,
@@ -220,7 +230,10 @@ fn run(args: Args) -> Result<(), Error> {
         // %include/%import resolve their path arguments fully (handling %if,
         // computed paths, etc.) but do not recurse into the included file.
         // Each file gets a fresh evaluator so scope does not leak between files.
-        let discovery_config = EvalConfig { discovery_mode: true, ..eval_config.clone() };
+        let discovery_config = EvalConfig {
+            discovery_mode: true,
+            ..eval_config.clone()
+        };
         let mut included: HashSet<PathBuf> = HashSet::new();
         for adoc in &all {
             if let Ok(text) = std::fs::read_to_string(adoc) {

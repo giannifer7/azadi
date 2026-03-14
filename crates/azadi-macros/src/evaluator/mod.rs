@@ -24,7 +24,7 @@ pub use eval_api::{
     eval_string_with_defaults,
 };
 pub use lexer_parser::lex_parse_content;
-pub use rhai_eval::RhaiEvaluator;
 #[cfg(feature = "python")]
 pub use monty_eval::MontyEvaluator;
+pub use rhai_eval::RhaiEvaluator;
 pub use state::{EvalConfig, MacroDefinition, ScriptKind};

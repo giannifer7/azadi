@@ -228,8 +228,7 @@ impl Parser {
                     self.stack.push((ParserState::Macro, param_idx));
                 }
                 TokenKind::CommentOpen => {
-                    let new_idx =
-                        self.create_add_node(NodeKind::BlockComment, token.src, token);
+                    let new_idx = self.create_add_node(NodeKind::BlockComment, token.src, token);
                     self.stack.push((ParserState::Comment, new_idx));
                 }
                 TokenKind::Var => {

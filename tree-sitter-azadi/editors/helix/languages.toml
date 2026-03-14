@@ -15,4 +15,4 @@ grammar     = "azadi"
 
 [[grammar]]
 name   = "azadi"
-source = { path = "/home/g4/_prj/azadi/tree-sitter-azadi" }
+source = { path = "__GRAMMAR_DIR__" }

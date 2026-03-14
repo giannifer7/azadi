@@ -1,8 +1,8 @@
 // src/ast/tests.rs
 use super::*;
+use crate::ParseNode;
 use crate::parser::Parser;
 use crate::types::{NodeKind, Token, TokenKind};
-use crate::ParseNode;
 
 /// Helper to create a basic token
 fn t(kind: TokenKind, pos: usize, length: usize) -> Token {

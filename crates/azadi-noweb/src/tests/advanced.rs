@@ -257,7 +257,11 @@ Hi
     );
 
     let content = setup.clip.get_chunk_content("greet").unwrap();
-    assert_eq!(content, vec!["Hi\n"], "only the @replace definition should survive");
+    assert_eq!(
+        content,
+        vec!["Hi\n"],
+        "only the @replace definition should survive"
+    );
 }
 
 /// `@replace` on a file chunk replaces the earlier definition.
@@ -278,7 +282,11 @@ new content
     );
 
     let content = setup.clip.get_chunk_content("@file out.txt").unwrap();
-    assert_eq!(content, vec!["new content\n"], "@replace should replace file chunk");
+    assert_eq!(
+        content,
+        vec!["new content\n"],
+        "@replace should replace file chunk"
+    );
 }
 
 /// Without `@replace`, a second file-chunk definition is an error and the first
@@ -389,7 +397,10 @@ fn test_tilde_expansion_in_file_chunk() {
     setup.clip.write_files().unwrap();
 
     let expected = fake_home.path().join("tilde_test.txt");
-    assert!(expected.exists(), "file should be written to expanded ~ path");
+    assert!(
+        expected.exists(),
+        "file should be written to expanded ~ path"
+    );
     let content = fs::read_to_string(&expected).unwrap();
     assert_eq!(content, "hello tilde\n");
 }

@@ -62,8 +62,47 @@ noweb FILE:
 example-c-enum:
     cd examples/c_enum && cargo run --package azadi -- status.md --gen src
 
+# ── Packaging ─────────────────────────────────────────────────────────────────
+
+# Build container stage: glibc | musl | windows | fedora
+build-container TARGET:
+    podman build --target {{TARGET}} -t azadi-{{TARGET}} .
+
+# Build container and export artifacts into dist/TARGET/
+export TARGET: (build-container TARGET)
+    mkdir -p dist/{{TARGET}}
+    podman create --name azadi-export-{{TARGET}} azadi-{{TARGET}}
+    podman cp azadi-export-{{TARGET}}:/out/. dist/{{TARGET}}/
+    podman rm azadi-export-{{TARGET}}
+
+# Build and export all targets
+export-all: (export "glibc") (export "musl") (export "windows") (export "fedora")
+
+# Build .deb locally (requires cargo-deb)
+deb:
+    cargo build --release --workspace
+    cargo deb -p azadi --no-build
+
+# Build .rpm locally (requires cargo-generate-rpm)
+rpm:
+    cargo build --release --workspace
+    cargo generate-rpm -p azadi
+
+# Tag and push to trigger the release workflow
+tag VERSION:
+    git tag {{VERSION}}
+    git push origin {{VERSION}}
+
+# Re-tag (re-triggers release)
+re-tag VERSION:
+    -git push --delete origin {{VERSION}}
+    -git tag -d {{VERSION}}
+    git tag {{VERSION}}
+    git push origin {{VERSION}}
+
 # ── Clean ─────────────────────────────────────────────────────────────────────
 
-# cargo clean
+# cargo clean + dist/
 clean:
     cargo clean
+    rm -rf dist/

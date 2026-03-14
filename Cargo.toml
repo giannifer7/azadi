@@ -14,6 +14,20 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Gianni Ferrarotti <gianni.ferrarotti@gmail.com>"]
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/giannifer7/azadi"
+
+[profile.release]
+strip        = true
+lto          = true
+codegen-units = 1
+opt-level    = 3
+debug        = 0
+
+[profile.release-debug]
+inherits      = "release"
+strip         = false
+lto           = false
+codegen-units = 16
 
 [workspace.dependencies]
 # Shared dependencies, mandated for the entire workspace:

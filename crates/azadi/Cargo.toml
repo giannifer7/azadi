@@ -1,9 +1,11 @@
 [package]
-name = "azadi"
+name        = "azadi"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+repository.workspace = true
+description = "Literate programming toolchain (azadi-macros + azadi-noweb)"
 
 [[bin]]
 name = "azadi"
@@ -18,3 +20,26 @@ clap = { workspace = true }
 assert_cmd.workspace = true
 tempfile.workspace = true
 predicates.workspace = true
+
+# ── Packaging metadata ────────────────────────────────────────────────────────
+
+[package.metadata.deb]
+maintainer  = "Gianni Ferrarotti <gianni.ferrarotti@gmail.com>"
+copyright   = "2024-2025, Gianni Ferrarotti"
+section     = "devel"
+priority    = "optional"
+assets = [
+    ["target/release/azadi",        "usr/bin/", "755"],
+    ["target/release/azadi-macros", "usr/bin/", "755"],
+    ["target/release/azadi-noweb",  "usr/bin/", "755"],
+]
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/azadi",        dest = "/usr/bin/azadi",        mode = "755" },
+    { source = "target/release/azadi-macros", dest = "/usr/bin/azadi-macros", mode = "755" },
+    { source = "target/release/azadi-noweb",  dest = "/usr/bin/azadi-noweb",  mode = "755" },
+]
+
+[package.metadata.aur]
+depends = ["gcc-libs", "glibc"]

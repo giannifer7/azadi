@@ -234,9 +234,9 @@ fn test_include_scope() {
         }
         Ok(output) => {
             panic!(
-                    "Expected an error due to undefined macro, but processing succeeded with output: {:?}",
-                    String::from_utf8_lossy(&output)
-                );
+                "Expected an error due to undefined macro, but processing succeeded with output: {:?}",
+                String::from_utf8_lossy(&output)
+            );
         }
     }
 }

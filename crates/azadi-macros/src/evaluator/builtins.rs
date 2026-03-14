@@ -28,10 +28,7 @@ pub fn default_builtins() -> HashMap<String, BuiltinFn> {
     #[cfg(feature = "python")]
     map.insert("pyget".to_string(), builtin_pyget as BuiltinFn);
     map.insert("include".to_string(), builtin_include as BuiltinFn);
-    map.insert(
-        "import".to_string(),
-        builtin_import as BuiltinFn,
-    );
+    map.insert("import".to_string(), builtin_import as BuiltinFn);
     map.insert("if".to_string(), builtin_if as BuiltinFn);
     map.insert("equal".to_string(), builtin_equal as BuiltinFn);
     map.insert("set".to_string(), builtin_set as BuiltinFn);
@@ -260,11 +257,7 @@ pub fn builtin_equal(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String>
     }
     let a = eval.evaluate(&parts[0])?;
     let b = eval.evaluate(&parts[1])?;
-    if a == b {
-        Ok(a)
-    } else {
-        Ok("".into())
-    }
+    if a == b { Ok(a) } else { Ok("".into()) }
 }
 
 pub fn builtin_set(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
@@ -427,7 +420,9 @@ pub fn builtin_to_screaming_case(eval: &mut Evaluator, node: &ASTNode) -> EvalRe
 pub fn builtin_rhaiset(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     let parts = &node.parts;
     if parts.len() != 2 {
-        return Err(EvalError::InvalidUsage("rhaiset: exactly 2 args (key, value)".into()));
+        return Err(EvalError::InvalidUsage(
+            "rhaiset: exactly 2 args (key, value)".into(),
+        ));
     }
     let key = single_ident_param(eval, &node.parts[0], "store key")?;
     let value = eval.evaluate(&parts[1])?;
@@ -461,7 +456,9 @@ pub fn builtin_rhaiget(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<Strin
 pub fn builtin_pyset(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     let parts = &node.parts;
     if parts.len() != 2 {
-        return Err(EvalError::InvalidUsage("pyset: exactly 2 args (key, value)".into()));
+        return Err(EvalError::InvalidUsage(
+            "pyset: exactly 2 args (key, value)".into(),
+        ));
     }
     let key = single_ident_param(eval, &node.parts[0], "store key")?;
     let value = eval.evaluate(&parts[1])?;

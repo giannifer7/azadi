@@ -76,7 +76,10 @@ fn run(args: Args) -> Result<(), AzadiError> {
     let formatters: HashMap<String, String> = args
         .formatter
         .iter()
-        .filter_map(|s| s.split_once('=').map(|(e, c)| (e.to_string(), c.to_string())))
+        .filter_map(|s| {
+            s.split_once('=')
+                .map(|(e, c)| (e.to_string(), c.to_string()))
+        })
         .collect();
 
     let safe_writer = SafeFileWriter::with_config(

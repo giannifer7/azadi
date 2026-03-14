@@ -1,7 +1,7 @@
 // src/tests/common.rs
+use crate::*;
 use std::fs;
 use tempfile::TempDir;
-use crate::*;
 
 pub(crate) struct TestSetup {
     pub _temp_dir: TempDir,

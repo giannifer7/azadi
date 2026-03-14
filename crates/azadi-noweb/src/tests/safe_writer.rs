@@ -1,8 +1,8 @@
 // src/tests/safe_writer.rs
 use super::*;
-use crate::SafeWriterError;
 use crate::AzadiError;
-use crate::safe_writer::{SafeWriterConfig, SafeFileWriter};
+use crate::SafeWriterError;
+use crate::safe_writer::{SafeFileWriter, SafeWriterConfig};
 use std::{collections::HashMap, fs, io::Write, path::PathBuf, thread, time::Duration};
 
 #[test]
@@ -66,7 +66,10 @@ fn test_backup_creation() -> Result<(), AzadiError> {
     assert!(backup_path.exists(), "Backup file should exist");
 
     let backup_content = fs::read_to_string(backup_path)?;
-    assert_eq!(backup_content, content, "Backup content should match original");
+    assert_eq!(
+        backup_content, content,
+        "Backup content should match original"
+    );
     Ok(())
 }
 
@@ -81,9 +84,15 @@ fn test_nested_directory_creation() -> Result<(), AzadiError> {
     let old_dir = writer.get_old_dir().join("dir1").join("dir2");
     let private_dir = writer.get_private_dir().join("dir1").join("dir2");
 
-    assert!(gen_dir.exists(), "Generated directory structure should exist");
+    assert!(
+        gen_dir.exists(),
+        "Generated directory structure should exist"
+    );
     assert!(old_dir.exists(), "Backup directory structure should exist");
-    assert!(private_dir.exists(), "Private directory structure should exist");
+    assert!(
+        private_dir.exists(),
+        "Private directory structure should exist"
+    );
     Ok(())
 }
 
@@ -106,7 +115,10 @@ fn test_modification_detection() -> Result<(), AzadiError> {
     match result {
         Err(AzadiError::SafeWriter(SafeWriterError::ModifiedExternally(_))) => {
             let content = fs::read_to_string(&final_path)?;
-            assert_eq!(content, modified_content, "Modified content should be preserved");
+            assert_eq!(
+                content, modified_content,
+                "Modified content should be preserved"
+            );
             Ok(())
         }
         Ok(_) => panic!("Expected ModifiedExternally error"),
@@ -138,7 +150,10 @@ fn test_concurrent_modifications() -> Result<(), AzadiError> {
     match result {
         Err(AzadiError::SafeWriter(SafeWriterError::ModifiedExternally(_))) => {
             let content = fs::read_to_string(&final_path)?;
-            assert_eq!(content, modified_content_2, "Latest modification should be preserved");
+            assert_eq!(
+                content, modified_content_2,
+                "Latest modification should be preserved"
+            );
             Ok(())
         }
         Ok(_) => panic!("Expected ModifiedExternally error"),
@@ -159,7 +174,10 @@ fn test_backup_disabled() -> Result<(), AzadiError> {
     write_file(&mut writer, &test_file, "Test content")?;
 
     let backup_path = writer.get_old_dir().join(&test_file);
-    assert!(!backup_path.exists(), "Backup file should not exist when backups and modification_check are disabled");
+    assert!(
+        !backup_path.exists(),
+        "Backup file should not exist when backups and modification_check are disabled"
+    );
     Ok(())
 }
 
@@ -203,7 +221,10 @@ fn test_modification_check_without_backup() -> Result<(), AzadiError> {
     match result {
         Err(AzadiError::SafeWriter(SafeWriterError::ModifiedExternally(_))) => {
             let content = fs::read_to_string(&final_path)?;
-            assert_eq!(content, modified_content, "Modified content should be preserved");
+            assert_eq!(
+                content, modified_content,
+                "Modified content should be preserved"
+            );
             Ok(())
         }
         Ok(_) => panic!("Expected ModifiedExternally error, but write succeeded"),
@@ -214,20 +235,36 @@ fn test_modification_check_without_backup() -> Result<(), AzadiError> {
 #[test]
 fn test_path_safety() {
     let (_temp, mut writer) = create_test_writer();
-    
+
     let test_cases = [
-        (PathBuf::from("../outside.txt"), "Path traversal detected (..)"),
-        (PathBuf::from("/absolute/path.txt"), "Absolute paths are not allowed"),
-        (PathBuf::from("C:/windows/path.txt"), "Windows-style absolute paths are not allowed"),
-        (PathBuf::from("C:test.txt"), "Windows-style absolute paths are not allowed"),
+        (
+            PathBuf::from("../outside.txt"),
+            "Path traversal detected (..)",
+        ),
+        (
+            PathBuf::from("/absolute/path.txt"),
+            "Absolute paths are not allowed",
+        ),
+        (
+            PathBuf::from("C:/windows/path.txt"),
+            "Windows-style absolute paths are not allowed",
+        ),
+        (
+            PathBuf::from("C:test.txt"),
+            "Windows-style absolute paths are not allowed",
+        ),
     ];
 
     for (path, expected_msg) in test_cases {
         let result = write_file(&mut writer, &path, "Should fail");
         match result {
             Err(AzadiError::SafeWriter(SafeWriterError::SecurityViolation(msg))) => {
-                assert!(msg.contains(expected_msg), 
-                    "Expected message '{}' for path {}", expected_msg, path.display());
+                assert!(
+                    msg.contains(expected_msg),
+                    "Expected message '{}' for path {}",
+                    expected_msg,
+                    path.display()
+                );
             }
             _ => panic!("Expected SecurityViolation for path: {}", path.display()),
         }
@@ -239,11 +276,18 @@ fn test_formatter_is_applied() -> Result<(), AzadiError> {
     let temp = tempfile::TempDir::new().unwrap();
     let mut formatters = HashMap::new();
     // Shell script that replaces the file content with "FORMATTED\n"
-    formatters.insert("txt".to_string(), "sh -c echo FORMATTED > \"$1\" && echo FORMATTED > \"$1\"".to_string());
+    formatters.insert(
+        "txt".to_string(),
+        "sh -c echo FORMATTED > \"$1\" && echo FORMATTED > \"$1\"".to_string(),
+    );
     // Use a simpler approach: a script file
     let script_path = temp.path().join("fmt.sh");
     fs::write(&script_path, "#!/bin/sh\necho FORMATTED > \"$1\"\n").unwrap();
-    std::process::Command::new("chmod").arg("+x").arg(&script_path).status().unwrap();
+    std::process::Command::new("chmod")
+        .arg("+x")
+        .arg(&script_path)
+        .status()
+        .unwrap();
 
     let mut formatters2 = HashMap::new();
     formatters2.insert("txt".to_string(), script_path.to_string_lossy().to_string());
@@ -255,17 +299,18 @@ fn test_formatter_is_applied() -> Result<(), AzadiError> {
         buffer_size: 8192,
         formatters: formatters2,
     };
-    let mut writer = SafeFileWriter::with_config(
-        temp.path().join("gen"),
-        temp.path().join("private"),
-        config,
-    );
+    let mut writer =
+        SafeFileWriter::with_config(temp.path().join("gen"), temp.path().join("private"), config);
 
     let test_file = PathBuf::from("test.txt");
     write_file(&mut writer, &test_file, "original content")?;
 
     let output = fs::read_to_string(writer.get_gen_base().join(&test_file))?;
-    assert!(output.contains("FORMATTED"), "Formatter should have replaced content, got: {:?}", output);
+    assert!(
+        output.contains("FORMATTED"),
+        "Formatter should have replaced content, got: {:?}",
+        output
+    );
     Ok(())
 }
 
@@ -282,11 +327,8 @@ fn test_formatter_error_propagates() -> Result<(), AzadiError> {
         buffer_size: 8192,
         formatters,
     };
-    let mut writer = SafeFileWriter::with_config(
-        temp.path().join("gen"),
-        temp.path().join("private"),
-        config,
-    );
+    let mut writer =
+        SafeFileWriter::with_config(temp.path().join("gen"), temp.path().join("private"), config);
 
     let test_file = PathBuf::from("test.txt");
     let result = write_file(&mut writer, &test_file, "some content");
@@ -302,8 +344,16 @@ fn test_formatter_prevents_false_positive() -> Result<(), AzadiError> {
     let temp = tempfile::TempDir::new().unwrap();
     let script_path = temp.path().join("noop.sh");
     // A no-op formatter: copies file to itself (content unchanged)
-    fs::write(&script_path, "#!/bin/sh\ncp \"$1\" \"$1.bak\" && mv \"$1.bak\" \"$1\"\n").unwrap();
-    std::process::Command::new("chmod").arg("+x").arg(&script_path).status().unwrap();
+    fs::write(
+        &script_path,
+        "#!/bin/sh\ncp \"$1\" \"$1.bak\" && mv \"$1.bak\" \"$1\"\n",
+    )
+    .unwrap();
+    std::process::Command::new("chmod")
+        .arg("+x")
+        .arg(&script_path)
+        .status()
+        .unwrap();
 
     let mut formatters = HashMap::new();
     formatters.insert("txt".to_string(), script_path.to_string_lossy().to_string());
@@ -315,11 +365,8 @@ fn test_formatter_prevents_false_positive() -> Result<(), AzadiError> {
         buffer_size: 8192,
         formatters,
     };
-    let mut writer = SafeFileWriter::with_config(
-        temp.path().join("gen"),
-        temp.path().join("private"),
-        config,
-    );
+    let mut writer =
+        SafeFileWriter::with_config(temp.path().join("gen"), temp.path().join("private"), config);
 
     let test_file = PathBuf::from("test.txt");
     write_file(&mut writer, &test_file, "initial content")?;
@@ -331,6 +378,10 @@ fn test_formatter_prevents_false_positive() -> Result<(), AzadiError> {
 
     // Second write should NOT trigger ModifiedExternally (content is the same as old/)
     let result = write_file(&mut writer, &test_file, "initial content");
-    assert!(result.is_ok(), "Expected success but got: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Expected success but got: {:?}",
+        result.err()
+    );
     Ok(())
 }
