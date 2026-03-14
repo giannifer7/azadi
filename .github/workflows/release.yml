@@ -36,7 +36,7 @@ jobs:
           podman rm azadi-export
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.5.0
         with:
           files: dist/${{ matrix.target }}/*
         env:
@@ -61,7 +61,7 @@ jobs:
           copy target\release\azadi-noweb.exe  dist\windows-native\
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.5.0
         with:
           files: dist/windows-native/*
         env:

@@ -45,9 +45,9 @@ COPY . .
 RUN cargo build --release --workspace
 RUN cargo deb -p azadi --no-build
 RUN mkdir -p /out \
-    && cp target/release/azadi        /out/ \
-    && cp target/release/azadi-macros /out/ \
-    && cp target/release/azadi-noweb  /out/ \
+    && cp target/release/azadi        /out/azadi-glibc \
+    && cp target/release/azadi-macros /out/azadi-macros-glibc \
+    && cp target/release/azadi-noweb  /out/azadi-noweb-glibc \
     && cp target/debian/*.deb         /out/
 
 # ── musl: static binary (Alpine — musl-native Python for PyO3) ───────────────
@@ -62,9 +62,9 @@ WORKDIR /src
 COPY . .
 RUN cargo build --release --target x86_64-unknown-linux-musl --workspace
 RUN mkdir -p /out \
-    && cp target/x86_64-unknown-linux-musl/release/azadi        /out/ \
-    && cp target/x86_64-unknown-linux-musl/release/azadi-macros /out/ \
-    && cp target/x86_64-unknown-linux-musl/release/azadi-noweb  /out/
+    && cp target/x86_64-unknown-linux-musl/release/azadi        /out/azadi-musl \
+    && cp target/x86_64-unknown-linux-musl/release/azadi-macros /out/azadi-macros-musl \
+    && cp target/x86_64-unknown-linux-musl/release/azadi-noweb  /out/azadi-noweb-musl
 
 # ── windows: MinGW cross-compilation (Fedora — has mingw64-python3-devel) ────
 FROM fedora:latest AS windows
@@ -107,7 +107,7 @@ COPY . .
 RUN cargo build --release --workspace
 RUN cargo generate-rpm -p crates/azadi
 RUN mkdir -p /out \
-    && cp target/release/azadi        /out/ \
-    && cp target/release/azadi-macros /out/ \
-    && cp target/release/azadi-noweb  /out/ \
+    && cp target/release/azadi        /out/azadi-fedora \
+    && cp target/release/azadi-macros /out/azadi-macros-fedora \
+    && cp target/release/azadi-noweb  /out/azadi-noweb-fedora \
     && cp target/generate-rpm/*.rpm   /out/
