@@ -7,9 +7,13 @@ import hashlib
 import urllib.request
 from pathlib import Path
 
-PACKAGING = Path(__file__).parent
-REPO_ROOT  = PACKAGING.parent
-BASE_URL   = "https://github.com/giannifer7/azadi/releases/download"
+PACKAGING   = Path(__file__).parent
+REPO_ROOT   = PACKAGING.parent
+
+MAINTAINER  = "Gianni Ferrarotti <gianni.ferrarotti@gmail.com>"
+DESCRIPTION = "azadi — literate programming toolchain"
+HOMEPAGE    = "https://github.com/giannifer7/azadi"
+RELEASES    = f"{HOMEPAGE}/releases/download"
 
 
 def fetch(url: str) -> bytes:
@@ -27,8 +31,9 @@ def sha256_sri(data: bytes) -> str:
 
 
 def pkgbuild(version: str, tarball_sha256: str) -> str:
+    source = f"{RELEASES}/v${{pkgver}}/azadi-x86_64-linux.tar.gz"
     return f"""\
-# Maintainer: Gianni Ferrarotti <gianni.ferrarotti@gmail.com>
+# Maintainer: {MAINTAINER}
 #
 # AUR package for azadi — literate programming toolchain.
 # Installs three binaries: azadi, azadi-macros, azadi-noweb.
@@ -39,15 +44,15 @@ def pkgbuild(version: str, tarball_sha256: str) -> str:
 pkgname=azadi-bin
 pkgver={version}
 pkgrel=1
-pkgdesc="azadi — literate programming toolchain"
-url="https://github.com/giannifer7/azadi"
+pkgdesc="{DESCRIPTION}"
+url="{HOMEPAGE}"
 license=('MIT' 'Apache-2.0')
 arch=('x86_64')
 provides=('azadi')
 conflicts=('azadi' 'azadi-git')
 depends=('gcc-libs' 'glibc')
 options=('!debug')
-source=("azadi-x86_64-linux.tar.gz::https://github.com/giannifer7/azadi/releases/download/v${{pkgver}}/azadi-x86_64-linux.tar.gz")
+source=("azadi-x86_64-linux.tar.gz::{source}")
 sha256sums=('{tarball_sha256}')
 
 package() {{
@@ -59,9 +64,10 @@ package() {{
 
 
 def flake(version: str, sri_azadi: str, sri_macros: str, sri_noweb: str) -> str:
+    base = f"{RELEASES}/v${{version}}"
     return f"""\
 {{
-  description = "azadi — literate programming toolchain";
+  description = "{DESCRIPTION}";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -69,7 +75,7 @@ def flake(version: str, sri_azadi: str, sri_macros: str, sri_noweb: str) -> str:
     let
       pkgs    = nixpkgs.legacyPackages.x86_64-linux;
       version = "{version}";
-      base    = "https://github.com/giannifer7/azadi/releases/download/v${{version}}";
+      base    = "{base}";
       fetch   = filename: sha256: pkgs.fetchurl {{ url = "${{base}}/${{filename}}"; inherit sha256; }};
     in {{
       packages.x86_64-linux.default = pkgs.runCommand "azadi-${{version}}" {{}} ''
@@ -89,7 +95,7 @@ def main() -> None:
     args = parser.parse_args()
 
     version = args.version.lstrip("v")
-    base    = f"{BASE_URL}/v{version}"
+    base    = f"{RELEASES}/v{version}"
 
     print("Downloading release artifacts...")
     tarball      = fetch(f"{base}/azadi-x86_64-linux.tar.gz")
@@ -97,14 +103,13 @@ def main() -> None:
     azadi_macros = fetch(f"{base}/azadi-macros-musl")
     azadi_noweb  = fetch(f"{base}/azadi-noweb-musl")
 
-    out_pkgbuild = pkgbuild(version, sha256_hex(tarball))
-    out_flake    = flake(version, sha256_sri(azadi), sha256_sri(azadi_macros), sha256_sri(azadi_noweb))
+    (PACKAGING / "PKGBUILD").write_text(
+        pkgbuild(version, sha256_hex(tarball)))
+    print("  Written packaging/PKGBUILD")
 
-    (PACKAGING / "PKGBUILD").write_text(out_pkgbuild)
-    print(f"  Written packaging/PKGBUILD")
-
-    (REPO_ROOT / "flake.nix").write_text(out_flake)
-    print(f"  Written flake.nix")
+    (REPO_ROOT / "flake.nix").write_text(
+        flake(version, sha256_sri(azadi), sha256_sri(azadi_macros), sha256_sri(azadi_noweb)))
+    print("  Written flake.nix")
 
     print(f"""
 Done. Next steps:
