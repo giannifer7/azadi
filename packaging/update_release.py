@@ -118,8 +118,8 @@ Done. Next steps:
   git commit -m "chore: release v{version}"
   git push origin main
 
-  cp packaging/PKGBUILD ~/aur-azadi-bin/
-  cd ~/aur-azadi-bin
+  cp packaging/PKGBUILD ../aur-azadi-bin/
+  cd ../aur-azadi-bin
   makepkg --printsrcinfo > .SRCINFO
   git add PKGBUILD .SRCINFO
   git commit -m "Release {version}"
