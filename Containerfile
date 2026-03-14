@@ -2,7 +2,7 @@
 #
 # Stages:
 #   glibc   — Debian binary + .deb  (cargo-deb)  — includes python feature
-#   musl    — Alpine static binary               — no python (PyO3 + musl unsupported)
+#   musl    — Alpine static binary               — includes python feature (Alpine musl-native Python)
 #   windows — MinGW cross-compiled .exe          — no python (cross-compiling PyO3 unsupported)
 #   fedora  — Fedora binary + .rpm               — includes python feature
 #
@@ -50,22 +50,24 @@ RUN mkdir -p /out \
     && cp target/release/azadi-noweb  /out/ \
     && cp target/debian/*.deb         /out/
 
-# ── musl: static binary ───────────────────────────────────────────────────────
-# PyO3 requires libpython which is not available for musl targets.
-FROM rust-base AS musl
-RUN apt-get update && apt-get install -y --no-install-recommends musl-tools \
-    && rm -rf /var/lib/apt/lists/*
+# ── musl: static binary (Alpine — musl-native Python for PyO3) ───────────────
+FROM alpine:latest AS musl
+RUN apk add --no-cache curl build-base python3 python3-dev
+ENV RUSTUP_HOME=/root/.rustup \
+    CARGO_HOME=/root/.cargo \
+    PATH=/root/.cargo/bin:$PATH
+RUN curl https://sh.rustup.rs -sSf \
+    | sh -s -- -y --default-toolchain stable --no-modify-path
 WORKDIR /src
 COPY . .
-RUN rustup target add x86_64-unknown-linux-musl \
-    && cargo build --release --no-default-features --target x86_64-unknown-linux-musl --workspace
+RUN cargo build --release --target x86_64-unknown-linux-musl --workspace
 RUN mkdir -p /out \
     && cp target/x86_64-unknown-linux-musl/release/azadi        /out/ \
     && cp target/x86_64-unknown-linux-musl/release/azadi-macros /out/ \
     && cp target/x86_64-unknown-linux-musl/release/azadi-noweb  /out/
 
 # ── windows: MinGW cross-compilation ─────────────────────────────────────────
-# PyO3 cross-compilation to Windows requires a Windows Python SDK; not supported here.
+# PyO3 cross-compilation to Windows requires a Windows Python SDK — not available here.
 FROM rust-base AS windows
 RUN apt-get update && apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 \
     && rm -rf /var/lib/apt/lists/*
