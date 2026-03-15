@@ -200,8 +200,8 @@ fn path_is_safe(path: &str) -> Result<(), SafeWriterError> {
 
 impl ChunkStore {
     pub fn new(
-        open_delim: &str,           // e.g. "<<"
-        close_delim: &str,          // e.g. ">>"
+        open_delim: &str,           // e.g. "<["
+        close_delim: &str,          // e.g. "]>"
         chunk_end: &str,            // e.g. "@"
         comment_markers: &[String], // e.g. ["#", "//"]
     ) -> Self {

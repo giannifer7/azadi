@@ -1,48 +1,113 @@
 ---
 name: Azadi Literate Programming
-description: Guidelines and patterns for using the Azadi literate programming system and its macro translator.
+description: Guidelines and patterns for working in codebases that use the azadi literate programming toolchain.
 ---
 
-# Azadi Literate Programming System
+# Azadi Literate Programming
 
-The **Azadi** system provides a powerful way to manage complex codebases through a **Literate Programming** approach. It allows you to define code structures as high-level macros that generate documentation-rich source files.
+Azadi is a literate programming toolchain. Source files are written as
+annotated documents (Markdown, AsciiDoc, etc.) containing macro calls and
+named code chunks. The `azadi` command processes them and writes the final
+source files.
 
-## Core Components
+## Typical invocation
 
-1.  **`azadi-macros`**: A macro translator and evaluator. It transforms custom macro definitions and calls into raw text (typically `noweb` chunks).
-    -   Extensible via Rhai-scripted macros (`%rhaidef`) and Python-scripted macros (`%pydef`, powered by monty).
-2.  **`azadi-noweb`**: A literate programming tool that extracts code chunks from literate source files (Markdown, Org-mode, etc.) into final source-code files.
+```bash
+azadi source.md --gen src
+azadi --dir docs --ext adoc --include . --gen src
+```
 
-## General Workflow Pattern
+The `--dir` mode recursively discovers driver files (those not `%include`d
+by another file) and processes each one. No command-line changes are needed
+when new files are added.
 
-1.  **Macro Definition**: Define reusable macros that encapsulate common code patterns.
-2.  **Macro Usage**: Call these macros within a literate document (e.g., Markdown).
-3.  **Expansion (`azadi-macros`)**: Expand the macros into an intermediate document containing `noweb` chunk definitions.
-4.  **Extraction (`azadi-noweb`)**: Extract the named chunks from the intermediate document into the target source files.
+## Two passes, one command
 
-## Macro System Features
+`azadi` runs two passes in sequence, in-process:
 
--   **Variable Interpolation**: Use `%(var)X` to insert variables into your macros.
--   **Nesting**: Macros can call other macros, allowing for deep abstraction.
--   **Scripted Macros**: Use `%rhaidef` (Rhai, always available) or `%pydef` (Python via monty, enabled by default) for logic-heavy transformations.
+1. **azadi-macros** — expands `%macro(...)` calls into an intermediate
+   noweb document
+2. **azadi-noweb** — extracts `<[chunk]>` references and writes output files
 
-## Literate Extraction (noweb)
+The separate `azadi-macros` and `azadi-noweb` binaries exist for advanced
+pipeline use but are not needed for normal work.
 
-Chunks are defined using:
-```markdown
-# <<chunk name>>=
-code goes here
+## Chunk syntax (defaults)
+
+```
+# <[@file path/to/output.rs]>=
+code here
+# @
+
+# <[chunk-name]>=
+more code
 # @
 ```
-*(Delimiters are configurable via `--open-delim`, `--close-delim`, and `--chunk-end`.)*
 
-## Implementation Guidelines for Agents
--   **Separation of Concerns**: Treat the literate manifest as the primary source of truth for architectural structure.
--   **Documentation**: Use the Markdown structure of the manifest to explain the *why* behind the code chunks.
--   **Tooling Integration**: Azadi tools should be integrated into the project's build system (Ninja, Meson, Make) to ensure automated and consistent synchronization.
+- `<[@file path]>=` — declares a file output chunk; path may start with `~/`
+- `<[name]>=` — declares a named chunk
+- `<[name]>` inside a chunk body — expands that chunk inline, preserving indentation
+- `# @` (or `// @`) — ends the current chunk
+- Comment markers (`#`, `//`) before delimiters are stripped automatically
 
-## Best Practices
--   **PATH Discovery**: Build systems should ideally look for `azadi-noweb` and `azadi-macros` in the system `PATH`.
--   **Configurable Tool Paths**: In development environments or specialized build wrappers, allow for a configurable location for the Azadi binaries, either through environment variables or build parameters.
--   **Relative Build Artifacts**: Direct macro expansions to a `build/` or temporary directory (using `--output`) to keep the source tree clean.
--   **Build Locks**: In highly parallel build environments (like Ninja), ensure the transformation pipeline is executed atomically to prevent race conditions.
+Delimiters are configurable: `--open-delim`, `--close-delim`, `--chunk-end`.
+
+## Macro syntax
+
+```
+%def(name, param1, ..., body)   — define a macro
+%(varname)                      — interpolate a variable
+%set(name, value)               — set a variable
+%if(cond, then, else)           — conditional
+%include(path)                  — include another file
+%import(path)                   — include but discard output (load definitions)
+%rhaidef(name, params..., body) — Rhai-scripted macro (logic, arithmetic)
+%pydef(name, params..., body)   — Python-scripted macro (via monty)
+```
+
+Wrap bodies in `%{ ... %}` when they contain commas or parentheses:
+
+```
+%def(greet, name, %{Hello, %(name)!%})
+```
+
+## Build system integration
+
+`--depfile` writes a Makefile-format depfile after each run; `--stamp`
+touches a file on success. Together they let a single build rule cover an
+entire directory tree:
+
+```meson
+custom_target('gen',
+  output  : ['gen.stamp'],
+  depfile : 'gen.d',
+  command : [azadi,
+             '--dir',    meson.current_source_dir() / 'src',
+             '--ext',    'adoc',
+             '--include', meson.current_source_dir(),
+             '--gen',    meson.current_source_dir() / 'src',
+             '--stamp',  '@OUTPUT0@',
+             '--depfile', '@DEPFILE@'],
+)
+```
+
+> List only the stamp in `output`, never the `.d` file — Ninja consumes
+> depfiles into its internal database and will rerun forever if the `.d`
+> file is also declared as an output.
+
+## Guidelines for agents
+
+- The literate document is the **source of truth**. Never edit generated
+  files in `gen/` directly — changes will be overwritten on the next run.
+- Use the Markdown/AsciiDoc structure to explain *why* the code is
+  structured as it is. Chunk names should read as intent, not mechanics.
+- When adding a new output file, declare it as a `<[@file ...]>=` chunk
+  in the appropriate literate source, then reference named sub-chunks to
+  keep each chunk short and focused.
+- `azadi` writes output files only when content changes (content-based
+  diffing). Rebuilds that produce identical output leave files untouched,
+  keeping build system timestamps stable.
+- Use `--formatter rs=rustfmt` (or the equivalent for the target language)
+  to keep generated code formatted without manual intervention.
+- `--dump-expanded` (stderr) shows the macro-expanded intermediate text —
+  the first thing to check when a chunk is missing or expands unexpectedly.

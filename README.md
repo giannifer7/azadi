@@ -13,7 +13,7 @@ azadi source.md --gen src
 Under the hood it runs two passes in sequence:
 
 1. **azadi-macros** — expands `%macro(...)` calls in the source document
-2. **azadi-noweb** — extracts `<<@file ...>>` chunks and writes them to disk
+2. **azadi-noweb** — extracts `<[@file ...]>` chunks and writes them to disk
 
 Both passes run in-process; no intermediate files or subprocesses are needed.
 The individual `azadi-macros` and `azadi-noweb` binaries are also available for
@@ -121,8 +121,8 @@ azadi [OPTIONS] --dir <DIR>
 | `--include <PATHS>` | `.` | Include search paths for `%include`/`%import` (colon-separated on Unix) |
 | `--work-dir <PATH>` | `_azadi_work` | Work directory for backups and private noweb files |
 | `--gen <PATH>` | `gen` | Base directory for generated output files |
-| `--open-delim <STR>` | `<<` | Chunk-open delimiter |
-| `--close-delim <STR>` | `>>` | Chunk-close delimiter |
+| `--open-delim <STR>` | `<[` | Chunk-open delimiter |
+| `--close-delim <STR>` | `]>` | Chunk-close delimiter |
 | `--chunk-end <STR>` | `@` | End-of-chunk marker |
 | `--comment-markers <STR>` | `#,//` | Comment prefixes recognised before chunk delimiters (comma-separated) |
 | `--formatter <EXT=CMD>` | | Run a formatter after writing a file (e.g. `rs=rustfmt`), repeatable |
@@ -782,8 +782,8 @@ azadi-noweb [OPTIONS] <FILES>...
 | `--priv-dir <PATH>` | `_azadi_work` | Private work directory |
 | `--output <PATH>` | stdout | Output for `--chunks` extraction |
 | `--chunks <NAMES>` | | Comma-separated chunk names to extract to stdout |
-| `--open-delim <STR>` | `<<` | Chunk-open delimiter |
-| `--close-delim <STR>` | `>>` | Chunk-close delimiter |
+| `--open-delim <STR>` | `<[` | Chunk-open delimiter |
+| `--close-delim <STR>` | `]>` | Chunk-close delimiter |
 | `--chunk-end <STR>` | `@` | End-of-chunk marker |
 | `--comment-markers <STR>` | `#,//` | Comment prefixes (comma-separated) |
 | `--formatter <EXT=CMD>` | | Run a formatter after writing a file (e.g. `rs=rustfmt`) |
@@ -795,21 +795,21 @@ are recognised, so chunks blend naturally into any host language's comment
 syntax.
 
 ```rust
-// <<@file src/hello.rs>>=
+// <[@file src/hello.rs]>=
 fn main() {
-    // <<greeting>>
+    // <[greeting]>
 }
 // @
 
-// <<greeting>>=
+// <[greeting]>=
 println!("Hello, world!");
 // @
 ```
 
-- `<<@file path>>=` declares a file output chunk. The path may begin with `~/`
+- `<[@file path]>=` declares a file output chunk. The path may begin with `~/`
   to write to the home directory.
-- `<<name>>=` declares a named chunk.
-- `<<name>>` inside a chunk body references (expands) another chunk, preserving
+- `<[name]>=` declares a named chunk.
+- `<[name]>` inside a chunk body references (expands) another chunk, preserving
   indentation.
 - A line matching `// @` (or `# @`) ends the current chunk.
 
@@ -819,7 +819,7 @@ Modifiers go **before** the chunk name, inside the delimiters.
 one:
 
 ```rust
-// <<@replace @file src/main.rs>>=
+// <[@replace @file src/main.rs]>=
 … new content …
 // @
 ```
@@ -829,7 +829,7 @@ accumulated definitions in reverse order (last-defined first). Useful for
 stack / LIFO patterns.
 
 ```rust
-// <<@reversed items>>
+// <[@reversed items]>
 ```
 
 ---

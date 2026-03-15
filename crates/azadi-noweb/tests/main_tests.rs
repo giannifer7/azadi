@@ -22,7 +22,7 @@ fn test_basic_chunk_extraction() -> Result<(), Box<dyn std::error::Error>> {
     let dir = tempdir()?;
     let input_file = dir.path().join("input.nw");
     let mut file = fs::File::create(&input_file)?;
-    writeln!(file, "<<@file test.txt>>=")?;
+    writeln!(file, "<[@file test.txt]>=")?;
     writeln!(file, "Hello, world!")?;
     writeln!(file, "@")?;
 
@@ -55,10 +55,10 @@ fn test_extract_specific_chunk_to_stdout() -> Result<(), Box<dyn std::error::Err
     let dir = tempdir()?;
     let input_file = dir.path().join("input.nw");
     let mut file = fs::File::create(&input_file)?;
-    writeln!(file, "<<chunk1>>=")?;
+    writeln!(file, "<[chunk1]>=")?;
     writeln!(file, "Chunk 1 content")?;
     writeln!(file, "@")?;
-    writeln!(file, "<<chunk2>>=")?;
+    writeln!(file, "<[chunk2]>=")?;
     writeln!(file, "Chunk 2 content")?;
     writeln!(file, "@")?;
 
@@ -90,7 +90,7 @@ fn test_extract_chunk_to_file() -> Result<(), Box<dyn std::error::Error>> {
     let input_file = dir.path().join("input.nw");
     {
         let mut file = fs::File::create(&input_file)?;
-        writeln!(file, "<<chunk3>>=")?;
+        writeln!(file, "<[chunk3]>=")?;
         writeln!(file, "This is chunk 3.")?;
         writeln!(file, "@")?;
     }

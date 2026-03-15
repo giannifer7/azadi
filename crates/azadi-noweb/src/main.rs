@@ -29,11 +29,11 @@ struct Args {
     gen_dir: PathBuf,
 
     /// Delimiter used to open a chunk
-    #[arg(long, default_value = "<<")]
+    #[arg(long, default_value = "<[")]
     open_delim: String,
 
     /// Delimiter used to close a chunk definition
-    #[arg(long, default_value = ">>")]
+    #[arg(long, default_value = "]>")]
     close_delim: String,
 
     /// Delimiter for chunk-end lines

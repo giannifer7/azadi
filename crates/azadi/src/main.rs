@@ -59,11 +59,11 @@ struct Args {
     gen_dir: PathBuf,
 
     /// Chunk open delimiter
-    #[arg(long, default_value = "<<")]
+    #[arg(long, default_value = "<[")]
     open_delim: String,
 
     /// Chunk close delimiter
-    #[arg(long, default_value = ">>")]
+    #[arg(long, default_value = "]>")]
     close_delim: String,
 
     /// Chunk end marker
