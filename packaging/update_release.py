@@ -36,7 +36,8 @@ def pkgbuild(version: str, tarball_sha256: str) -> str:
 # Maintainer: {MAINTAINER}
 #
 # AUR package for azadi — literate programming toolchain.
-# Installs three binaries: azadi, azadi-macros, azadi-noweb.
+# Installs the azadi binary. The separate azadi-macros and azadi-noweb
+# binaries are available in the GitHub release for advanced pipeline use.
 #
 # Regenerate after each release:
 #   python packaging/update_release.py <version>
@@ -56,14 +57,12 @@ source=("azadi-x86_64-linux.tar.gz::{source}")
 sha256sums=('{tarball_sha256}')
 
 package() {{
-    install -Dm755 azadi        -t "${{pkgdir}}/usr/bin"
-    install -Dm755 azadi-macros -t "${{pkgdir}}/usr/bin"
-    install -Dm755 azadi-noweb  -t "${{pkgdir}}/usr/bin"
+    install -Dm755 azadi -t "${{pkgdir}}/usr/bin"
 }}
 """
 
 
-def flake(version: str, sri_azadi: str, sri_macros: str, sri_noweb: str) -> str:
+def flake(version: str, sri_azadi: str) -> str:
     base = f"{RELEASES}/v${{version}}"
     return f"""\
 {{
@@ -76,14 +75,14 @@ def flake(version: str, sri_azadi: str, sri_macros: str, sri_noweb: str) -> str:
       pkgs    = nixpkgs.legacyPackages.x86_64-linux;
       version = "{version}";
       base    = "{base}";
-      fetch   = filename: sha256: pkgs.fetchurl {{ url = "${{base}}/${{filename}}"; inherit sha256; }};
     in {{
-      packages.x86_64-linux.default = pkgs.runCommand "azadi-${{version}}" {{}} ''
-        mkdir -p $out/bin
-        install -m755 ${{fetch "azadi-musl"        "{sri_azadi}"}} $out/bin/azadi
-        install -m755 ${{fetch "azadi-macros-musl" "{sri_macros}"}} $out/bin/azadi-macros
-        install -m755 ${{fetch "azadi-noweb-musl"  "{sri_noweb}"}} $out/bin/azadi-noweb
-      '';
+      packages.x86_64-linux.default = pkgs.stdenv.mkDerivation {{
+        pname   = "azadi";
+        inherit version;
+        src     = pkgs.fetchurl {{ url = "${{base}}/azadi-musl"; sha256 = "{sri_azadi}"; }};
+        dontUnpack   = true;
+        installPhase = "install -Dm755 $src $out/bin/azadi";
+      }};
     }};
 }}
 """
@@ -98,17 +97,15 @@ def main() -> None:
     base    = f"{RELEASES}/v{version}"
 
     print("Downloading release artifacts...")
-    tarball      = fetch(f"{base}/azadi-x86_64-linux.tar.gz")
-    azadi        = fetch(f"{base}/azadi-musl")
-    azadi_macros = fetch(f"{base}/azadi-macros-musl")
-    azadi_noweb  = fetch(f"{base}/azadi-noweb-musl")
+    tarball = fetch(f"{base}/azadi-x86_64-linux.tar.gz")
+    azadi   = fetch(f"{base}/azadi-musl")
 
     (PACKAGING / "PKGBUILD").write_text(
         pkgbuild(version, sha256_hex(tarball)))
     print("  Written packaging/PKGBUILD")
 
     (REPO_ROOT / "flake.nix").write_text(
-        flake(version, sha256_sri(azadi), sha256_sri(azadi_macros), sha256_sri(azadi_noweb)))
+        flake(version, sha256_sri(azadi)))
     print("  Written flake.nix")
 
     print(f"""

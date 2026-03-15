@@ -72,6 +72,9 @@ The glibc builds are dynamically linked against glibc and are the better
 choice on standard Debian/Ubuntu/Fedora systems where glibc is already
 present, as glibc's runtime is generally faster.
 
+The `azadi-macros` and `azadi-noweb` binaries are available in the release for
+advanced pipeline use, but `azadi` alone covers the typical workflow.
+
 **Quick install (musl, no package manager):**
 
 ```bash
