@@ -173,14 +173,10 @@ already everything needed to reconstruct the 3-way merge base.
 
 What the evaluator needs to do (and currently doesn't):
 
-3. **Evaluator**:
-   - When outputting literal text from a `Text` node: `out.push_str(text, span_of_node)`
-   - When substituting a variable/parameter: `out.push_str(value, call_site_span)` with `kind = MacroArg { ... }`
-   - When expanding a `%def` body: each literal piece in the body carries the `def_line` span; argument substitutions carry the call-site span
-   - When outputting `%if`/`%case`/`%for` results: propagate spans from the branch taken
-
-This is the most invasive change.  The lexer already has line-counting logic for
-error messages; adding `col` and threading spans through the AST is incremental work.
+- When outputting literal text from a `Text` node: `out.push_str(text, span_of_node)`
+- When substituting a variable/parameter: `out.push_str(value, call_site_span)` with `kind = MacroArg { ... }`
+- When expanding a `%def` body: each literal piece in the body carries the body's span; argument substitutions carry the call-site span
+- When outputting `%if`/`%case`/`%for` results: propagate spans from the branch taken
 
 ---
 
