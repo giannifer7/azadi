@@ -88,21 +88,19 @@ rpm:
     cargo build --release --workspace
     cargo generate-rpm -p crates/azadi
 
-# Update PKGBUILD + flake.nix checksums for a release (usage: just update-release 0.2.0)
-update-release VERSION:
-    python packaging/update_release.py {{VERSION}}
-
-# Tag and push to trigger the release workflow
+# Tag, wait for CI, then publish PKGBUILD + flake.nix + AUR (usage: just tag v0.2.0)
 tag VERSION:
-    git tag {{VERSION}}
-    git push origin {{VERSION}}
+    python packaging/update_release.py --tag {{VERSION}}
 
-# Re-tag (re-triggers release)
+# Re-tag HEAD, wait for CI, then publish (usage: just re-tag v0.2.0)
 re-tag VERSION:
     -git push --delete origin {{VERSION}}
     -git tag -d {{VERSION}}
-    git tag {{VERSION}} HEAD
-    git push origin {{VERSION}}
+    python packaging/update_release.py --tag {{VERSION}}
+
+# Re-run publish only — tag already pushed and CI already done (usage: just update-release 0.2.0)
+update-release VERSION:
+    python packaging/update_release.py {{VERSION}}
 
 # ── Clean ─────────────────────────────────────────────────────────────────────
 
