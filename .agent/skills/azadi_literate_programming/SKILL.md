@@ -107,6 +107,21 @@ To keep a leading space, use `%{`:
 ```
 Output: `< div> Hello world</ div>`
 
+Named parameters can be given in any order; combined with multi-line style
+and comments they serve as self-documenting call sites:
+
+```
+%def(http_endpoint, method, path, handler, %{
+%(method) %(path) → %(handler)
+%})
+
+%http_endpoint(
+    method  = GET,          %# HTTP verb
+    path    = /api/users,   %# route pattern
+    handler = list_users)   %# function name
+```
+Output: `GET /api/users → list_users`
+
 ## Build system integration
 
 `--depfile` writes a Makefile-format depfile after each run; `--stamp`
