@@ -8,9 +8,10 @@ use std::io::{self, Write};
 use std::path::{Component, Path};
 use std::rc::Rc;
 
+use crate::db::NowebMapEntry;
+use crate::safe_writer::SafeWriterError;
 use crate::AzadiError;
 use crate::SafeFileWriter;
-use crate::SafeWriterError;
 use log::{debug, warn};
 
 /// Represents a single definition of a named chunk.
@@ -535,6 +536,159 @@ impl ChunkStore {
         self.expand_with_depth(chunk_name, indent, 0, &mut seen, loc, false)
     }
 
+    /// Like `expand_with_depth` but also returns a `NowebMapEntry` per output
+    /// line for source-map purposes.  Slot lines (chunk references) are replaced
+    /// by the entries of their sub-expansion; plain lines produce one entry each.
+    fn expand_with_depth_impl(
+        &self,
+        chunk_name: &str,
+        target_indent: &str,
+        depth: usize,
+        seen: &mut Vec<(String, ChunkLocation)>,
+        reference_location: ChunkLocation,
+        reversed_mode: bool,
+    ) -> Result<Vec<(String, NowebMapEntry)>, ChunkError> {
+        const MAX_DEPTH: usize = 100;
+        if depth > MAX_DEPTH {
+            let file_name = self
+                .file_names
+                .get(reference_location.file_idx)
+                .cloned()
+                .unwrap_or_default();
+            return Err(ChunkError::RecursionLimit {
+                chunk: chunk_name.to_string(),
+                file_name,
+                location: reference_location,
+            });
+        }
+
+        if seen.iter().any(|(nm, _)| nm == chunk_name) {
+            let file_name = self
+                .file_names
+                .get(reference_location.file_idx)
+                .cloned()
+                .unwrap_or_default();
+            return Err(ChunkError::RecursiveReference {
+                chunk: chunk_name.to_string(),
+                file_name,
+                location: reference_location,
+            });
+        }
+
+        if !self.chunks.contains_key(chunk_name) {
+            let file_name = self
+                .file_names
+                .get(reference_location.file_idx)
+                .cloned()
+                .unwrap_or_default();
+            warn!(
+                "Undefined chunk '{}' referenced at {} line {}. Treating as empty.",
+                chunk_name,
+                file_name,
+                reference_location.line + 1
+            );
+            return Ok(Vec::new());
+        }
+
+        self.inc_references(chunk_name, &reference_location)?;
+
+        let rc = self.chunks.get(chunk_name).unwrap();
+        let borrowed = rc.borrow();
+        let defs = &borrowed.definitions;
+
+        let iter: Box<dyn Iterator<Item = &ChunkDef>> = if reversed_mode {
+            Box::new(defs.iter().rev())
+        } else {
+            Box::new(defs.iter())
+        };
+
+        seen.push((chunk_name.to_string(), reference_location));
+        let mut result = Vec::new();
+
+        for def in iter {
+            let src_file = self
+                .file_names
+                .get(def.file_idx)
+                .cloned()
+                .unwrap_or_default();
+            let mut line_count = 0usize;
+
+            for line in &def.content {
+                line_count += 1;
+
+                if let Some(caps) = self.slot_re.captures(line) {
+                    let add_indent = caps.get(1).map_or("", |m| m.as_str());
+                    let referenced_chunk = caps.get(2).map_or("", |m| m.as_str());
+
+                    let line_is_reversed = line.contains("@reversed");
+                    let relative_indent = if add_indent.len() > def.base_indent {
+                        &add_indent[def.base_indent..]
+                    } else {
+                        ""
+                    };
+                    let new_indent = if target_indent.is_empty() {
+                        relative_indent.to_owned()
+                    } else {
+                        format!("{}{}", target_indent, relative_indent)
+                    };
+                    let new_loc = ChunkLocation {
+                        file_idx: def.file_idx,
+                        line: def.line + line_count - 1,
+                    };
+
+                    let expanded = self.expand_with_depth_impl(
+                        referenced_chunk.trim(),
+                        &new_indent,
+                        depth + 1,
+                        seen,
+                        new_loc,
+                        line_is_reversed,
+                    )?;
+                    result.extend(expanded);
+                } else {
+                    // Plain line — emit with source-map entry.
+                    let line_indent = if line.len() > def.base_indent {
+                        &line[def.base_indent..]
+                    } else {
+                        line
+                    };
+                    let out_line = if target_indent.is_empty() {
+                        line_indent.to_owned()
+                    } else {
+                        format!("{}{}", target_indent, line_indent)
+                    };
+                    let entry = NowebMapEntry {
+                        src_file: src_file.clone(),
+                        chunk_name: chunk_name.to_string(),
+                        src_line: (def.line + line_count) as u32,
+                        indent: target_indent.to_string(),
+                    };
+                    result.push((out_line, entry));
+                }
+            }
+        }
+
+        seen.pop();
+        Ok(result)
+    }
+
+    /// Expand a top-level chunk and return both the output lines and their
+    /// source-map entries (one entry per output line, in order).
+    pub fn expand_with_map(
+        &self,
+        chunk_name: &str,
+        indent: &str,
+    ) -> Result<(Vec<String>, Vec<NowebMapEntry>), ChunkError> {
+        let mut seen = Vec::new();
+        let loc = ChunkLocation {
+            file_idx: 0,
+            line: 0,
+        };
+        let pairs = self.expand_with_depth_impl(chunk_name, indent, 0, &mut seen, loc, false)?;
+        let (lines, entries) = pairs.into_iter().unzip();
+        Ok((lines, entries))
+    }
+
     /// For tests or direct usage: get chunk content with no indentation.
     pub fn get_chunk_content(&self, chunk_name: &str) -> Result<Vec<String>, ChunkError> {
         self.expand(chunk_name, "")
@@ -676,19 +830,38 @@ impl Clip {
         self.store.read(text, idx);
     }
 
-    /// Write all file chunks to disk.
+    /// Write all file chunks to disk and populate the noweb_map table.
     pub fn write_files(&mut self) -> Result<(), AzadiError> {
         let fc = self.store.get_file_chunks().to_vec();
         for name in &fc {
-            let expanded = self.store.expand(name, "")?;
+            let (lines, map_entries) = self.store.expand_with_map(name, "")?;
+
             let mut cw = ChunkWriter::new(&mut self.writer);
-            cw.write_chunk(name, &expanded)?;
+            cw.write_chunk(name, &lines)?;
+
+            // Write source-map entries for this output file.
+            let out_file = name.strip_prefix("@file ").unwrap_or(name).trim();
+            let keyed: Vec<(u32, NowebMapEntry)> = map_entries
+                .into_iter()
+                .enumerate()
+                .map(|(i, e)| (i as u32, e))
+                .collect();
+            self.writer
+                .db()
+                .set_noweb_entries(out_file, &keyed)
+                .map_err(|e| AzadiError::SafeWriter(SafeWriterError::DbError(e)))?;
         }
         let warns = self.store.check_unused_chunks();
         for w in warns {
             eprintln!("{}", w);
         }
         Ok(())
+    }
+
+    /// Access the underlying database (for writing src_snapshots after
+    /// `write_files()` returns).
+    pub fn db(&self) -> &crate::db::AzadiDb {
+        self.writer.db()
     }
 
     /// Expand a chunk and write to an arbitrary writer.

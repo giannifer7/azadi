@@ -282,6 +282,17 @@ fn run(args: Args) -> Result<(), Error> {
     // Phase 2: write all @file chunks.
     clip.write_files()?;
 
+    // Phase 3: snapshot all source files read this run.
+    (|| -> Result<(), azadi_noweb::AzadiError> {
+        for path in evaluator.source_files() {
+            if let Ok(content) = std::fs::read(path) {
+                let key = path.to_string_lossy();
+                clip.db().set_src_snapshot(key.as_ref(), &content)?;
+            }
+        }
+        Ok(())
+    })()?;
+
     // Write depfile if requested.
     if let Some(ref depfile_path) = args.depfile {
         // In directory mode: depend on all .adoc so adding a new file triggers rebuild.

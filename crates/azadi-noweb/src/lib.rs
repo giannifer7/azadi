@@ -1,3 +1,4 @@
+pub mod db;
 pub mod noweb;
 pub mod safe_writer;
 
@@ -6,6 +7,7 @@ mod tests;
 
 pub use noweb::ChunkError;
 
+use db::DbError;
 use safe_writer::SafeWriterError;
 use std::fmt;
 
@@ -13,6 +15,7 @@ use std::fmt;
 pub enum AzadiError {
     Chunk(ChunkError),
     SafeWriter(SafeWriterError),
+    Db(DbError),
 }
 
 impl fmt::Display for AzadiError {
@@ -20,6 +23,7 @@ impl fmt::Display for AzadiError {
         match self {
             AzadiError::Chunk(e) => write!(f, "Chunk error: {}", e),
             AzadiError::SafeWriter(e) => write!(f, "Safe writer error: {}", e),
+            AzadiError::Db(e) => write!(f, "Database error: {}", e),
         }
     }
 }
@@ -38,12 +42,19 @@ impl From<SafeWriterError> for AzadiError {
     }
 }
 
+impl From<DbError> for AzadiError {
+    fn from(err: DbError) -> Self {
+        AzadiError::Db(err)
+    }
+}
+
 impl From<std::io::Error> for AzadiError {
     fn from(err: std::io::Error) -> Self {
         AzadiError::SafeWriter(SafeWriterError::IoError(err))
     }
 }
 
+pub use crate::db::{AzadiDb, NowebMapEntry};
 pub use crate::noweb::Clip;
 pub use crate::safe_writer::SafeFileWriter;
 pub use crate::safe_writer::SafeWriterConfig;

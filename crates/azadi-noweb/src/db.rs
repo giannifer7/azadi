@@ -1,0 +1,170 @@
+// src/db.rs  —  azadi embedded database (redb-backed)
+//
+// Tables:
+//   gen_baselines  : relative-output-path → file-content bytes
+//                    Used by SafeFileWriter for modification detection.
+//   noweb_map      : "<out_file>\x00<out_line:010>" → postcard(NowebMapEntry)
+//                    Maps each output line back to its source.
+//   src_snapshots  : source-path → file-content bytes
+//                    Snapshots of input files written at the end of a run.
+
+use redb::{Database, TableDefinition};
+use std::path::Path;
+
+// ---------------------------------------------------------------------------
+// Table definitions
+// ---------------------------------------------------------------------------
+
+pub const GEN_BASELINES: TableDefinition<&str, &[u8]> = TableDefinition::new("gen_baselines");
+pub const NOWEB_MAP: TableDefinition<&str, &[u8]> = TableDefinition::new("noweb_map");
+pub const SRC_SNAPSHOTS: TableDefinition<&str, &[u8]> = TableDefinition::new("src_snapshots");
+
+// ---------------------------------------------------------------------------
+// Error type
+// ---------------------------------------------------------------------------
+
+#[derive(Debug)]
+pub enum DbError {
+    Db(String),
+    Serialize(postcard::Error),
+}
+
+impl std::fmt::Display for DbError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DbError::Db(s) => write!(f, "database error: {s}"),
+            DbError::Serialize(e) => write!(f, "serialization error: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for DbError {}
+
+// ---------------------------------------------------------------------------
+// NowebMapEntry: one entry per output line in the noweb_map table
+// ---------------------------------------------------------------------------
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct NowebMapEntry {
+    /// Path of the source (literate) file containing this chunk definition.
+    pub src_file: String,
+    /// Name of the chunk that produced this output line.
+    pub chunk_name: String,
+    /// 0-indexed line number within the source file.
+    pub src_line: u32,
+    /// Indentation string prepended to this line during expansion.
+    pub indent: String,
+}
+
+// ---------------------------------------------------------------------------
+// Key helpers
+// ---------------------------------------------------------------------------
+
+/// Compose a NOWEB_MAP key from output-file path and 0-indexed output line.
+pub fn noweb_key(out_file: &str, out_line: u32) -> String {
+    format!("{}\x00{:010}", out_file, out_line)
+}
+
+// ---------------------------------------------------------------------------
+// AzadiDb
+// ---------------------------------------------------------------------------
+
+pub struct AzadiDb {
+    db: Database,
+}
+
+impl AzadiDb {
+    /// Open (or create) the database at `path`.  All three tables are
+    /// initialised on first open.
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, DbError> {
+        let db = Database::create(path).map_err(|e| DbError::Db(e.to_string()))?;
+
+        // Ensure every table exists so later read transactions never fail with
+        // "table not found".
+        let wtxn = db.begin_write().map_err(|e| DbError::Db(e.to_string()))?;
+        wtxn.open_table(GEN_BASELINES)
+            .map_err(|e| DbError::Db(e.to_string()))?;
+        wtxn.open_table(NOWEB_MAP)
+            .map_err(|e| DbError::Db(e.to_string()))?;
+        wtxn.open_table(SRC_SNAPSHOTS)
+            .map_err(|e| DbError::Db(e.to_string()))?;
+        wtxn.commit().map_err(|e| DbError::Db(e.to_string()))?;
+
+        Ok(Self { db })
+    }
+
+    // ── gen_baselines ────────────────────────────────────────────────────────
+
+    /// Read the stored baseline for `path` (relative output path).
+    pub fn get_baseline(&self, path: &str) -> Result<Option<Vec<u8>>, DbError> {
+        let rtxn = self.db.begin_read().map_err(|e| DbError::Db(e.to_string()))?;
+        let table = rtxn
+            .open_table(GEN_BASELINES)
+            .map_err(|e| DbError::Db(e.to_string()))?;
+        Ok(table
+            .get(path)
+            .map_err(|e| DbError::Db(e.to_string()))?
+            .map(|v| v.value().to_vec()))
+    }
+
+    /// Store `content` as the baseline for `path`.
+    pub fn set_baseline(&self, path: &str, content: &[u8]) -> Result<(), DbError> {
+        let wtxn = self.db.begin_write().map_err(|e| DbError::Db(e.to_string()))?;
+        {
+            let mut table = wtxn
+                .open_table(GEN_BASELINES)
+                .map_err(|e| DbError::Db(e.to_string()))?;
+            table
+                .insert(path, content)
+                .map_err(|e| DbError::Db(e.to_string()))?;
+        }
+        wtxn.commit().map_err(|e| DbError::Db(e.to_string()))?;
+        Ok(())
+    }
+
+    // ── noweb_map ────────────────────────────────────────────────────────────
+
+    /// Write all source-map entries for one output file in a single transaction.
+    /// `entries` is a slice of `(0-indexed output line, NowebMapEntry)`.
+    pub fn set_noweb_entries(
+        &self,
+        out_file: &str,
+        entries: &[(u32, NowebMapEntry)],
+    ) -> Result<(), DbError> {
+        if entries.is_empty() {
+            return Ok(());
+        }
+        let wtxn = self.db.begin_write().map_err(|e| DbError::Db(e.to_string()))?;
+        {
+            let mut table = wtxn
+                .open_table(NOWEB_MAP)
+                .map_err(|e| DbError::Db(e.to_string()))?;
+            for (line, entry) in entries {
+                let key = noweb_key(out_file, *line);
+                let bytes = postcard::to_allocvec(entry).map_err(DbError::Serialize)?;
+                table
+                    .insert(key.as_str(), bytes.as_slice())
+                    .map_err(|e| DbError::Db(e.to_string()))?;
+            }
+        }
+        wtxn.commit().map_err(|e| DbError::Db(e.to_string()))?;
+        Ok(())
+    }
+
+    // ── src_snapshots ────────────────────────────────────────────────────────
+
+    /// Snapshot `content` under `path` (source file path).
+    pub fn set_src_snapshot(&self, path: &str, content: &[u8]) -> Result<(), DbError> {
+        let wtxn = self.db.begin_write().map_err(|e| DbError::Db(e.to_string()))?;
+        {
+            let mut table = wtxn
+                .open_table(SRC_SNAPSHOTS)
+                .map_err(|e| DbError::Db(e.to_string()))?;
+            table
+                .insert(path, content)
+                .map_err(|e| DbError::Db(e.to_string()))?;
+        }
+        wtxn.commit().map_err(|e| DbError::Db(e.to_string()))?;
+        Ok(())
+    }
+}

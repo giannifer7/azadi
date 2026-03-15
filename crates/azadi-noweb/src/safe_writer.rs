@@ -1,3 +1,4 @@
+use crate::db::{AzadiDb, DbError};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::Read;
@@ -12,6 +13,7 @@ pub enum SafeWriterError {
     ModifiedExternally(PathBuf),
     SecurityViolation(String),
     FormatterError(String),
+    DbError(DbError),
 }
 
 impl std::fmt::Display for SafeWriterError {
@@ -29,6 +31,7 @@ impl std::fmt::Display for SafeWriterError {
             }
             SafeWriterError::SecurityViolation(msg) => write!(f, "Security violation: {}", msg),
             SafeWriterError::FormatterError(msg) => write!(f, "Formatter error: {}", msg),
+            SafeWriterError::DbError(e) => write!(f, "Database error: {}", e),
         }
     }
 }
@@ -38,6 +41,12 @@ impl std::error::Error for SafeWriterError {}
 impl From<io::Error> for SafeWriterError {
     fn from(err: io::Error) -> Self {
         SafeWriterError::IoError(err)
+    }
+}
+
+impl From<DbError> for SafeWriterError {
+    fn from(err: DbError) -> Self {
+        SafeWriterError::DbError(err)
     }
 }
 
@@ -59,7 +68,7 @@ impl Default for SafeWriterConfig {
 pub struct SafeFileWriter {
     gen_base: PathBuf,
     private_dir: PathBuf,
-    old_dir: PathBuf,
+    db: AzadiDb,
     config: SafeWriterConfig,
 }
 
@@ -75,17 +84,14 @@ impl SafeFileWriter {
     ) -> Self {
         let (gen_base, private_dir) = Self::canonicalize_paths(&gen_base, &private_dir)
             .expect("Failed to initialize directories");
-        let old_dir = private_dir.join("__old__");
 
-        // Create all required directories
-        fs::create_dir_all(&gen_base).expect("Failed to create gen_base directory");
-        fs::create_dir_all(&private_dir).expect("Failed to create private directory");
-        fs::create_dir_all(&old_dir).expect("Failed to create old directory");
+        let db = AzadiDb::open(private_dir.join("azadi.db"))
+            .expect("Failed to open azadi database");
 
         SafeFileWriter {
             gen_base,
             private_dir,
-            old_dir,
+            db,
             config,
         }
     }
@@ -94,7 +100,6 @@ impl SafeFileWriter {
         gen_base: P,
         private_dir: P,
     ) -> io::Result<(PathBuf, PathBuf)> {
-        // Ensure directories exist before canonicalizing.
         fs::create_dir_all(gen_base.as_ref())?;
         fs::create_dir_all(private_dir.as_ref())?;
 
@@ -107,7 +112,6 @@ impl SafeFileWriter {
     fn atomic_copy<P: AsRef<Path>>(&self, source: P, destination: P) -> io::Result<()> {
         let temp_path = destination.as_ref().with_extension("tmp");
 
-        // Ensure temp file is removed if it exists
         if temp_path.exists() {
             let _ = fs::remove_file(&temp_path);
             std::thread::sleep(std::time::Duration::from_millis(10));
@@ -118,7 +122,7 @@ impl SafeFileWriter {
             let mut temp_file = fs::File::create(&temp_path)?;
             io::copy(&mut source_file, &mut temp_file)?;
             temp_file.sync_all()?;
-        } // Handles are dropped here
+        }
 
         std::thread::sleep(std::time::Duration::from_millis(10));
         fs::rename(temp_path, destination)?;
@@ -152,28 +156,15 @@ impl SafeFileWriter {
             dest_file.read_to_end(&mut dest_content)?;
 
             source_content != dest_content
-        }; // Handles are dropped here
+        };
 
         if are_different {
             eprintln!("file {} changed", destination.display());
-            std::thread::sleep(std::time::Duration::from_millis(10)); // Allow Windows to release handles
+            std::thread::sleep(std::time::Duration::from_millis(10));
             self.atomic_copy(source, destination)?;
         }
 
         Ok(())
-    }
-
-    fn content_differs(&self, a: &Path, b: &Path) -> Result<bool, SafeWriterError> {
-        let mut a_file = BufReader::with_capacity(self.config.buffer_size, File::open(a)?);
-        let mut b_file = BufReader::with_capacity(self.config.buffer_size, File::open(b)?);
-
-        let mut a_content = Vec::new();
-        let mut b_content = Vec::new();
-
-        a_file.read_to_end(&mut a_content)?;
-        b_file.read_to_end(&mut b_content)?;
-
-        Ok(a_content != b_content)
     }
 
     fn run_formatter(&self, command: &str, file: &Path) -> Result<(), SafeWriterError> {
@@ -199,10 +190,8 @@ impl SafeFileWriter {
         let path = file_path.as_ref();
         let dest_dir = path.parent().unwrap_or_else(|| Path::new(""));
 
-        // Create all necessary directories
         let dirs = [
             self.gen_base.join(dest_dir),
-            self.old_dir.join(dest_dir),
             self.private_dir.join(dest_dir),
         ];
 
@@ -229,9 +218,10 @@ impl SafeFileWriter {
 
         let private_file = self.private_dir.join(&path);
         let output_file = self.gen_base.join(&path);
-        let old_file = self.old_dir.join(&path);
 
-        // Step 1: Run formatter on private copy if configured
+        let key = path.to_string_lossy();
+
+        // Step 1: Run formatter on private copy if configured.
         let ext = file_name
             .as_ref()
             .extension()
@@ -241,20 +231,28 @@ impl SafeFileWriter {
             self.run_formatter(&cmd, &private_file)?;
         }
 
-        // Step 2: Content-based modification detection — always on.
-        if output_file.is_file()
-            && old_file.is_file()
-            && self.content_differs(&output_file, &old_file)?
-        {
-            return Err(SafeWriterError::ModifiedExternally(output_file));
+        // Step 2: Content-based modification detection.
+        // If the output file exists and we have a baseline, check that the
+        // output hasn't been edited since the last run.
+        if output_file.is_file() {
+            let baseline = self.db.get_baseline(key.as_ref())?;
+            if let Some(baseline_bytes) = baseline {
+                let current = fs::read(&output_file)?;
+                if current != baseline_bytes {
+                    return Err(SafeWriterError::ModifiedExternally(output_file));
+                }
+            }
         }
 
-        // Step 3: Copy private → output (skip if identical)
+        // Step 3: Copy private → output (skip if identical).
         self.copy_if_different(&private_file, &output_file)?;
 
-        // Step 4: Update baseline for next run's modification check.
-        self.atomic_copy(&private_file, &old_file)
-            .map_err(|_| SafeWriterError::BackupFailed(old_file.clone()))?;
+        // Step 4: Update baseline — store private-file content in the db.
+        let written = fs::read(&private_file)
+            .map_err(|_| SafeWriterError::BackupFailed(private_file.clone()))?;
+        self.db
+            .set_baseline(key.as_ref(), &written)
+            .map_err(SafeWriterError::DbError)?;
 
         Ok(())
     }
@@ -267,19 +265,26 @@ impl SafeFileWriter {
         self.config = config;
     }
 
+    /// Access the underlying database (used by Clip to write noweb_map entries
+    /// and by the top-level binary to write src_snapshots).
+    pub fn db(&self) -> &AzadiDb {
+        &self.db
+    }
+
     #[cfg(test)]
     pub fn get_gen_base(&self) -> &Path {
         &self.gen_base
     }
 
     #[cfg(test)]
-    pub fn get_old_dir(&self) -> &Path {
-        &self.old_dir
-    }
-
-    #[cfg(test)]
     pub fn get_private_dir(&self) -> &Path {
         &self.private_dir
+    }
+
+    /// Retrieve the stored baseline bytes for a relative path (test helper).
+    #[cfg(test)]
+    pub fn get_baseline_for_test(&self, path: &str) -> Option<Vec<u8>> {
+        self.db.get_baseline(path).ok().flatten()
     }
 }
 
@@ -294,7 +299,6 @@ fn validate_filename(path: &Path) -> Result<(), SafeWriterError> {
         )));
     }
 
-    // Check for Windows-style drive letters, e.g., "C:" or "D:"
     let filename = path.to_string_lossy();
     if filename.len() >= 2 {
         let mut chars = filename.chars();
