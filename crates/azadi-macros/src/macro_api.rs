@@ -1,6 +1,7 @@
 // crates/azadi-macros/src/macro_api.rs
 
 use crate::evaluator::{EvalConfig, EvalError, Evaluator};
+use crate::evaluator::output::EvalOutput;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -20,6 +21,29 @@ pub fn process_string(
     }
     let output_string = evaluator.evaluate(&ast)?;
     Ok(output_string.into_bytes())
+}
+
+pub fn process_string_tracing(
+    source: &str,
+    real_path: Option<&Path>,
+    evaluator: &mut Evaluator,
+) -> Result<(Vec<u8>, Vec<(u32, crate::evaluator::output::MacroMapEntry)>), EvalError> {
+    let path_for_parsing = match real_path {
+        Some(rp) => rp.to_path_buf(),
+        None => PathBuf::from(format!("<string-{}>", evaluator.num_source_files())),
+    };
+    let ast = evaluator.parse_string(source, &path_for_parsing)?;
+    if let Some(rp) = real_path {
+        evaluator.set_current_file(rp.to_path_buf());
+    }
+    
+    let mut out = crate::evaluator::output::TracingOutput::new();
+    evaluator.evaluate_to(&ast, &mut out)?;
+    
+    let db_entries = out.into_macro_map_entries(evaluator.sources());
+    let output_string = out.finish();
+    
+    Ok((output_string.into_bytes(), db_entries))
 }
 
 pub fn process_file_with_writer(

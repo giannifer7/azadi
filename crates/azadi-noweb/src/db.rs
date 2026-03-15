@@ -17,6 +17,7 @@ use std::path::Path;
 
 pub const GEN_BASELINES: TableDefinition<&str, &[u8]> = TableDefinition::new("gen_baselines");
 pub const NOWEB_MAP: TableDefinition<&str, &[u8]> = TableDefinition::new("noweb_map");
+pub const MACRO_MAP: TableDefinition<&str, &[u8]> = TableDefinition::new("macro_map");
 pub const SRC_SNAPSHOTS: TableDefinition<&str, &[u8]> = TableDefinition::new("src_snapshots");
 
 // ---------------------------------------------------------------------------
@@ -65,6 +66,11 @@ pub fn noweb_key(out_file: &str, out_line: u32) -> String {
     format!("{}\x00{:010}", out_file, out_line)
 }
 
+/// Compose a MACRO_MAP key from driver-file path and 0-indexed expanded line.
+pub fn macro_key(driver_file: &str, expanded_line: u32) -> String {
+    format!("{}\x00{:010}", driver_file, expanded_line)
+}
+
 // ---------------------------------------------------------------------------
 // AzadiDb
 // ---------------------------------------------------------------------------
@@ -85,6 +91,8 @@ impl AzadiDb {
         wtxn.open_table(GEN_BASELINES)
             .map_err(|e| DbError::Db(e.to_string()))?;
         wtxn.open_table(NOWEB_MAP)
+            .map_err(|e| DbError::Db(e.to_string()))?;
+        wtxn.open_table(MACRO_MAP)
             .map_err(|e| DbError::Db(e.to_string()))?;
         wtxn.open_table(SRC_SNAPSHOTS)
             .map_err(|e| DbError::Db(e.to_string()))?;
@@ -149,6 +157,61 @@ impl AzadiDb {
         }
         wtxn.commit().map_err(|e| DbError::Db(e.to_string()))?;
         Ok(())
+    }
+
+    /// Look up a single entry in the noweb_map.
+    pub fn get_noweb_entry(&self, out_file: &str, out_line: u32) -> Result<Option<NowebMapEntry>, DbError> {
+        let rtxn = self.db.begin_read().map_err(|e| DbError::Db(e.to_string()))?;
+        let table = rtxn
+            .open_table(NOWEB_MAP)
+            .map_err(|e| DbError::Db(e.to_string()))?;
+        let key = noweb_key(out_file, out_line);
+        let val = table.get(key.as_str()).map_err(|e| DbError::Db(e.to_string()))?;
+        if let Some(v) = val {
+            let entry: NowebMapEntry = postcard::from_bytes(v.value()).map_err(DbError::Serialize)?;
+            Ok(Some(entry))
+        } else {
+            Ok(None)
+        }
+    }
+
+    // ── macro_map ────────────────────────────────────────────────────────────
+
+    /// Write pre-serialized source-map entries for the macro map in a single transaction.
+    /// `entries` is a slice of `(expanded_line, serialized_bytes)`.
+    pub fn set_macro_map_entries(
+        &self,
+        driver_file: &str,
+        entries: &[(u32, Vec<u8>)],
+    ) -> Result<(), DbError> {
+        if entries.is_empty() {
+            return Ok(());
+        }
+        let wtxn = self.db.begin_write().map_err(|e| DbError::Db(e.to_string()))?;
+        {
+            let mut table = wtxn
+                .open_table(MACRO_MAP)
+                .map_err(|e| DbError::Db(e.to_string()))?;
+            for (line, bytes) in entries {
+                let key = macro_key(driver_file, *line);
+                table
+                    .insert(key.as_str(), bytes.as_slice())
+                    .map_err(|e| DbError::Db(e.to_string()))?;
+            }
+        }
+        wtxn.commit().map_err(|e| DbError::Db(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Look up raw macro_map bytes for a driver file and expanded line.
+    pub fn get_macro_map_bytes(&self, driver_file: &str, expanded_line: u32) -> Result<Option<Vec<u8>>, DbError> {
+        let rtxn = self.db.begin_read().map_err(|e| DbError::Db(e.to_string()))?;
+        let table = rtxn
+            .open_table(MACRO_MAP)
+            .map_err(|e| DbError::Db(e.to_string()))?;
+        let key = macro_key(driver_file, expanded_line);
+        let val = table.get(key.as_str()).map_err(|e| DbError::Db(e.to_string()))?;
+        Ok(val.map(|v| v.value().to_vec()))
     }
 
     // ── src_snapshots ────────────────────────────────────────────────────────

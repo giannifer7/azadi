@@ -1,5 +1,6 @@
 // crates/azadi-macros/src/evaluator/state.rs
 
+use crate::evaluator::output::SourceSpan;
 use crate::types::ASTNode;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -50,9 +51,15 @@ pub struct MacroDefinition {
     pub frozen_args: HashMap<String, String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct TrackedValue {
+    pub value: String,
+    pub span: Option<SourceSpan>,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct ScopeFrame {
-    pub variables: HashMap<String, String>,
+    pub variables: HashMap<String, TrackedValue>,
     pub macros: HashMap<String, MacroDefinition>,
 }
 
@@ -145,19 +152,46 @@ impl EvaluatorState {
         self.scope_stack.last_mut().unwrap()
     }
 
+    /// Set a variable with no origin tracking (legacy/computed path).
     pub fn set_variable(&mut self, name: &str, value: &str) {
-        self.current_scope_mut()
-            .variables
-            .insert(name.into(), value.into());
+        self.current_scope_mut().variables.insert(
+            name.into(),
+            TrackedValue {
+                value: value.into(),
+                span: None,
+            },
+        );
     }
 
+    /// Set a variable with an origin span.
+    pub fn set_tracked_variable(&mut self, name: &str, value: &str, span: Option<SourceSpan>) {
+        self.current_scope_mut().variables.insert(
+            name.into(),
+            TrackedValue {
+                value: value.into(),
+                span,
+            },
+        );
+    }
+
+    /// Retrieve just the string value of a variable.
     pub fn get_variable(&self, name: &str) -> String {
         for frame in self.scope_stack.iter().rev() {
-            if let Some(val) = frame.variables.get(name) {
-                return val.clone();
+            if let Some(tv) = frame.variables.get(name) {
+                return tv.value.clone();
             }
         }
         "".to_string()
+    }
+
+    /// Retrieve the tracked value of a variable.
+    pub fn get_tracked_variable(&self, name: &str) -> Option<TrackedValue> {
+        for frame in self.scope_stack.iter().rev() {
+            if let Some(tv) = frame.variables.get(name) {
+                return Some(tv.clone());
+            }
+        }
+        None
     }
 
     pub fn define_macro(&mut self, mac: MacroDefinition) {

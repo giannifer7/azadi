@@ -4,11 +4,14 @@
 // Runs azadi-macros then azadi-noweb in-process, no subprocess spawning.
 
 use azadi_macros::{
-    evaluator::{EvalConfig, EvalError, Evaluator},
+    evaluator::{
+        output::{MacroMapEntry, SpanKind},
+        EvalConfig, EvalError, Evaluator,
+    },
     macro_api::process_string,
 };
 use azadi_noweb::{AzadiError, Clip, SafeFileWriter, SafeWriterConfig};
-use clap::{ArgGroup, Parser};
+use clap::Parser;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
@@ -23,9 +26,31 @@ fn default_pathsep() -> String {
 #[derive(Parser, Debug)]
 #[command(
     name = "azadi",
-    about = "Macro expander + literate-programming chunk extractor in one pass",
-    group(ArgGroup::new("source").required(true).args(["inputs", "directory"]))
+    about = "Macro expander + literate-programming chunk extractor in one pass"
 )]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+
+    #[command(flatten)]
+    args: Args,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum Commands {
+    /// Trace back output line to its noweb and macro sources
+    Trace {
+        out_file: String,
+        line: u32,
+    },
+    /// Find the noweb chunk that produced output line
+    Where {
+        out_file: String,
+        line: u32,
+    },
+}
+
+#[derive(clap::Args, Debug)]
 struct Args {
     /// Input files (mutually exclusive with --dir)
     #[arg(required = false)]
@@ -49,6 +74,10 @@ struct Args {
     work_dir: PathBuf,
 
     // ── debugging ─────────────────────────────────────────────────────────────
+    /// Capture trace data for back-propagation
+    #[arg(long)]
+    trace: bool,
+
     /// Print macro-expanded text to stderr before noweb processing
     #[arg(long)]
     dump_expanded: bool,
@@ -140,6 +169,11 @@ impl From<std::io::Error> for Error {
         Error::Io(e)
     }
 }
+impl From<azadi_noweb::db::DbError> for Error {
+    fn from(e: azadi_noweb::db::DbError) -> Self {
+        Error::Noweb(AzadiError::Db(e))
+    }
+}
 
 /// Recursively collect all files whose extension matches any entry in `exts` under `dir`.
 fn find_files(dir: &Path, exts: &[String], out: &mut Vec<PathBuf>) -> std::io::Result<()> {
@@ -175,6 +209,13 @@ fn write_depfile(path: &Path, target: &Path, deps: &[PathBuf]) -> std::io::Resul
 }
 
 fn run(args: Args) -> Result<(), Error> {
+    if args.inputs.is_empty() && args.directory.is_none() {
+        return Err(Error::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Missing input files or --dir. Did you mean to run a subcommand like 'azadi trace'?"
+        )));
+    }
+
     let pathsep = default_pathsep();
     let include_paths: Vec<PathBuf> = args.include.split(&pathsep).map(PathBuf::from).collect();
 
@@ -269,7 +310,25 @@ fn run(args: Args) -> Result<(), Error> {
     // Phase 1: macro-expand each driver, feed result to noweb.
     for full_path in &drivers {
         let content = std::fs::read_to_string(full_path)?;
-        let expanded = process_string(&content, Some(full_path), &mut evaluator)?;
+        
+        let expanded = if args.trace {
+            let (expanded_bytes, map_entries) = azadi_macros::macro_api::process_string_tracing(
+                &content,
+                Some(full_path),
+                &mut evaluator,
+            )?;
+            
+            let serialized_entries: Vec<(u32, Vec<u8>)> = map_entries.into_iter()
+                .map(|(li, entry)| {
+                    (li, postcard::to_allocvec(&entry).unwrap())
+                })
+                .collect();
+            clip.db().set_macro_map_entries(&full_path.to_string_lossy(), &serialized_entries)?;
+            expanded_bytes
+        } else {
+            process_string(&content, Some(full_path), &mut evaluator)?
+        };
+        
         let expanded_str = String::from_utf8_lossy(&expanded);
         if args.dump_expanded {
             eprintln!("=== expanded: {} ===", full_path.display());
@@ -315,9 +374,148 @@ fn run(args: Args) -> Result<(), Error> {
 }
 
 fn main() {
-    let args = Args::parse();
-    if let Err(e) = run(args) {
+    let cli = Cli::parse();
+    
+    let result = match cli.command {
+        Some(Commands::Trace { out_file, line }) => {
+            run_trace(out_file, line, cli.args.work_dir, cli.args.gen_dir)
+        }
+        Some(Commands::Where { out_file, line }) => {
+            run_where(out_file, line, cli.args.work_dir, cli.args.gen_dir)
+        }
+        None => run(cli.args),
+    };
+
+    if let Err(e) = result {
         eprintln!("Error: {e}");
         std::process::exit(1);
     }
+}
+
+// ── query tools ─────────────────────────────────────────────────────────────
+
+fn run_where(out_file: String, line: u32, db_dir: PathBuf, gen_dir: PathBuf) -> Result<(), Error> {
+    let db_path = db_dir.join("azadi.db");
+    if !db_path.exists() {
+        return Err(Error::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Database not found at {}. Did you specify the correct --work-dir?", db_path.display())
+        )));
+    }
+    let db = azadi_noweb::db::AzadiDb::open(db_path)?;
+
+    // Line numbers in CLI are 1-indexed; internally 0-indexed.
+    if line == 0 {
+        return Err(Error::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Line number must be >= 1"
+        )));
+    }
+    let out_line_0 = line - 1;
+
+    // Normalize path: if it starts with gen_dir, strip it to match DB key
+    let mut db_lookup_path = out_file.clone();
+    
+    // Attempt canonical prefix stripping
+    if let (Ok(canon_gen), Ok(canon_out)) = (gen_dir.canonicalize(), Path::new(&out_file).canonicalize()) {
+        if let Ok(rel) = canon_out.strip_prefix(&canon_gen) {
+            db_lookup_path = rel.to_string_lossy().into_owned();
+        }
+    } else {
+        // Fallback to simple prefix stripping
+        let prefix = gen_dir.to_string_lossy();
+        if out_file.starts_with(prefix.as_ref()) {
+            let stripped = out_file.trim_start_matches(prefix.as_ref());
+            db_lookup_path = stripped.trim_start_matches('/').to_string();
+        }
+    }
+
+    if let Some(entry) = db.get_noweb_entry(&db_lookup_path, out_line_0)? {
+        let json = serde_json::json!({
+            "out_file": out_file,
+            "out_line": line,
+            "chunk": entry.chunk_name,
+            "expanded_file": entry.src_file,
+            "expanded_line": entry.src_line + 1, // back to 1-indexed
+            "indent": entry.indent,
+        });
+        println!("{}", serde_json::to_string_pretty(&json).unwrap());
+    } else {
+        eprintln!("No mapping found for {}:{}", out_file, line);
+    }
+    Ok(())
+}
+
+fn run_trace(out_file: String, line: u32, db_dir: PathBuf, gen_dir: PathBuf) -> Result<(), Error> {
+    let db_path = db_dir.join("azadi.db");
+    if !db_path.exists() {
+        return Err(Error::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Database not found at {}. Did you specify the correct --work-dir?", db_path.display())
+        )));
+    }
+    let db = azadi_noweb::db::AzadiDb::open(db_path)?;
+
+    if line == 0 {
+        return Err(Error::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Line number must be >= 1"
+        )));
+    }
+    let out_line_0 = line - 1;
+
+    // Normalize path
+    let mut db_lookup_path = out_file.clone();
+
+    if let (Ok(canon_gen), Ok(canon_out)) = (gen_dir.canonicalize(), Path::new(&out_file).canonicalize()) {
+        if let Ok(rel) = canon_out.strip_prefix(&canon_gen) {
+            db_lookup_path = rel.to_string_lossy().into_owned();
+        }
+    } else {
+        // Fallback
+        let prefix = gen_dir.to_string_lossy();
+        if out_file.starts_with(prefix.as_ref()) {
+            let stripped = out_file.trim_start_matches(prefix.as_ref());
+            db_lookup_path = stripped.trim_start_matches('/').to_string();
+        }
+    }
+
+    let nw = db.get_noweb_entry(&db_lookup_path, out_line_0)?;
+    if let Some(nw_entry) = nw {
+        let mut result = serde_json::json!({
+            "out_file": out_file,
+            "out_line": line,
+            "chunk": nw_entry.chunk_name,
+            "expanded_file": nw_entry.src_file,
+            "expanded_line": nw_entry.src_line + 1,
+            "indent": nw_entry.indent,
+        });
+
+        // Try to look up macro-map
+        if let Ok(Some(bytes)) = db.get_macro_map_bytes(&nw_entry.src_file, nw_entry.src_line) {
+            if let Ok(m_entry) = postcard::from_bytes::<MacroMapEntry>(&bytes) {
+                let obj = result.as_object_mut().unwrap();
+                obj.insert("src_file".to_string(), serde_json::Value::String(m_entry.src_file));
+                obj.insert("src_line".to_string(), serde_json::Value::Number((m_entry.src_line + 1).into()));
+                obj.insert("src_col".to_string(), serde_json::Value::Number(m_entry.src_col.into()));
+                
+                let (kind_str, extra) = match m_entry.kind {
+                    SpanKind::Literal => ("Literal", None),
+                    SpanKind::MacroBody { ref macro_name } => ("MacroBody", Some(("macro_name", macro_name.clone()))),
+                    SpanKind::MacroArg { ref macro_name, .. } => ("MacroArg", Some(("macro_name", macro_name.clone()))),
+                    SpanKind::VarBinding { ref var_name } => ("VarBinding", Some(("var_name", var_name.clone()))),
+                    SpanKind::Computed => ("Computed", None),
+                };
+                obj.insert("kind".to_string(), serde_json::Value::String(kind_str.to_string()));
+                if let Some((k, v)) = extra {
+                    obj.insert(k.to_string(), serde_json::Value::String(v));
+                }
+            }
+        }
+
+        println!("{}", serde_json::to_string_pretty(&result).unwrap());
+    } else {
+        eprintln!("No mapping found for {}:{}", out_file, line);
+    }
+    Ok(())
 }

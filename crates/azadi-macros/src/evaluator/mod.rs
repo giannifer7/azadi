@@ -8,6 +8,7 @@ mod eval_api;
 pub mod lexer_parser;
 #[cfg(feature = "python")]
 pub mod monty_eval;
+pub mod output;
 pub mod rhai_eval;
 mod source_utils;
 mod state;
@@ -26,5 +27,6 @@ pub use eval_api::{
 pub use lexer_parser::lex_parse_content;
 #[cfg(feature = "python")]
 pub use monty_eval::MontyEvaluator;
+pub use output::{EvalOutput, PlainOutput, SourceSpan};
 pub use rhai_eval::RhaiEvaluator;
 pub use state::{EvalConfig, MacroDefinition, ScriptKind};

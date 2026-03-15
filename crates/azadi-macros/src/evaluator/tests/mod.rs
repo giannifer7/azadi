@@ -17,3 +17,4 @@ mod test_set;
 mod test_skill_examples;
 mod test_utils;
 mod test_var;
+mod test_output;

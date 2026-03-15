@@ -166,7 +166,9 @@ dependencies = [
  "azadi-macros",
  "azadi-noweb",
  "clap",
+ "postcard",
  "predicates",
+ "serde_json",
  "tempfile",
 ]
 
