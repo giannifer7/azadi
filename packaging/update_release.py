@@ -8,16 +8,20 @@ Typical usage:
 
   # Let the script push the tag too:
   python packaging/update_release.py 0.x.y --tag
+
+Requires GH_TOKEN or GITHUB_TOKEN in the environment.
 """
 
 import argparse
 import base64
 import hashlib
 import json
+import os
 import shutil
 import subprocess
-import tempfile
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 PACKAGING   = Path(__file__).parent
@@ -27,8 +31,75 @@ MAINTAINER  = "Gianni Ferrarotti <gianni.ferrarotti@gmail.com>"
 DESCRIPTION = "azadi — literate programming toolchain"
 HOMEPAGE    = "https://github.com/giannifer7/azadi"
 RELEASES    = f"{HOMEPAGE}/releases/download"
+REPO        = "giannifer7/azadi"
+API         = "https://api.github.com"
 
 NEEDED_ASSETS = ["azadi-x86_64-linux.tar.gz", "azadi-musl"]
+
+
+# ── auth ───────────────────────────────────────────────────────────────────────
+
+def gh_token() -> str:
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if not token:
+        raise SystemExit("Set GH_TOKEN or GITHUB_TOKEN to authenticate with GitHub.")
+    return token
+
+
+# ── GitHub API ─────────────────────────────────────────────────────────────────
+
+def api_get(path: str, token: str) -> dict:
+    req = urllib.request.Request(
+        f"{API}{path}",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    with urllib.request.urlopen(req) as r:
+        return json.loads(r.read())
+
+
+def download_asset(url: str, token: str) -> bytes:
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/octet-stream",
+        },
+    )
+    with urllib.request.urlopen(req) as r:
+        return r.read()
+
+
+def wait_for_release(version: str, token: str, timeout: int = 600, poll: int = 20) -> dict:
+    """Poll the releases API until all needed assets exist; return the release data."""
+    tag = f"v{version}"
+    deadline = time.monotonic() + timeout
+    print(f"Waiting for GitHub release {tag} assets", end="", flush=True)
+    while time.monotonic() < deadline:
+        try:
+            data = api_get(f"/repos/{REPO}/releases/tags/{tag}", token)
+            names = {a["name"] for a in data.get("assets", [])}
+            if all(a in names for a in NEEDED_ASSETS):
+                print(" ready.")
+                return data
+        except urllib.error.HTTPError:
+            pass  # release not yet published
+        print(".", end="", flush=True)
+        time.sleep(poll)
+    raise SystemExit(f"\nTimed out after {timeout}s waiting for release assets.")
+
+
+def fetch_assets(release: dict, token: str) -> dict[str, bytes]:
+    """Download needed assets from a release and return their raw bytes."""
+    by_name = {a["name"]: a["url"] for a in release["assets"]}
+    result = {}
+    for name in NEEDED_ASSETS:
+        print(f"  Downloading {name}...")
+        result[name] = download_asset(by_name[name], token)
+    return result
 
 
 # ── hashing ────────────────────────────────────────────────────────────────────
@@ -101,47 +172,10 @@ def flake(version: str, sri_azadi: str) -> str:
 """
 
 
-# ── subprocess helpers ─────────────────────────────────────────────────────────
+# ── subprocess helpers (git, makepkg only) ─────────────────────────────────────
 
 def run(args: list, cwd: Path) -> None:
     subprocess.run(args, cwd=cwd, check=True)
-
-
-def gh(*args) -> subprocess.CompletedProcess:
-    return subprocess.run(["gh", *args], check=True, capture_output=True, text=True)
-
-
-# ── CI / release waiting ───────────────────────────────────────────────────────
-
-def wait_for_release(version: str, timeout: int = 600, poll: int = 20) -> None:
-    """Poll gh release view until all needed assets are present."""
-    tag = f"v{version}"
-    deadline = time.monotonic() + timeout
-    print(f"Waiting for GitHub release {tag} assets", end="", flush=True)
-    while time.monotonic() < deadline:
-        r = subprocess.run(
-            ["gh", "release", "view", tag, "--json", "assets"],
-            capture_output=True, text=True,
-        )
-        if r.returncode == 0:
-            names = {a["name"] for a in json.loads(r.stdout).get("assets", [])}
-            if all(a in names for a in NEEDED_ASSETS):
-                print(" ready.")
-                return
-        print(".", end="", flush=True)
-        time.sleep(poll)
-    raise SystemExit(f"\nTimed out after {timeout}s waiting for release assets.")
-
-
-def download_assets(version: str, dest: Path) -> dict[str, bytes]:
-    """Download release assets via gh and return their raw bytes."""
-    tag = f"v{version}"
-    patterns = [arg for name in NEEDED_ASSETS for arg in ("--pattern", name)]
-    subprocess.run(
-        ["gh", "release", "download", tag, *patterns, "--dir", str(dest), "--clobber"],
-        check=True,
-    )
-    return {name: (dest / name).read_bytes() for name in NEEDED_ASSETS}
 
 
 # ── main ───────────────────────────────────────────────────────────────────────
@@ -158,19 +192,18 @@ def main() -> None:
 
     version = args.version.lstrip("v")
     aur_dir = REPO_ROOT.parent / "aur-azadi-bin"
+    token   = gh_token()
 
     if args.tag:
         print(f"Tagging v{version}...")
         run(["git", "tag", "-a", f"v{version}", "-m", f"v{version}"], cwd=REPO_ROOT)
         run(["git", "push", "origin", f"v{version}"], cwd=REPO_ROOT)
 
-    wait_for_release(version)
+    release = wait_for_release(version, token)
+    assets  = fetch_assets(release, token)
 
-    print("Downloading release artifacts via gh...")
-    with tempfile.TemporaryDirectory() as tmp:
-        assets = download_assets(version, Path(tmp))
-        tarball   = assets["azadi-x86_64-linux.tar.gz"]
-        azadi_bin = assets["azadi-musl"]
+    tarball   = assets["azadi-x86_64-linux.tar.gz"]
+    azadi_bin = assets["azadi-musl"]
 
     (PACKAGING / "PKGBUILD").write_text(pkgbuild(version, sha256_hex(tarball)))
     print("  Written packaging/PKGBUILD")
