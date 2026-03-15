@@ -115,11 +115,13 @@ pub trait EvalOutput {
 }
 
 pub struct SourceSpan {
-    pub file_idx: usize,   // index into evaluator's file_names vec
-    pub line:     u32,
-    pub col:      u32,
-    pub kind:     SpanKind,
+    pub src:    u32,    // Token.src — source file index (same as Token field)
+    pub pos:    u32,    // Token.pos — byte offset in the source string
+    pub length: u32,    // Token.length — byte length of the span
+    pub kind:   SpanKind,
 }
+// Line/col can be recovered on demand by scanning source_text[..pos] for '\n'.
+// Pre-compute a Vec<u32> of line-start offsets per source file if needed.
 
 // Fast path — ignores span info
 pub struct PlainOutput { pub buf: Vec<u8> }
@@ -147,10 +149,30 @@ Tracing run: instantiate `TracingOutput`, then convert `spans` into per-line
 
 ## Token location tracking in the lexer/parser
 
-Currently tokens carry no location.  Changes needed in `azadi-macros`:
+Tokens already carry full location.  `Token` in `types.rs`:
 
-1. **Lexer**: add `(file_idx, line, col)` to each `Token` (or a parallel `TokenSpan` vec)
-2. **Parser**: propagate spans from tokens into AST nodes
+```rust
+pub struct Token {
+    pub kind:   TokenKind,
+    pub src:    u32,    // source file index (set at Lexer::new time)
+    pub pos:    usize,  // byte offset in the source &str
+    pub length: usize,  // byte length
+}
+```
+
+`ASTNode` embeds a `Token` (and `end_pos`), so every AST node already knows its
+exact byte span in the original source.  **No changes to the lexer or parser are
+needed** for span tracking.
+
+Line/col are not stored but are cheap to derive: count `\n` bytes in
+`source[..token.pos]`, or pre-compute a `Vec<u32>` of line-start byte offsets
+once per source file.
+
+The `SourceSpan` above uses `src/pos/length` directly from the token — this is
+already everything needed to reconstruct the 3-way merge base.
+
+What the evaluator needs to do (and currently doesn't):
+
 3. **Evaluator**:
    - When outputting literal text from a `Text` node: `out.push_str(text, span_of_node)`
    - When substituting a variable/parameter: `out.push_str(value, call_site_span)` with `kind = MacroArg { ... }`
@@ -232,12 +254,11 @@ For `kind = MacroArg { macro_name="tag", param_name="value", call_file, call_lin
 
 ## Implementation order (suggested)
 
-1. Add `(line, col)` to `Token` in the lexer (non-breaking; col can be 0 initially)
-2. Propagate line/col through the AST nodes that matter: `Text`, `MacroCall`,
-   `VarRef`, `MacroBody`
-3. Introduce `EvalOutput` trait + `PlainOutput` (should be zero-overhead for the
-   normal path)
-4. Wire `TracingOutput` into the evaluator; test with small examples
-5. Add `macro_map` table to `AzadiDb`; write entries from `TracingOutput.spans`
-6. Integrate into `azadi backprop --trace` (extend `project_backpropagate.md` plan)
-7. Measure overhead; decide whether to always-on or keep on-demand
+1. Introduce `EvalOutput` trait + `PlainOutput` (should be zero-overhead for the
+   normal path; no changes to lexer/parser needed — spans come from existing Token fields)
+2. Wire `TracingOutput` into the evaluator; test with small examples: verify that
+   `push_str` receives the correct `(src, pos, length)` span for literal text,
+   macro body substitutions, and argument substitutions
+3. Add `macro_map` table to `AzadiDb`; write entries from `TracingOutput.spans`
+4. Integrate into `azadi backprop --trace` (extend `project_backpropagate.md` plan)
+5. Measure overhead; decide whether to always-on or keep on-demand
