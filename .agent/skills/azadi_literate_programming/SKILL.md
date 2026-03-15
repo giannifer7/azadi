@@ -34,20 +34,41 @@ pipeline use but are not needed for normal work.
 
 ## Chunk syntax (defaults)
 
-```
-# <[@file path/to/output.rs]>=
-code here
-# @
+The comment marker before a delimiter matches the language of the chunk's
+content. Use `//` for Rust, C, and similar; use `#` for Python, shell, TOML,
+etc. For azadi source or plain text there is no host language, so omit the
+comment marker entirely.
 
-# <[chunk-name]>=
-more code
-# @
+**Rust** (`//` comment marker):
+
+```rust
+// <[@file src/lib.rs]>=
+pub mod utils;
+// <[utils-module]>
+// @
+
+// <[utils-module]>=
+pub fn helper() {}
+// @
+```
+
+**Azadi / plain text** (no comment marker):
+
+```azadi
+<[@file config/default.toml]>=
+[server]
+port = <[server-port]>
+@
+
+<[server-port]>=
+8080
+@
 ```
 
 - `<[@file path]>=` — declares a file output chunk; path may start with `~/`
 - `<[name]>=` — declares a named chunk
 - `<[name]>` inside a chunk body — expands that chunk inline, preserving indentation
-- `# @` (or `// @`) — ends the current chunk
+- `// @` / `# @` / `@` — ends the current chunk (marker must match what precedes delimiters)
 - Comment markers (`#`, `//`) before delimiters are stripped automatically
 
 Delimiters are configurable: `--open-delim`, `--close-delim`, `--chunk-end`.
