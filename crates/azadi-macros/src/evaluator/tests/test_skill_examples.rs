@@ -189,34 +189,16 @@ fn test_double_bind_is_error() {
     );
 }
 
-/// Unknown named param: silently ignored (warning goes to stderr).
+/// Unknown named param is an error (helps catch typos).
 #[test]
-fn test_unknown_named_param_ignored_with_warning() {
+fn test_unknown_named_param_is_error() {
     let result = process_string_defaults(
         "%def(greet, name, Hello %(name)!)\n\
          %greet(name = Alice, typo = oops)",
-    )
-    .unwrap();
-    let s = std::str::from_utf8(&result).unwrap();
-    assert!(s.contains("Hello Alice!"), "expected 'Hello Alice!', got: {s:?}");
-    assert!(!s.contains("oops"), "unknown named arg must not appear in output, got: {s:?}");
+    );
+    assert!(
+        matches!(result, Err(EvalError::InvalidUsage(_))),
+        "expected InvalidUsage for unknown named arg, got: {result:?}"
+    );
 }
 
-/// Unknown named parameter whose name does NOT appear in the body is silently discarded.
-#[test]
-fn test_unknown_named_param_not_in_body_is_discarded() {
-    let result = process_string_defaults(
-        "%def(greet, name, Hello %(name)!)\n\
-         %greet(name = Alice, typo = oops)",
-    )
-    .unwrap();
-    let s = std::str::from_utf8(&result).unwrap();
-    assert!(
-        s.contains("Hello Alice!"),
-        "expected 'Hello Alice!', got: {s:?}"
-    );
-    assert!(
-        !s.contains("oops"),
-        "unexpected extra text in output: {s:?}"
-    );
-}

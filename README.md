@@ -362,11 +362,10 @@ Output:
 These rules apply to all macro kinds (`%def`, `%rhaidef`, `%pydef`).
 Arguments follow Python-style rules:
 
-- **Positional** args fill declared params left-to-right.
-- **Named** args (`param = value`) bind by name and can appear in any order.
+- **Positional** args fill declared params left-to-right; extra positional args beyond the declared param count are silently ignored.
+- **Named** args (`param = value`) bind by name and can appear in any order; an unknown name is an error (helps catch typos).
 - Positional args must come **before** named args; a positional after a named arg is an error.
 - Binding the same param both positionally and by name is an error.
-- Unknown named args produce a warning to stderr and are ignored (helps catch typos).
 - Missing args default to empty string.
 
 ```

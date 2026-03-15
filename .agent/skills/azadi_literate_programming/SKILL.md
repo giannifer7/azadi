@@ -109,8 +109,9 @@ Output: `< div> Hello world</ div>`
 
 These calling conventions apply to all macro kinds (`%def`, `%rhaidef`, `%pydef`):
 named parameters are matched **by name** (any order), positional args must come
-before named args (Python-style), an unknown name warns to stderr and is ignored,
-missing params default to empty string. Combined with multi-line style and comments
+before named args (Python-style), an unknown name is an error (catches typos),
+extra positional args beyond the declared count are ignored, missing params
+default to empty string. Combined with multi-line style and comments
 they serve as self-documenting call sites:
 
 ```

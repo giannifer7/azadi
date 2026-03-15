@@ -302,11 +302,11 @@ impl Evaluator {
         for param_node in &param_nodes[positional_count..] {
             let arg_name = self.extract_name_value(param_node.name.as_ref().unwrap());
             if !declared.contains(arg_name.as_str()) {
-                eprintln!(
-                    "warning: macro '{}': unknown named argument '{arg_name}' — ignored",
+                self.state.pop_scope();
+                return Err(EvalError::InvalidUsage(format!(
+                    "macro '{}': unknown named argument '{arg_name}'",
                     mac.name
-                );
-                continue;
+                )));
             }
             if assigned.contains(&arg_name) {
                 self.state.pop_scope();
