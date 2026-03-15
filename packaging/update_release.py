@@ -41,9 +41,15 @@ NEEDED_ASSETS = ["azadi-x86_64-linux.tar.gz", "azadi-musl"]
 
 def gh_token() -> str:
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
-    if not token:
-        raise SystemExit("Set GH_TOKEN or GITHUB_TOKEN to authenticate with GitHub.")
-    return token
+    if token:
+        return token
+    # Fall back to gh's stored credentials
+    result = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True)
+    if result.returncode == 0 and result.stdout.strip():
+        return result.stdout.strip()
+    raise SystemExit(
+        "No GitHub token found. Set GH_TOKEN/GITHUB_TOKEN or run 'gh auth login'."
+    )
 
 
 # ── GitHub API ─────────────────────────────────────────────────────────────────
