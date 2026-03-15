@@ -69,7 +69,9 @@ port = <[server-port]>
 - `<[name]>=` — declares a named chunk
 - `<[name]>` inside a chunk body — expands that chunk inline, preserving indentation
 - `// @` / `# @` / `@` — ends the current chunk (marker must match what precedes delimiters)
-- Comment markers (`#`, `//`) before delimiters are stripped automatically
+- Comment markers before delimiters are stripped automatically; defaults are
+  `#` and `//` but any set can be configured via `--comment-markers`
+  (e.g. `--comment-markers "--,;;"` for Lua/Scheme)
 
 Delimiters are configurable: `--open-delim`, `--close-delim`, `--chunk-end`.
 
