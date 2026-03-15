@@ -38,7 +38,6 @@ impl Default for EvalConfig {
 pub enum ScriptKind {
     None,
     Rhai,
-    #[cfg(feature = "python")]
     Python,
 }
 

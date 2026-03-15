@@ -7,7 +7,6 @@ use std::sync::Arc;
 
 use super::builtins::{BuiltinFn, default_builtins};
 use super::errors::{EvalError, EvalResult};
-#[cfg(feature = "python")]
 use super::monty_eval::MontyEvaluator;
 use super::output::{EvalOutput, SourceSpan, SpanKind};
 use super::rhai_eval::{self, RhaiEvaluator};
@@ -19,9 +18,7 @@ pub struct Evaluator {
     builtins: HashMap<String, BuiltinFn>,
     rhai_evaluator: RhaiEvaluator,
     rhai_store: HashMap<String, rhai::Dynamic>,
-    #[cfg(feature = "python")]
     monty_evaluator: MontyEvaluator,
-    #[cfg(feature = "python")]
     py_store: HashMap<String, String>,
 }
 
@@ -32,9 +29,7 @@ impl Evaluator {
             builtins: default_builtins(),
             rhai_evaluator: RhaiEvaluator::new(),
             rhai_store: HashMap::new(),
-            #[cfg(feature = "python")]
             monty_evaluator: MontyEvaluator::new(),
-            #[cfg(feature = "python")]
             py_store: HashMap::new(),
         }
     }
@@ -77,12 +72,10 @@ impl Evaluator {
             .unwrap_or_default()
     }
 
-    #[cfg(feature = "python")]
     pub fn pystore_set(&mut self, key: String, value: String) {
         self.py_store.insert(key, value);
     }
 
-    #[cfg(feature = "python")]
     pub fn pystore_get(&self, key: &str) -> String {
         self.py_store.get(key).cloned().unwrap_or_default()
     }
@@ -354,7 +347,6 @@ impl Evaluator {
                     .evaluate(&result, &variables, &mut self.rhai_store, Some(&mac_name))
                     .map_err(EvalError::Runtime)?;
             }
-            #[cfg(feature = "python")]
             ScriptKind::Python => {
                 // Pass only the explicitly declared parameters to the Python script;
                 // the store is injected as additional variables (params shadow store).
@@ -728,7 +720,6 @@ impl Evaluator {
                 //
                 // For safety, do nothing here — the body was already written.
             }
-            #[cfg(feature = "python")]
             ScriptKind::Python => {
                 // Same reasoning as Rhai above.
             }

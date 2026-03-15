@@ -6,7 +6,6 @@ mod core;
 mod errors;
 mod eval_api;
 pub mod lexer_parser;
-#[cfg(feature = "python")]
 pub mod monty_eval;
 pub mod output;
 pub mod rhai_eval;
@@ -25,7 +24,6 @@ pub use eval_api::{
     eval_string_with_defaults,
 };
 pub use lexer_parser::lex_parse_content;
-#[cfg(feature = "python")]
 pub use monty_eval::MontyEvaluator;
 pub use output::{EvalOutput, PlainOutput, SourceSpan};
 pub use rhai_eval::RhaiEvaluator;

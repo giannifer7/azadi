@@ -4,16 +4,16 @@
 // Runs azadi-macros then azadi-noweb in-process, no subprocess spawning.
 
 use azadi_macros::{
-    evaluator::{
-        output::{MacroMapEntry, SpanKind},
-        EvalConfig, EvalError, Evaluator,
-    },
+    evaluator::{EvalConfig, EvalError, Evaluator},
     macro_api::process_string,
 };
 use azadi_noweb::{AzadiError, Clip, SafeFileWriter, SafeWriterConfig};
 use clap::Parser;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+
+mod lookup;
+mod mcp;
 
 fn default_pathsep() -> String {
     if cfg!(windows) {
@@ -48,6 +48,8 @@ enum Commands {
         out_file: String,
         line: u32,
     },
+    /// Run as an MCP server for IDE/agent integration
+    Mcp,
 }
 
 #[derive(clap::Args, Debug)]
@@ -383,6 +385,9 @@ fn main() {
         Some(Commands::Where { out_file, line }) => {
             run_where(out_file, line, cli.args.work_dir, cli.args.gen_dir)
         }
+        Some(Commands::Mcp) => {
+            mcp::run_mcp(cli.args.work_dir, cli.args.gen_dir)
+        }
         None => run(cli.args),
     };
 
@@ -404,46 +409,21 @@ fn run_where(out_file: String, line: u32, db_dir: PathBuf, gen_dir: PathBuf) -> 
     }
     let db = azadi_noweb::db::AzadiDb::open(db_path)?;
 
-    // Line numbers in CLI are 1-indexed; internally 0-indexed.
-    if line == 0 {
-        return Err(Error::Io(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "Line number must be >= 1"
-        )));
-    }
-    let out_line_0 = line - 1;
-
-    // Normalize path: if it starts with gen_dir, strip it to match DB key
-    let mut db_lookup_path = out_file.clone();
-    
-    // Attempt canonical prefix stripping
-    if let (Ok(canon_gen), Ok(canon_out)) = (gen_dir.canonicalize(), Path::new(&out_file).canonicalize()) {
-        if let Ok(rel) = canon_out.strip_prefix(&canon_gen) {
-            db_lookup_path = rel.to_string_lossy().into_owned();
+    match lookup::perform_where(&out_file, line, &db, &gen_dir) {
+        Ok(Some(json)) => {
+            println!("{}", serde_json::to_string_pretty(&json).unwrap());
+            Ok(())
         }
-    } else {
-        // Fallback to simple prefix stripping
-        let prefix = gen_dir.to_string_lossy();
-        if out_file.starts_with(prefix.as_ref()) {
-            let stripped = out_file.trim_start_matches(prefix.as_ref());
-            db_lookup_path = stripped.trim_start_matches('/').to_string();
+        Ok(None) => {
+            eprintln!("No mapping found for {}:{}", out_file, line);
+            Ok(())
         }
+        Err(lookup::LookupError::InvalidInput(msg)) => {
+            Err(Error::Io(std::io::Error::new(std::io::ErrorKind::InvalidInput, msg)))
+        }
+        Err(lookup::LookupError::Db(e)) => Err(Error::Noweb(AzadiError::Db(e))),
+        Err(lookup::LookupError::Io(e)) => Err(Error::Io(e)),
     }
-
-    if let Some(entry) = db.get_noweb_entry(&db_lookup_path, out_line_0)? {
-        let json = serde_json::json!({
-            "out_file": out_file,
-            "out_line": line,
-            "chunk": entry.chunk_name,
-            "expanded_file": entry.src_file,
-            "expanded_line": entry.src_line + 1, // back to 1-indexed
-            "indent": entry.indent,
-        });
-        println!("{}", serde_json::to_string_pretty(&json).unwrap());
-    } else {
-        eprintln!("No mapping found for {}:{}", out_file, line);
-    }
-    Ok(())
 }
 
 fn run_trace(out_file: String, line: u32, db_dir: PathBuf, gen_dir: PathBuf) -> Result<(), Error> {
@@ -456,66 +436,19 @@ fn run_trace(out_file: String, line: u32, db_dir: PathBuf, gen_dir: PathBuf) -> 
     }
     let db = azadi_noweb::db::AzadiDb::open(db_path)?;
 
-    if line == 0 {
-        return Err(Error::Io(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "Line number must be >= 1"
-        )));
-    }
-    let out_line_0 = line - 1;
-
-    // Normalize path
-    let mut db_lookup_path = out_file.clone();
-
-    if let (Ok(canon_gen), Ok(canon_out)) = (gen_dir.canonicalize(), Path::new(&out_file).canonicalize()) {
-        if let Ok(rel) = canon_out.strip_prefix(&canon_gen) {
-            db_lookup_path = rel.to_string_lossy().into_owned();
+    match lookup::perform_trace(&out_file, line, &db, &gen_dir) {
+        Ok(Some(json)) => {
+            println!("{}", serde_json::to_string_pretty(&json).unwrap());
+            Ok(())
         }
-    } else {
-        // Fallback
-        let prefix = gen_dir.to_string_lossy();
-        if out_file.starts_with(prefix.as_ref()) {
-            let stripped = out_file.trim_start_matches(prefix.as_ref());
-            db_lookup_path = stripped.trim_start_matches('/').to_string();
+        Ok(None) => {
+            eprintln!("No mapping found for {}:{}", out_file, line);
+            Ok(())
         }
-    }
-
-    let nw = db.get_noweb_entry(&db_lookup_path, out_line_0)?;
-    if let Some(nw_entry) = nw {
-        let mut result = serde_json::json!({
-            "out_file": out_file,
-            "out_line": line,
-            "chunk": nw_entry.chunk_name,
-            "expanded_file": nw_entry.src_file,
-            "expanded_line": nw_entry.src_line + 1,
-            "indent": nw_entry.indent,
-        });
-
-        // Try to look up macro-map
-        if let Ok(Some(bytes)) = db.get_macro_map_bytes(&nw_entry.src_file, nw_entry.src_line)
-            && let Ok(m_entry) = postcard::from_bytes::<MacroMapEntry>(&bytes)
-        {
-            let obj = result.as_object_mut().unwrap();
-                obj.insert("src_file".to_string(), serde_json::Value::String(m_entry.src_file));
-                obj.insert("src_line".to_string(), serde_json::Value::Number((m_entry.src_line + 1).into()));
-                obj.insert("src_col".to_string(), serde_json::Value::Number(m_entry.src_col.into()));
-                
-                let (kind_str, extra) = match m_entry.kind {
-                    SpanKind::Literal => ("Literal", None),
-                    SpanKind::MacroBody { ref macro_name } => ("MacroBody", Some(("macro_name", macro_name.clone()))),
-                    SpanKind::MacroArg { ref macro_name, .. } => ("MacroArg", Some(("macro_name", macro_name.clone()))),
-                    SpanKind::VarBinding { ref var_name } => ("VarBinding", Some(("var_name", var_name.clone()))),
-                    SpanKind::Computed => ("Computed", None),
-                };
-            obj.insert("kind".to_string(), serde_json::Value::String(kind_str.to_string()));
-            if let Some((k, v)) = extra {
-                obj.insert(k.to_string(), serde_json::Value::String(v));
-            }
+        Err(lookup::LookupError::InvalidInput(msg)) => {
+            Err(Error::Io(std::io::Error::new(std::io::ErrorKind::InvalidInput, msg)))
         }
-
-        println!("{}", serde_json::to_string_pretty(&result).unwrap());
-    } else {
-        eprintln!("No mapping found for {}:{}", out_file, line);
+        Err(lookup::LookupError::Db(e)) => Err(Error::Noweb(AzadiError::Db(e))),
+        Err(lookup::LookupError::Io(e)) => Err(Error::Io(e)),
     }
-    Ok(())
 }

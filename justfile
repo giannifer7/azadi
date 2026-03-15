@@ -60,7 +60,7 @@ noweb FILE:
 
 # Regenerate the c_enum example
 example-c-enum:
-    cd examples/c_enum && cargo run --package azadi -- status.md --gen src
+    cd examples/c_enum && cargo run --package azadi -- status.md --gen .
 
 # ── Packaging ─────────────────────────────────────────────────────────────────
 

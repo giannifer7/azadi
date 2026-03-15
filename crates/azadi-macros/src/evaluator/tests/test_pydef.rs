@@ -1,6 +1,5 @@
 // crates/azadi-macros/src/evaluator/tests/test_pydef.rs
 
-#[cfg(feature = "python")]
 mod pydef_tests {
     use crate::evaluator::{EvalConfig, Evaluator, eval_string};
 

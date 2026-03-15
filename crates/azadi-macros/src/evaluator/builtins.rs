@@ -21,11 +21,8 @@ pub fn default_builtins() -> HashMap<String, BuiltinFn> {
     map.insert("rhaiset".to_string(), builtin_rhaiset as BuiltinFn);
     map.insert("rhaiget".to_string(), builtin_rhaiget as BuiltinFn);
     map.insert("rhaiexpr".to_string(), builtin_rhaiexpr as BuiltinFn);
-    #[cfg(feature = "python")]
     map.insert("pydef".to_string(), builtin_pydef as BuiltinFn);
-    #[cfg(feature = "python")]
     map.insert("pyset".to_string(), builtin_pyset as BuiltinFn);
-    #[cfg(feature = "python")]
     map.insert("pyget".to_string(), builtin_pyget as BuiltinFn);
     map.insert("include".to_string(), builtin_include as BuiltinFn);
     map.insert("import".to_string(), builtin_import as BuiltinFn);
@@ -194,7 +191,6 @@ pub fn builtin_rhaidef(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<Strin
     )
 }
 
-#[cfg(feature = "python")]
 pub fn builtin_pydef(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     define_macro(
         eval,
@@ -452,7 +448,6 @@ pub fn builtin_rhaiget(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<Strin
     Ok(eval.rhaistore_get(&key))
 }
 
-#[cfg(feature = "python")]
 pub fn builtin_pyset(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     let parts = &node.parts;
     if parts.len() != 2 {
@@ -466,7 +461,6 @@ pub fn builtin_pyset(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String>
     Ok("".into())
 }
 
-#[cfg(feature = "python")]
 pub fn builtin_pyget(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     if node.parts.is_empty() {
         return Err(EvalError::InvalidUsage("pyget: requires a key".into()));

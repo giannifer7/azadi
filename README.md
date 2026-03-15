@@ -95,7 +95,7 @@ Run the built-in example:
 
 ```bash
 cd examples/c_enum
-azadi status.md --gen src
+azadi status.md --gen .
 ```
 
 ---
@@ -126,6 +126,7 @@ azadi [OPTIONS] --dir <DIR>
 | `--chunk-end <STR>` | `@` | End-of-chunk marker |
 | `--comment-markers <STR>` | `#,//` | Comment prefixes recognised before chunk delimiters (comma-separated) |
 | `--formatter <EXT=CMD>` | | Run a formatter after writing a file (e.g. `rs=rustfmt`), repeatable |
+| `--trace` | off | Record source-map data in the work database for use by `azadi where` / `azadi trace` |
 | `--dump-expanded` | off | Print macro-expanded text to stderr before noweb processes it |
 | `--dir <DIR>` | | Auto-discover and process driver files under this directory (mutually exclusive with positional inputs) |
 | `--ext <EXT>` | `md` | File extension to scan in `--dir` mode; repeatable for multiple extensions |
@@ -206,6 +207,139 @@ custom_target('gen-nim',
 > Ninja consumes the depfile into its internal database (`.ninja_deps`)
 > after the first run; if the `.d` file is also declared as an output,
 > ninja sees it as permanently missing and reruns the target on every build.
+
+### Source tracing (`azadi where` / `azadi trace`)
+
+`azadi` can record a source map during every run and use it later to answer
+the question *"where did this line in a generated file come from?"*
+
+**Step 1 — record the source map:**
+
+```bash
+azadi status.md --gen . --trace
+```
+
+`--trace` stores two levels of provenance in `_azadi_work/azadi.db`:
+
+- **noweb level** — which literate chunk and source line produced each output line
+- **macro level** — which macro call (and which argument or body) generated each
+  expanded line
+
+**Step 2 — query:**
+
+```bash
+# noweb level only: chunk name + source file/line
+azadi where <out_file> <line>
+
+# full two-level trace: chunk + macro body/arg origin
+azadi trace <out_file> <line>
+```
+
+Both commands print JSON to stdout and accept the same `--work-dir` / `--gen`
+flags as the main command. `<out_file>` is the path of a generated file as you
+see it on disk; `<line>` is 1-indexed.
+
+**Example** (using the c_enum sample):
+
+```bash
+cd examples/c_enum
+azadi status.md --gen . --trace
+
+azadi where src/status.c 6
+```
+
+```json
+{
+  "chunk": "string_cases",
+  "expanded_file": "./status.md",
+  "expanded_line": 44,
+  "indent": "",
+  "out_file": "src/status.c",
+  "out_line": 6
+}
+```
+
+```bash
+azadi trace src/status.c 6
+```
+
+```json
+{
+  "chunk": "string_cases",
+  "expanded_file": "./status.md",
+  "expanded_line": 44,
+  "indent": "",
+  "kind": "MacroBody",
+  "macro_name": "enum_val",
+  "out_file": "src/status.c",
+  "out_line": 6,
+  "src_col": 45,
+  "src_file": "/path/to/examples/c_enum/status.md",
+  "src_line": 31
+}
+```
+
+The `trace` output adds `src_file`, `src_line`, `src_col`, `kind`, and
+(for macro body/arg spans) `macro_name`, giving the exact location in the
+literate source that was expanded to produce the output line.
+
+`kind` is one of:
+
+| Value | Meaning |
+|-------|---------|
+| `Literal` | Text copied verbatim from the source |
+| `MacroBody` | Text produced by expanding a macro body |
+| `MacroArg` | Text produced from a macro argument value |
+| `VarBinding` | Text from a `%set` variable |
+| `Computed` | Text produced by a Rhai script or other computed source |
+
+### MCP server (`azadi mcp`)
+
+`azadi mcp` starts a [Model Context Protocol](https://spec.modelcontextprotocol.io/)
+server over stdin/stdout. It exposes a single tool — `azadi_trace` — that
+IDE extensions and AI agents can call to trace generated-file locations back to
+their literate source.
+
+```bash
+azadi --work-dir _azadi_work --gen . mcp
+```
+
+The server reads JSON-RPC 2.0 messages from stdin (one per line) and writes
+responses to stdout. It implements the MCP 2024-11-05 protocol and handles
+`initialize`, `notifications/initialized`, `tools/list`, and `tools/call`.
+
+**Tool: `azadi_trace`**
+
+```json
+{
+  "name": "azadi_trace",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "out_file": { "type": "string" },
+      "out_line": { "type": "integer" }
+    },
+    "required": ["out_file", "out_line"]
+  }
+}
+```
+
+Returns the same JSON as `azadi trace` above, encoded as a text content item.
+Returns an error if no mapping is found or if the database has not been
+populated yet (run `azadi ... --trace` first).
+
+**Claude Desktop configuration example:**
+
+```json
+{
+  "mcpServers": {
+    "azadi": {
+      "command": "azadi",
+      "args": ["--work-dir", "_azadi_work", "--gen", ".", "mcp"]
+    }
+  }
+}
+```
 
 ---
 
@@ -623,26 +757,22 @@ Output: `Tree has 2 children.`
 %pydef(name, param1, param2, ..., body)
 ```
 
-The body is a Python script powered by monty, pydantic's sandboxed Python interpreter. It is evaluated at call time; its return value
-(converted to string) becomes the macro output.
+The body is a Python script evaluated by [monty](https://github.com/pydantic/monty),
+pydantic's pure-Rust sandboxed Python interpreter. It is evaluated at call time; its
+return value (converted to string) becomes the macro output. No Python runtime is
+required — monty is compiled into the binary.
 
-Unlike `%rhaidef`, only the explicitly declared parameters are available inside the
-script — they arrive as plain Python string variables. There is no implicit azadi scope
-injection. The script must return a value: either an explicit `return` or the value of
-the last expression.
+Only the explicitly declared parameters are available inside the script — they arrive
+as plain Python string variables. Store entries from `%pyset` are also injected (see
+below). There is no implicit full azadi scope injection. The script must return a
+value: either an explicit `return` or the value of the last expression.
 
 The body **must** be wrapped in `%{ ... %}` whenever it contains parentheses or commas.
 
-**Note:** monty is at an early stage of development. Only a subset of Python is
-supported (arithmetic, string ops, `re`, basic control flow). No third-party libraries,
-no file I/O, no `print`. Top-level statements must not be indented. See the
-[monty repository](https://github.com/pydantic/monty) for the current feature set and
-known limitations.
-
-**Note:** the `python` feature is enabled by default. To build without it:
-```
-cargo build -p azadi-macros --no-default-features
-```
+**Note:** monty supports a subset of Python: arithmetic, string ops, `re`, basic
+control flow. No third-party libraries, no file I/O, no `print`. Top-level statements
+must not be indented. See the [monty repository](https://github.com/pydantic/monty)
+for the current feature set and known limitations.
 
 **Examples:**
 
