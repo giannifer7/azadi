@@ -90,13 +90,22 @@ Delimiters are configurable: `--open-delim`, `--close-delim`, `--chunk-end`.
 
 Always wrap macro bodies in `%{ ... %}` — required when they contain commas
 or parentheses, and good style otherwise. Wrap non-trivial arguments too.
-Leading whitespace inside `%{` is preserved:
+Leading whitespace inside `%{` is preserved, but leading whitespace on bare
+arguments is stripped — which makes multi-line calls with comments readable:
 
 ```
-%def(greet, name, %{Hello, %(name)!%})
-%greet(%{World%})        → Hello, World!
-%greet(%{ World%})       → Hello,  World!   ← note the extra leading space
+%def(tag, name, value, %{<%(name)>%(value)</%(name)>%})
+
+%tag( div,         %# element name — leading space stripped
+      Hello world) %# value        — leading space stripped
 ```
+Output: `<div>Hello world</div>`
+
+To keep a leading space, use `%{`:
+```
+%tag(%{ div%}, %{ Hello world%})
+```
+Output: `< div> Hello world</ div>`
 
 ## Build system integration
 
