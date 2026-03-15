@@ -7,8 +7,6 @@ use tempfile::TempDir;
 pub(crate) fn create_test_writer() -> (TempDir, SafeFileWriter) {
     let temp = TempDir::new().unwrap();
     let config = SafeWriterConfig {
-        backup_enabled: true,
-        modification_check: true,
         buffer_size: 8192,
         formatters: std::collections::HashMap::new(),
     };

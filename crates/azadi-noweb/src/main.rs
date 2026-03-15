@@ -87,8 +87,7 @@ fn run(args: Args) -> Result<(), AzadiError> {
         &args.priv_dir,
         SafeWriterConfig {
             formatters,
-            modification_check: true,
-..SafeWriterConfig::default()
+            ..SafeWriterConfig::default()
         },
     );
     let mut clipper = Clip::new(

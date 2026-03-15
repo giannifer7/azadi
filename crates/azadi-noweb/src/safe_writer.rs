@@ -43,8 +43,6 @@ impl From<io::Error> for SafeWriterError {
 
 #[derive(Debug, Clone)]
 pub struct SafeWriterConfig {
-    pub backup_enabled: bool,
-    pub modification_check: bool,
     pub buffer_size: usize,
     pub formatters: HashMap<String, String>, // file-extension → shell command
 }
@@ -52,8 +50,6 @@ pub struct SafeWriterConfig {
 impl Default for SafeWriterConfig {
     fn default() -> Self {
         SafeWriterConfig {
-            backup_enabled: false,
-            modification_check: false,
             buffer_size: 8192,
             formatters: HashMap::new(),
         }
@@ -245,9 +241,8 @@ impl SafeFileWriter {
             self.run_formatter(&cmd, &private_file)?;
         }
 
-        // Step 2: Content-based modification detection
-        if self.config.modification_check
-            && output_file.is_file()
+        // Step 2: Content-based modification detection — always on.
+        if output_file.is_file()
             && old_file.is_file()
             && self.content_differs(&output_file, &old_file)?
         {
@@ -257,11 +252,9 @@ impl SafeFileWriter {
         // Step 3: Copy private → output (skip if identical)
         self.copy_if_different(&private_file, &output_file)?;
 
-        // Step 4: Store formatted baseline in old/ for future comparison
-        if self.config.backup_enabled || self.config.modification_check {
-            self.atomic_copy(&private_file, &old_file)
-                .map_err(|_| SafeWriterError::BackupFailed(old_file.clone()))?;
-        }
+        // Step 4: Update baseline for next run's modification check.
+        self.atomic_copy(&private_file, &old_file)
+            .map_err(|_| SafeWriterError::BackupFailed(old_file.clone()))?;
 
         Ok(())
     }

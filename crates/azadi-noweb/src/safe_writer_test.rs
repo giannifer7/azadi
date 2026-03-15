@@ -47,12 +47,6 @@ fn test_basic_file_writing() -> Result<(), AzadiError> {
 #[test]
 fn test_unmodified_file_update() -> Result<(), AzadiError> {
     let (_temp, mut writer) = create_test_writer();
-
-    // Disable modification checks for this particular test
-    let mut config = writer.get_config().clone();
-    config.modification_check = false;
-    writer.set_config(config);
-
     let test_file = PathBuf::from("test.txt");
 
     write_file(&mut writer, &test_file, "Initial content")?;
