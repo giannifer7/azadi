@@ -14,5 +14,6 @@ mod test_macros;
 mod test_pydef;
 mod test_rhaidef;
 mod test_set;
+mod test_skill_examples;
 mod test_utils;
 mod test_var;

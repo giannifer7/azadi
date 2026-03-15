@@ -357,6 +357,39 @@ Output:
 **This text will be bold**
 ```
 
+#### Calling conventions
+
+These rules apply to all macro kinds (`%def`, `%rhaidef`, `%pydef`).
+Arguments follow Python-style rules:
+
+- **Positional** args fill declared params left-to-right.
+- **Named** args (`param = value`) bind by name and can appear in any order.
+- Positional args must come **before** named args; a positional after a named arg is an error.
+- Binding the same param both positionally and by name is an error.
+- Unknown named args produce a warning to stderr and are ignored (helps catch typos).
+- Missing args default to empty string.
+
+```
+%def(http_endpoint, method, path, handler, %{
+%(method) %(path) → %(handler)
+%})
+
+%http_endpoint(
+    method  = GET,
+    path    = /api/users,
+    handler = list_users)
+```
+Output: `GET /api/users → list_users`
+
+Mixing positional and named — positionals first:
+
+```
+%http_endpoint(GET, path = /api/users, handler = list_users)
+```
+Output: `GET /api/users → list_users`
+
+---
+
 A macro body may also contain `%def` calls that define new macros. Those macros
 are local to the invocation scope; use `%export` to promote them to the
 caller's scope:

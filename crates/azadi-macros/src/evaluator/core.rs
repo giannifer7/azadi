@@ -260,30 +260,71 @@ impl Evaluator {
             self.state.set_variable(var, frozen_val);
         }
 
-        // Handle parameter assignment with support for both positional and named arguments
-        for (i, param_name) in mac.params.iter().enumerate() {
-            let val = if let Some(param_node) = param_nodes.get(i) {
-                // If the parameter has a name in the AST node, use that as the parameter name
-                if let Some(name_token) = &param_node.name {
-                    // Extract the actual name from the token
-                    let name_value = self.extract_name_value(name_token);
+        // Python-style parameter binding:
+        //   - Positional args must come before named args; a positional after a
+        //     named arg is an error (mirrors Python's SyntaxError).
+        //   - Positional args fill declared params left-to-right.
+        //   - Named args (key = value) bind by name in any relative order among
+        //     themselves.
+        //   - Binding the same param twice (positionally AND by name) is an error.
+        //   - Unknown named arg → warning to stderr; ignored.
+        //   - Missing params default to empty string.
+        let declared: HashSet<&str> = mac.params.iter().map(String::as_str).collect();
 
-                    // Evaluate the parameter value
-                    let evaluated = self.evaluate(param_node)?;
+        // Validate ordering: no positional after named.
+        let mut seen_named = false;
+        for param_node in &param_nodes {
+            if param_node.name.is_some() {
+                seen_named = true;
+            } else if seen_named {
+                self.state.pop_scope();
+                return Err(EvalError::InvalidUsage(format!(
+                    "macro '{}': positional argument follows named argument",
+                    mac.name
+                )));
+            }
+        }
 
-                    // Store the named parameter value
-                    self.state.set_variable(&name_value, &evaluated);
-                    continue; // Skip the positional assignment since we've handled it as named
-                }
+        let positional_count = param_nodes.iter().take_while(|n| n.name.is_none()).count();
+        let mut assigned: HashSet<String> = HashSet::new();
 
-                // Otherwise, evaluate it as a positional parameter
-                self.evaluate(param_node)?
-            } else {
-                "".to_string()
-            };
+        // Pass 1: positional args → fill declared params left-to-right.
+        for (i, param_node) in param_nodes[..positional_count].iter().enumerate() {
+            if let Some(param_name) = mac.params.get(i) {
+                let val = self.evaluate(param_node)?;
+                self.state.set_variable(param_name, &val);
+                assigned.insert(param_name.clone());
+            }
+            // extra positional args beyond arity are silently ignored
+        }
 
-            // Set the variable with the positional parameter name
-            self.state.set_variable(param_name, &val);
+        // Pass 2: named args → bind by name.
+        for param_node in &param_nodes[positional_count..] {
+            let arg_name = self.extract_name_value(param_node.name.as_ref().unwrap());
+            if !declared.contains(arg_name.as_str()) {
+                eprintln!(
+                    "warning: macro '{}': unknown named argument '{arg_name}' — ignored",
+                    mac.name
+                );
+                continue;
+            }
+            if assigned.contains(&arg_name) {
+                self.state.pop_scope();
+                return Err(EvalError::InvalidUsage(format!(
+                    "macro '{}': parameter '{arg_name}' bound both positionally and by name",
+                    mac.name
+                )));
+            }
+            let val = self.evaluate(param_node)?;
+            self.state.set_variable(&arg_name, &val);
+            assigned.insert(arg_name);
+        }
+
+        // Fill any remaining unbound params with "".
+        for param_name in &mac.params {
+            if !assigned.contains(param_name) {
+                self.state.set_variable(param_name, "");
+            }
         }
 
         self.state.call_depth += 1;

@@ -107,8 +107,11 @@ To keep a leading space, use `%{`:
 ```
 Output: `< div> Hello world</ div>`
 
-Named parameters can be given in any order; combined with multi-line style
-and comments they serve as self-documenting call sites:
+These calling conventions apply to all macro kinds (`%def`, `%rhaidef`, `%pydef`):
+named parameters are matched **by name** (any order), positional args must come
+before named args (Python-style), an unknown name warns to stderr and is ignored,
+missing params default to empty string. Combined with multi-line style and comments
+they serve as self-documenting call sites:
 
 ```
 %def(http_endpoint, method, path, handler, %{
@@ -121,6 +124,11 @@ and comments they serve as self-documenting call sites:
     handler = list_users)   %# function name
 ```
 Output: `GET /api/users → list_users`
+
+Named and positional arguments can be mixed, but positional args must come
+first (same rule as Python). Named args following them bind by name;
+a positional after a named arg is an error, as is providing the same param
+both positionally and by name.
 
 ## Build system integration
 
