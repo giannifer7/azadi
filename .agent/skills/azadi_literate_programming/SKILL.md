@@ -88,10 +88,12 @@ Delimiters are configurable: `--open-delim`, `--close-delim`, `--chunk-end`.
 %pydef(name, params..., body)   — Python-scripted macro (via monty)
 ```
 
-Wrap bodies in `%{ ... %}` when they contain commas or parentheses:
+Always wrap macro bodies in `%{ ... %}` — required when they contain commas
+or parentheses, and good style otherwise. Wrap non-trivial arguments too:
 
 ```
 %def(greet, name, %{Hello, %(name)!%})
+%greet(%{World%})
 ```
 
 ## Build system integration
