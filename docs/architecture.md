@@ -53,19 +53,23 @@ keeping build-system timestamps stable and avoiding unnecessary recompilation.
 
 ## What happens when you edit a generated file
 
-Azadi **always overwrites** `gen/` files with the freshly generated content.
-Your edit is silently lost.
+Azadi protects generated files from accidental overwriting. After each
+successful run it stores a baseline copy of every file it wrote in
+`_azadi_work/__old__/`. On the next run, before writing, it compares the
+current `gen/` file against that baseline:
 
-The `SafeFileWriter` API does support a `modification_check` mode that
-compares each `gen/` file against the baseline in `_azadi_work/__old__/`
-and returns a `ModifiedExternally` error instead of overwriting — but this
-is not yet exposed as a CLI flag. When using azadi as a library you can
-enable it via `SafeWriterConfig::modification_check`.
+- **File unchanged since last run** — azadi overwrites it with the new
+  content as usual.
+- **File modified externally** — azadi stops with a `ModifiedExternally`
+  error and leaves the file untouched. The message names the file so you
+  can decide what to do:
+  - To accept the regenerated version: restore the file from version
+    control (or delete it) and rerun azadi.
+  - To keep your manual change: edit the literate source to match your
+    intent and rerun azadi.
 
-Either way, the right response to an accidental edit is:
-
-- Restore the file from version control and rerun azadi, **or**
-- Edit the literate source to match your intent and rerun azadi.
+If you need to suppress this protection (e.g. in a CI pipeline that always
+regenerates from scratch), pass `--allow-overwrites`.
 
 ## Build-system integration
 

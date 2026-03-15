@@ -49,6 +49,10 @@ struct Args {
     #[arg(long, value_name = "EXT=CMD")]
     formatter: Vec<String>,
 
+    /// Overwrite generated files even if they were modified outside azadi
+    #[arg(long)]
+    allow_overwrites: bool,
+
     /// Input files
     #[arg(required = true)]
     files: Vec<PathBuf>,
@@ -87,6 +91,8 @@ fn run(args: Args) -> Result<(), AzadiError> {
         &args.priv_dir,
         SafeWriterConfig {
             formatters,
+            modification_check: true,
+            allow_overwrites: args.allow_overwrites,
             ..SafeWriterConfig::default()
         },
     );
