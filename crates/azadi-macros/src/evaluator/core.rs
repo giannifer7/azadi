@@ -106,10 +106,6 @@ impl Evaluator {
         self.state.current_file.clone()
     }
 
-    pub fn get_backup_dir_path(&self) -> PathBuf {
-        self.state.config.backup_dir.clone()
-    }
-
     pub fn source_files(&self) -> &[PathBuf] {
         self.state.source_manager.source_files()
     }

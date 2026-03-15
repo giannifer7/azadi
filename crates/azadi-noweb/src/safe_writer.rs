@@ -1,9 +1,13 @@
 use crate::db::{AzadiDb, DbError};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static DB_COUNTER: AtomicU64 = AtomicU64::new(0);
 use std::fs::{self, File};
 use std::io::Read;
 use std::io::{self, BufReader};
 use std::path::{Path, PathBuf};
+use tempfile::NamedTempFile;
 
 #[derive(Debug)]
 pub enum SafeWriterError {
@@ -67,46 +71,38 @@ impl Default for SafeWriterConfig {
 
 pub struct SafeFileWriter {
     gen_base: PathBuf,
-    private_dir: PathBuf,
     db: AzadiDb,
+    db_path: PathBuf,
     config: SafeWriterConfig,
+    /// Staging area: logical file name → temp file on disk.
+    /// The NamedTempFile is kept alive here until after_write consumes it.
+    staging: HashMap<String, NamedTempFile>,
 }
 
 impl SafeFileWriter {
-    pub fn new<P: AsRef<Path>>(gen_base: P, private_dir: P) -> Self {
-        Self::with_config(gen_base, private_dir, SafeWriterConfig::default())
+    pub fn new<P: AsRef<Path>>(gen_base: P) -> Self {
+        Self::with_config(gen_base, SafeWriterConfig::default())
     }
 
-    pub fn with_config<P: AsRef<Path>>(
-        gen_base: P,
-        private_dir: P,
-        config: SafeWriterConfig,
-    ) -> Self {
-        let (gen_base, private_dir) = Self::canonicalize_paths(&gen_base, &private_dir)
-            .expect("Failed to initialize directories");
+    pub fn with_config<P: AsRef<Path>>(gen_base: P, config: SafeWriterConfig) -> Self {
+        fs::create_dir_all(gen_base.as_ref()).expect("Failed to create gen directory");
+        let gen_base = gen_base
+            .as_ref()
+            .canonicalize()
+            .expect("Failed to canonicalize gen directory");
 
-        let db = AzadiDb::open(private_dir.join("azadi.db"))
-            .expect("Failed to open azadi database");
+        let instance_id = DB_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let db_path = std::env::temp_dir()
+            .join(format!("azadi-{}-{}.db", std::process::id(), instance_id));
+        let db = AzadiDb::open(&db_path).expect("Failed to open azadi temp database");
 
         SafeFileWriter {
             gen_base,
-            private_dir,
             db,
+            db_path,
             config,
+            staging: HashMap::new(),
         }
-    }
-
-    fn canonicalize_paths<P: AsRef<Path>>(
-        gen_base: P,
-        private_dir: P,
-    ) -> io::Result<(PathBuf, PathBuf)> {
-        fs::create_dir_all(gen_base.as_ref())?;
-        fs::create_dir_all(private_dir.as_ref())?;
-
-        let gen_dir = gen_base.as_ref().canonicalize()?;
-        let private = private_dir.as_ref().canonicalize()?;
-
-        Ok((gen_dir, private))
     }
 
     fn atomic_copy<P: AsRef<Path>>(&self, source: P, destination: P) -> io::Result<()> {
@@ -186,56 +182,58 @@ impl SafeFileWriter {
         Ok(())
     }
 
-    fn prepare_write_file<P: AsRef<Path>>(&self, file_path: P) -> Result<PathBuf, SafeWriterError> {
-        let path = file_path.as_ref();
-        let dest_dir = path.parent().unwrap_or_else(|| Path::new(""));
-
-        let dirs = [
-            self.gen_base.join(dest_dir),
-            self.private_dir.join(dest_dir),
-        ];
-
-        for dir in &dirs {
-            fs::create_dir_all(dir)
-                .map_err(|_| SafeWriterError::DirectoryCreationFailed(dir.clone()))?;
-        }
-
-        Ok(path.to_path_buf())
-    }
-
     pub fn before_write<P: AsRef<Path>>(
         &mut self,
         file_name: P,
     ) -> Result<PathBuf, SafeWriterError> {
         validate_filename(file_name.as_ref())?;
-        let path = self.prepare_write_file(&file_name)?;
-        Ok(self.private_dir.join(path))
+        let path = file_name.as_ref();
+
+        // Ensure the output directory exists.
+        let dest_dir = path.parent().unwrap_or_else(|| Path::new(""));
+        fs::create_dir_all(self.gen_base.join(dest_dir))
+            .map_err(|_| SafeWriterError::DirectoryCreationFailed(self.gen_base.join(dest_dir)))?;
+
+        // Create a temp file with the correct extension so formatters (e.g. rustfmt)
+        // can identify the file type by name.
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        let suffix = if ext.is_empty() {
+            String::new()
+        } else {
+            format!(".{ext}")
+        };
+        let tmp = tempfile::Builder::new()
+            .suffix(&suffix)
+            .tempfile()
+            .map_err(SafeWriterError::IoError)?;
+        let tmp_path = tmp.path().to_path_buf();
+        self.staging.insert(path.to_string_lossy().into_owned(), tmp);
+        Ok(tmp_path)
     }
 
-    pub fn after_write<P: AsRef<Path>>(&self, file_name: P) -> Result<(), SafeWriterError> {
+    pub fn after_write<P: AsRef<Path>>(&mut self, file_name: P) -> Result<(), SafeWriterError> {
         validate_filename(file_name.as_ref())?;
-        let path = self.prepare_write_file(file_name.as_ref())?;
+        let key = file_name.as_ref().to_string_lossy().into_owned();
+        let tmp = self
+            .staging
+            .remove(&key)
+            .ok_or_else(|| SafeWriterError::BackupFailed(file_name.as_ref().to_path_buf()))?;
+        let tmp_path = tmp.path().to_path_buf();
+        let output_file = self.gen_base.join(file_name.as_ref());
 
-        let private_file = self.private_dir.join(&path);
-        let output_file = self.gen_base.join(&path);
-
-        let key = path.to_string_lossy();
-
-        // Step 1: Run formatter on private copy if configured.
+        // Step 1: Run formatter on temp copy if configured.
         let ext = file_name
             .as_ref()
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("");
         if let Some(cmd) = self.config.formatters.get(ext).cloned() {
-            self.run_formatter(&cmd, &private_file)?;
+            self.run_formatter(&cmd, &tmp_path)?;
         }
 
         // Step 2: Content-based modification detection.
-        // If the output file exists and we have a baseline, check that the
-        // output hasn't been edited since the last run.
         if output_file.is_file() {
-            let baseline = self.db.get_baseline(key.as_ref())?;
+            let baseline = self.db.get_baseline(&key)?;
             if let Some(baseline_bytes) = baseline {
                 let current = fs::read(&output_file)?;
                 if current != baseline_bytes {
@@ -244,16 +242,17 @@ impl SafeFileWriter {
             }
         }
 
-        // Step 3: Copy private → output (skip if identical).
-        self.copy_if_different(&private_file, &output_file)?;
+        // Step 3: Copy temp → output (skip if identical).
+        self.copy_if_different(&tmp_path, &output_file)?;
 
-        // Step 4: Update baseline — store private-file content in the db.
-        let written = fs::read(&private_file)
-            .map_err(|_| SafeWriterError::BackupFailed(private_file.clone()))?;
+        // Step 4: Update baseline in the temp db.
+        let written = fs::read(&tmp_path)
+            .map_err(|_| SafeWriterError::BackupFailed(tmp_path.clone()))?;
         self.db
-            .set_baseline(key.as_ref(), &written)
+            .set_baseline(&key, &written)
             .map_err(SafeWriterError::DbError)?;
 
+        // tmp is dropped here, deleting the temp file.
         Ok(())
     }
 
@@ -265,10 +264,18 @@ impl SafeFileWriter {
         self.config = config;
     }
 
-    /// Access the underlying database (used by Clip to write noweb_map entries
+    /// Access the underlying temp database (used by Clip to write noweb_map entries
     /// and by the top-level binary to write src_snapshots).
     pub fn db(&self) -> &AzadiDb {
         &self.db
+    }
+
+    /// Merge the temp database into `target` (typically `./azadi.db`) and
+    /// delete the temp database file.  Call this after all writes are complete.
+    pub fn finish(self, target: &Path) -> Result<(), SafeWriterError> {
+        self.db.merge_into(target).map_err(SafeWriterError::DbError)?;
+        let _ = fs::remove_file(&self.db_path);
+        Ok(())
     }
 
     #[cfg(test)]
@@ -277,8 +284,8 @@ impl SafeFileWriter {
     }
 
     #[cfg(test)]
-    pub fn get_private_dir(&self) -> &Path {
-        &self.private_dir
+    pub fn db_path(&self) -> &Path {
+        &self.db_path
     }
 
     /// Retrieve the stored baseline bytes for a relative path (test helper).

@@ -15,6 +15,7 @@ wheels/
 coverage_report/
 
 _azadi_work
+*.db
 
 tarpaulin-report.html
 

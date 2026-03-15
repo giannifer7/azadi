@@ -27,37 +27,22 @@ fn cargo_azadi_macro_cli() -> Result<escargot::CargoRun, Box<dyn std::error::Err
 fn test_basic_macro_processing() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TempDir::new()?;
     let temp_path = temp.path().canonicalize()?;
-    println!("Canonicalized temp dir: {}", temp_path.display());
 
-    // Create input file with simple content - explicit macro with argument
     let input = create_test_file(
         &temp_path,
         "input.txt",
         r#"%def(hello, World)
 Hello %hello()!"#,
     );
-    println!("Canonicalized input file: {}", input.display());
-    println!("Input file content:");
-    println!("{}", fs::read_to_string(&input)?);
     assert!(input.exists(), "Input file should exist");
 
-    // Set up an output file instead of a directory
     let out_file = temp_path.join("output.txt");
-    let work_dir = temp_path.join("work");
 
-    println!("Output file will be: {}", out_file.display());
-    println!("Work dir will be: {}", work_dir.display());
-
-    // Run the command
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
-    cmd.arg("--output") // Changed from --output to --out-file
+    cmd.arg("--output")
         .arg(&out_file)
-        .arg("--work-dir")
-        .arg(&work_dir)
         .arg(&input);
-
-    println!("Running command: {:?}", cmd);
 
     let output = cmd.output()?;
     println!("Exit status: {}", output.status);
@@ -65,13 +50,9 @@ Hello %hello()!"#,
     println!("Stderr: {}", String::from_utf8_lossy(&output.stderr));
 
     assert!(output.status.success());
-
-    // Check the output file directly
-    println!("Looking for output file: {}", out_file.display());
     assert!(out_file.exists(), "Output file should exist");
 
     let output_content = fs::read_to_string(&out_file)?;
-    println!("Output content: {:?}", output_content); // Debug print to show exact content
     assert_eq!(output_content.trim(), "Hello World!");
 
     Ok(())
@@ -91,17 +72,12 @@ fn test_cli_help() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    println!("(help) stdout:\n{stdout}");
-    println!("(help) stderr:\n{stderr}");
-
-    // Check that it has some known usage text:
     assert!(
         stdout.contains("azadi-macros"),
         "Help output did not mention 'azadi-macros'"
     );
     assert!(
-        stdout.contains("--output"), // Changed from --output to --out-file
+        stdout.contains("--output"),
         "Help output did not mention '--output'"
     );
 
@@ -114,22 +90,16 @@ fn test_missing_input_file() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TempDir::new()?;
     let temp_path = temp.path().canonicalize()?;
 
-    // We intentionally do NOT create the file
     let missing_input = temp_path.join("not_real.txt");
-
     let out_file = temp_path.join("output.txt");
-    let work_dir = temp_path.join("work");
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
-    cmd.arg("--output") // Changed from --output to --out-file
+    cmd.arg("--output")
         .arg(&out_file)
-        .arg("--work-dir")
-        .arg(&work_dir)
-        .arg(missing_input.to_string_lossy().to_string());
+        .arg(&missing_input);
 
     let output = cmd.output()?;
-    // We expect a failure
     assert!(
         !output.status.success(),
         "CLI was expected to fail on missing file."
@@ -151,7 +121,6 @@ fn test_multiple_inputs() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TempDir::new()?;
     let temp_path = temp.path().canonicalize()?;
 
-    // Create two input files
     let input1 = create_test_file(
         &temp_path,
         "file1.txt",
@@ -164,32 +133,18 @@ fn test_multiple_inputs() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let out_file = temp_path.join("combined_output.txt");
-    let work_dir = temp_path.join("work");
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
-    cmd.arg("--output") // Changed from --output to --out-file
+    cmd.arg("--output")
         .arg(&out_file)
-        .arg("--work-dir")
-        .arg(&work_dir)
-        .arg(input1.to_string_lossy().to_string())
-        .arg(input2.to_string_lossy().to_string());
+        .arg(&input1)
+        .arg(&input2);
 
     let output = cmd.output()?;
-    println!("(multiple_inputs) status: {:?}", output.status);
-    println!(
-        "(multiple_inputs) stdout: {}",
-        String::from_utf8_lossy(&output.stdout)
-    );
-    println!(
-        "(multiple_inputs) stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
     assert!(output.status.success());
 
-    // Check the single output file with combined content
     let content = fs::read_to_string(&out_file)?;
-
     assert!(
         content.contains("MACRO_ONE"),
         "Expected 'MACRO_ONE' in combined output file."
@@ -208,23 +163,19 @@ fn test_custom_special_char() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TempDir::new()?;
     let temp_path = temp.path().canonicalize()?;
 
-    // Use '@' as the special character
     let input = create_test_file(
         &temp_path,
         "input_at.txt",
         "@def(test_macro, Hello from custom char)\n@test_macro()",
     );
     let out_file = temp_path.join("output_at.txt");
-    let work_dir = temp_path.join("work");
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
     cmd.arg("--special")
         .arg("@")
-        .arg("--output") // Changed from --output to --out-file
+        .arg("--output")
         .arg(&out_file)
-        .arg("--work-dir")
-        .arg(&work_dir)
         .arg(&input);
 
     let output = cmd.output()?;
@@ -234,7 +185,6 @@ fn test_custom_special_char() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let content = fs::read_to_string(&out_file)?;
-    println!("(custom_special_char) output content:\n{content}");
     assert!(
         content.contains("Hello from custom char"),
         "Expected to see expansion with '@' as the macro char."
@@ -256,21 +206,14 @@ fn test_rhaidef_arithmetic() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let out_file = temp_path.join("output_rhai.txt");
-    let work_dir = temp_path.join("work");
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
     cmd.arg("--output")
         .arg(&out_file)
-        .arg("--work-dir")
-        .arg(&work_dir)
         .arg(&input);
 
     let output = cmd.output()?;
-    println!(
-        "(rhaidef) stdout:\n{}",
-        String::from_utf8_lossy(&output.stdout)
-    );
     println!(
         "(rhaidef) stderr:\n{}",
         String::from_utf8_lossy(&output.stderr)
@@ -281,7 +224,6 @@ fn test_rhaidef_arithmetic() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let content = fs::read_to_string(&out_file)?;
-    println!("(rhaidef) final content:\n{content}");
     assert!(
         content.contains("42"),
         "Expected '42' from rhaidef arithmetic."
@@ -296,31 +238,22 @@ fn test_colon_separated_includes() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TempDir::new()?;
     let temp_path = temp.path().canonicalize()?;
 
-    // Make a subdirectory 'includes' with a file 'my_include.txt'
     let includes_dir = temp_path.join("includes");
     fs::create_dir_all(&includes_dir)?;
     let _inc_file = create_test_file(&includes_dir, "my_include.txt", "From includes dir");
 
-    // Now create a main file that tries to include 'my_include.txt'
     let main_file = create_test_file(&temp_path, "main.txt", "%include(my_include.txt)");
 
     let out_file = temp_path.join("output_inc.txt");
-    let work_dir = temp_path.join("work");
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
-
-    // We'll pass two include paths: . and ./includes
-    // On Unix, pathsep is ":" by default. If you want
-    // to force a different pathsep, you can do so too.
-    let includes_str = format!(".:{}", includes_dir.to_string_lossy().to_string());
+    let includes_str = format!(".:{}", includes_dir.to_string_lossy());
 
     cmd.arg("--include")
         .arg(&includes_str)
-        .arg("--output") // Changed from --output to --out-file
+        .arg("--output")
         .arg(&out_file)
-        .arg("--work-dir")
-        .arg(&work_dir)
         .arg(&main_file);
 
     let output = cmd.output()?;
@@ -330,7 +263,6 @@ fn test_colon_separated_includes() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let content = fs::read_to_string(&out_file)?;
-    println!("(colon_separated_includes) content:\n{content}");
     assert!(
         content.contains("From includes dir"),
         "Expected the included content from includes/my_include.txt."
@@ -342,13 +274,6 @@ fn test_colon_separated_includes() -> Result<(), Box<dyn std::error::Error>> {
 // 7) Test forcing a custom --pathsep
 #[test]
 fn test_custom_pathsep_includes() -> Result<(), Box<dyn std::error::Error>> {
-    #[cfg(windows)]
-    {
-        // On Windows, the default pathsep is `;`.
-        // This test might be more relevant on a Unix machine,
-        // but let's include an example for completeness.
-    }
-
     let temp = TempDir::new()?;
     let temp_path = temp.path().canonicalize()?;
 
@@ -359,9 +284,6 @@ fn test_custom_pathsep_includes() -> Result<(), Box<dyn std::error::Error>> {
     let main_file = create_test_file(&temp_path, "custom_sep_main.txt", "%include(m_incl.txt)");
 
     let out_file = temp_path.join("output_sep.txt");
-    let work_dir = temp_path.join("work");
-
-    // Suppose we want to use '|' as the path separator
     let includes_str = format!(".|{}", includes_dir.display());
 
     let run = cargo_azadi_macro_cli()?;
@@ -370,22 +292,11 @@ fn test_custom_pathsep_includes() -> Result<(), Box<dyn std::error::Error>> {
         .arg(&includes_str)
         .arg("--pathsep")
         .arg("|")
-        .arg("--output") // Changed from --output to --out-file
+        .arg("--output")
         .arg(&out_file)
-        .arg("--work-dir")
-        .arg(&work_dir)
         .arg(&main_file);
 
     let output = cmd.output()?;
-    println!(
-        "(custom_pathsep) stdout: {}",
-        String::from_utf8_lossy(&output.stdout)
-    );
-    println!(
-        "(custom_pathsep) stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
     assert!(output.status.success());
 
     let content = fs::read_to_string(&out_file)?;
@@ -403,7 +314,6 @@ fn test_large_input() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TempDir::new()?;
     let temp_path = temp.path().canonicalize()?;
 
-    // Let's create a large file with repeated macros
     let mut big_content = String::new();
     big_content.push_str("%def(say, HELLO)\n");
     for _ in 0..10_000 {
@@ -412,16 +322,12 @@ fn test_large_input() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let big_file = create_test_file(&temp_path, "big_file.txt", &big_content);
-
     let out_file = temp_path.join("output_big.txt");
-    let work_dir = temp_path.join("work");
 
     let run = cargo_azadi_macro_cli()?;
     let mut cmd = run.command();
-    cmd.arg("--output") // Changed from --output to --out-file
+    cmd.arg("--output")
         .arg(&out_file)
-        .arg("--work-dir")
-        .arg(&work_dir)
         .arg(&big_file);
 
     let output = cmd.output()?;
@@ -431,7 +337,6 @@ fn test_large_input() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let out_content = fs::read_to_string(&out_file)?;
-    // We expect 10,000 lines of "HELLO"
     let line_count = out_content.matches("HELLO").count();
     assert_eq!(
         line_count, 10_000,

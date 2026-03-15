@@ -181,61 +181,27 @@ use crate::evaluator::output::SpanKind;
 use crate::evaluator::output::TracingOutput;
 
 #[test]
-fn tracing_output_records_kinds_correctly() {
-    let src = "%def(wrap, x, %{[%(x)]%})%set(y, hello)%wrap(%(y))";
+fn tracing_output_single_line_gets_an_entry() {
+    // Output is "[hello]" — a single line (no trailing newline).
+    // The macro_map should contain exactly one entry for line 0 with a MacroBody kind.
+    let src = "%def(wrap, x, %{[%(x)]%})%wrap(hi)";
     let mut eval = Evaluator::new(EvalConfig::default());
-    let path = PathBuf::from("<test>");
+    let path = PathBuf::from("test.md");
     let ast = eval.parse_string(src, &path).unwrap();
     let mut out = TracingOutput::new();
     eval.evaluate_to(&ast, &mut out).unwrap();
 
-    let spans = out.spans.clone();
-
-    // output should be "[hello]"
-    assert_eq!(out.finish(), "[hello]");
-
-    // Spans should be:
-    // 1. Untracked empty string from %def
-    // 2. Untracked empty string from %set
-    // 3. "[" from MacroBody (wrap)
-    // 4. "hello" from MacroArg (wrap: x) which internally came from VarBinding (y)
-    //    Actually, because `wrap` evaluates its argument `%y` at the call site,
-    //    the span of the value `hello` is the span of `%(y)` at the call site!
-    // 5. "]" from MacroBody (wrap)
-    
-    // Filter out the empty untracked spans from %def and %set
-    let mut content_spans = spans.into_iter().filter(|s| s.out_len > 0);
-    
-    let span_bracket_open = content_spans.next().unwrap();
-    let span_hello = content_spans.next().unwrap();
-    let span_bracket_close = content_spans.next().unwrap();
-    
-    // Check "["
-    assert_eq!(span_bracket_open.out_len, 1);
-    match span_bracket_open.span.kind {
-        SpanKind::MacroBody { macro_name } => assert_eq!(macro_name, "wrap"),
-        _ => panic!("Expected MacroBody for '['"),
-    }
-    
-    // Check "hello"
-    assert_eq!(span_hello.out_len, 5);
-    match span_hello.span.kind {
-        // Because of our implementation, the span assigned to param `x` is the 
-        // span of the `ASTNode` passed to it (the `%(y)` node). We set the kind
-        // of that parameter span to MacroArg.
-        SpanKind::MacroArg { macro_name, param_name } => {
-            assert_eq!(macro_name, "wrap");
-            assert_eq!(param_name, "x");
-        },
-        _ => panic!("Expected MacroArg for 'hello', got {:?}", span_hello.span.kind),
-    }
-
-    // Check "]"
-    assert_eq!(span_bracket_close.out_len, 1);
-    match span_bracket_close.span.kind {
-        SpanKind::MacroBody { macro_name } => assert_eq!(macro_name, "wrap"),
-        _ => panic!("Expected MacroBody for ']'"),
-    }
+    // into_macro_map_entries must be called before finish() (which consumes out).
+    let entries = out.into_macro_map_entries(eval.sources());
+    assert_eq!(out.finish(), "[hi]");
+    assert_eq!(entries.len(), 1, "expected one line entry, got: {entries:?}");
+    let (out_line, entry) = &entries[0];
+    assert_eq!(*out_line, 0);
+    // The first tracked span on the line comes from the macro body literal "[".
+    assert!(
+        matches!(&entry.kind, SpanKind::MacroBody { macro_name } if macro_name == "wrap"),
+        "expected MacroBody(wrap), got: {:?}", entry.kind
+    );
 }
 
 #[test]

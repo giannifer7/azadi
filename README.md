@@ -119,14 +119,12 @@ azadi [OPTIONS] --dir <DIR>
 | `--input-dir <PATH>` | `.` | Base directory prepended to every input path |
 | `--special <CHAR>` | `%` | Macro invocation character |
 | `--include <PATHS>` | `.` | Include search paths for `%include`/`%import` (colon-separated on Unix) |
-| `--work-dir <PATH>` | `_azadi_work` | Work directory for backups and private noweb files |
 | `--gen <PATH>` | `gen` | Base directory for generated output files |
 | `--open-delim <STR>` | `<[` | Chunk-open delimiter |
 | `--close-delim <STR>` | `]>` | Chunk-close delimiter |
 | `--chunk-end <STR>` | `@` | End-of-chunk marker |
 | `--comment-markers <STR>` | `#,//` | Comment prefixes recognised before chunk delimiters (comma-separated) |
 | `--formatter <EXT=CMD>` | | Run a formatter after writing a file (e.g. `rs=rustfmt`), repeatable |
-| `--trace` | off | Record source-map data in the work database for use by `azadi where` / `azadi trace` |
 | `--dump-expanded` | off | Print macro-expanded text to stderr before noweb processes it |
 | `--dir <DIR>` | | Auto-discover and process driver files under this directory (mutually exclusive with positional inputs) |
 | `--ext <EXT>` | `md` | File extension to scan in `--dir` mode; repeatable for multiple extensions |
@@ -210,22 +208,18 @@ custom_target('gen-nim',
 
 ### Source tracing (`azadi where` / `azadi trace`)
 
-`azadi` can record a source map during every run and use it later to answer
-the question *"where did this line in a generated file come from?"*
+`azadi` records a source map on every run and stores it in `azadi.db`.
+Use it to answer *"where did this line in a generated file come from?"*
 
-**Step 1 — record the source map:**
-
-```bash
-azadi status.md --gen . --trace
-```
-
-`--trace` stores two levels of provenance in `_azadi_work/azadi.db`:
+Every run stores two levels of provenance:
 
 - **noweb level** — which literate chunk and source line produced each output line
 - **macro level** — which macro call (and which argument or body) generated each
   expanded line
 
-**Step 2 — query:**
+No flag needed — tracing is always on.
+
+**Query after any normal run:**
 
 ```bash
 # noweb level only: chunk name + source file/line
@@ -235,15 +229,15 @@ azadi where <out_file> <line>
 azadi trace <out_file> <line>
 ```
 
-Both commands print JSON to stdout and accept the same `--work-dir` / `--gen`
-flags as the main command. `<out_file>` is the path of a generated file as you
-see it on disk; `<line>` is 1-indexed.
+Both commands print JSON to stdout. `<out_file>` is the path of a generated
+file as you see it on disk; `<line>` is 1-indexed. They read from `azadi.db`
+in the current working directory.
 
 **Example** (using the c_enum sample):
 
 ```bash
 cd examples/c_enum
-azadi status.md --gen . --trace
+azadi status.md --gen .
 
 azadi where src/status.c 6
 ```
@@ -301,7 +295,7 @@ IDE extensions and AI agents can call to trace generated-file locations back to
 their literate source.
 
 ```bash
-azadi --work-dir _azadi_work --gen . mcp
+azadi --gen . mcp
 ```
 
 The server reads JSON-RPC 2.0 messages from stdin (one per line) and writes
@@ -326,7 +320,7 @@ responses to stdout. It implements the MCP 2024-11-05 protocol and handles
 
 Returns the same JSON as `azadi trace` above, encoded as a text content item.
 Returns an error if no mapping is found or if the database has not been
-populated yet (run `azadi ... --trace` first).
+populated yet (run azadi on your source files first).
 
 **Claude Desktop configuration example:**
 
@@ -335,7 +329,7 @@ populated yet (run `azadi ... --trace` first).
   "mcpServers": {
     "azadi": {
       "command": "azadi",
-      "args": ["--work-dir", "_azadi_work", "--gen", ".", "mcp"]
+      "args": ["--gen", ".", "mcp"]
     }
   }
 }
@@ -365,7 +359,6 @@ azadi-macros [OPTIONS] --dir <DIR>
 |------|---------|-------------|
 | `--output <PATH>` | `-` | Output file (`-` for stdout) |
 | `--special <CHAR>` | `%` | Macro invocation character |
-| `--work-dir <PATH>` | `_azadi_work` | Directory for backup / intermediate files |
 | `--include <PATHS>` | `.` | Include search paths (separated by `--pathsep`) |
 | `--pathsep <STR>` | `:` / `;` | Path separator (platform default) |
 | `--input-dir <PATH>` | `.` | Base directory prepended to each input path |
@@ -941,7 +934,6 @@ azadi-noweb [OPTIONS] <FILES>...
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--gen <PATH>` | `gen` | Base directory for generated output files |
-| `--priv-dir <PATH>` | `_azadi_work` | Private work directory |
 | `--output <PATH>` | stdout | Output for `--chunks` extraction |
 | `--chunks <NAMES>` | | Comma-separated chunk names to extract to stdout |
 | `--open-delim <STR>` | `<[` | Chunk-open delimiter |

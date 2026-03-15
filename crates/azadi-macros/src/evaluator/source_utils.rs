@@ -5,28 +5,11 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
-/// Create a backup of `source_file` under `backup_dir`.
-pub fn backup_source_file(source_file: &Path, backup_dir: &Path) -> io::Result<()> {
-    let abs_source = source_file.canonicalize()?;
-    // If you need to strip a certain prefix, adapt here:
-    let rel = abs_source.strip_prefix("/").unwrap_or(&abs_source);
-    let backup_path = backup_dir.join(rel);
-    if let Some(parent) = backup_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::copy(&abs_source, &backup_path)?;
-    Ok(())
-}
-
 /// Modify `source_file` by inserting text at byte offsets, optionally skipping to newline.
 pub fn modify_source(
     source_file: &Path,
     insertions: &[(usize, Vec<u8>, bool)],
-    backup_dir: Option<&Path>,
 ) -> io::Result<()> {
-    if let Some(dir) = backup_dir {
-        backup_source_file(source_file, dir)?;
-    }
     let content = fs::read(source_file)?;
     let mut result = Vec::new();
     let mut last_pos = 0usize;

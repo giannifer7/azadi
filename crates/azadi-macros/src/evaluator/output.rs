@@ -95,35 +95,35 @@ impl EvalOutput for PlainOutput {
     }
 }
 
-/// A record of a contiguous sequence of bytes in the generated output and
-/// the source span that produced it.
-#[derive(Debug, Clone)]
-pub struct SpanEntry {
-    /// Byte offset in the output buffer where this span begins.
-    pub out_offset: usize,
-    /// Byte length of this span in the output buffer.
-    pub out_len: usize,
-    /// The source span that generated this text.
-    pub span: SourceSpan,
-}
-
-/// Output accumulator that records precise provenance for every emitted byte.
+/// Output accumulator that records one source span per output line.
 ///
-/// The `spans` vector can be saved to the database and used by `azadi backprop`
-/// to trace generated output lines back to their origin in the macro arguments
-/// or macro bodies.
+/// For each completed output line the first tracked `push_str` span on that
+/// line is stored.  Untracked pushes (Rhai results, builtins) advance the line
+/// counter but do not contribute a span.
+///
+/// This is much cheaper than recording per-push-call byte offsets: allocations
+/// are proportional to line count rather than token count.
 #[derive(Debug)]
 pub struct TracingOutput {
     buf: String,
-    pub spans: Vec<SpanEntry>,
+    /// One entry per completed output line (terminated by `\n`).
+    /// `None` means that line had no tracked source span.
+    line_spans: Vec<Option<SourceSpan>>,
+    /// Span for the current, still-open output line.
+    current_line_span: Option<SourceSpan>,
 }
 
 impl TracingOutput {
     pub fn new() -> Self {
         Self {
             buf: String::new(),
-            spans: Vec::new(),
+            line_spans: Vec::new(),
+            current_line_span: None,
         }
+    }
+
+    fn advance_line(&mut self) {
+        self.line_spans.push(self.current_line_span.take());
     }
 }
 
@@ -138,11 +138,23 @@ impl EvalOutput for TracingOutput {
         if text.is_empty() {
             return;
         }
-        self.spans.push(SpanEntry {
-            out_offset: self.buf.len(),
-            out_len: text.len(),
-            span,
-        });
+        // First tracked span on each line wins.
+        if self.current_line_span.is_none() {
+            self.current_line_span = Some(span.clone());
+        }
+        let bytes = text.as_bytes();
+        for i in 0..bytes.len() {
+            if bytes[i] == b'\n' {
+                self.advance_line();
+                // Propagate span to the next line only when more content follows
+                // this '\n' within the same push_str (intermediate line of a
+                // multi-line literal).  If '\n' is the last byte, leave
+                // current_line_span as None so the next push_str starts fresh.
+                if i + 1 < bytes.len() && self.current_line_span.is_none() {
+                    self.current_line_span = Some(span.clone());
+                }
+            }
+        }
         self.buf.push_str(text);
     }
 
@@ -150,17 +162,12 @@ impl EvalOutput for TracingOutput {
         if text.is_empty() {
             return;
         }
-        // For untracked text, we emit a span with kind=Computed and 0-length source.
-        self.spans.push(SpanEntry {
-            out_offset: self.buf.len(),
-            out_len: text.len(),
-            span: SourceSpan {
-                src: 0,
-                pos: 0,
-                length: 0,
-                kind: SpanKind::Computed,
-            },
-        });
+        // Untracked text advances line boundaries but does not set a span.
+        for b in text.bytes() {
+            if b == b'\n' {
+                self.advance_line();
+            }
+        }
         self.buf.push_str(text);
     }
 
@@ -187,62 +194,49 @@ pub struct MacroMapEntry {
 use crate::evaluator::state::SourceManager;
 
 impl TracingOutput {
-    /// Convert the flat byte-level span entries into line-by-line `MacroMapEntry`s
-    /// suitable for storage in the `macro_map` database table.
-    /// 
+    /// Convert the per-line span records into `MacroMapEntry`s suitable for
+    /// storage in the `macro_map` database table.
+    ///
     /// Returns a list of `(expanded_line_index, MacroMapEntry)`.
     pub fn into_macro_map_entries(
         &self,
         sources: &SourceManager,
     ) -> Vec<(u32, MacroMapEntry)> {
+        // Collect completed lines, plus the final open line if the output does
+        // not end with a newline.
+        let final_span = if !self.buf.is_empty() && !self.buf.ends_with('\n') {
+            Some(self.current_line_span.as_ref())
+        } else {
+            None
+        };
+
+        let base = self.line_spans.iter().map(|s| s.as_ref());
+        let all: Box<dyn Iterator<Item = Option<&SourceSpan>>> = match final_span {
+            Some(s) => Box::new(base.chain(std::iter::once(s))),
+            None => Box::new(base),
+        };
+
         let mut results = Vec::new();
-        
-        let mut line_start_offset = 0;
-        let mut out_line_idx = 0;
-        let mut span_iter = self.spans.iter().peekable();
-        
-        while line_start_offset < self.buf.len() {
-            let line_end_offset = self.buf[line_start_offset..]
-                .find('\n')
-                .map(|idx| line_start_offset + idx)
-                .unwrap_or(self.buf.len());
-            
-            // Advance our span iterator to find the span covering this line's start
-            let mut active_span = None;
-            while let Some(span) = span_iter.peek() {
-                if span.out_offset + span.out_len <= line_start_offset {
-                    span_iter.next();
-                    continue;
-                }
-                if span.out_offset > line_end_offset {
-                    break;
-                }
-                active_span = Some((*span).clone());
-                break;
-            }
-            
-            if let Some(entry) = active_span
-                && let Some(src_path) = sources.source_files().get(entry.span.src as usize)
-                && let Some(src_content_bytes) = sources.get_source(entry.span.src)
-            {
-                let src_content = String::from_utf8_lossy(src_content_bytes);
-                let (src_line, src_col) =
-                    find_line_col_0_indexed(&src_content, entry.span.pos);
-                results.push((
-                    out_line_idx,
-                    MacroMapEntry {
-                        src_file: src_path.to_string_lossy().into_owned(),
-                        src_line,
-                        src_col,
-                        kind: entry.span.kind.clone(),
-                    },
-                ));
-            }
-            
-            line_start_offset = line_end_offset + 1;
-            out_line_idx += 1;
+        for (line_idx, maybe_span) in all.enumerate() {
+            let Some(span) = maybe_span else { continue };
+            let Some(src_path) = sources.source_files().get(span.src as usize) else {
+                continue;
+            };
+            let Some(src_content_bytes) = sources.get_source(span.src) else {
+                continue;
+            };
+            let src_content = String::from_utf8_lossy(src_content_bytes);
+            let (src_line, src_col) = find_line_col_0_indexed(&src_content, span.pos);
+            results.push((
+                line_idx as u32,
+                MacroMapEntry {
+                    src_file: src_path.to_string_lossy().into_owned(),
+                    src_line,
+                    src_col,
+                    kind: span.kind.clone(),
+                },
+            ));
         }
-        
         results
     }
 }
@@ -253,7 +247,6 @@ fn find_line_col_0_indexed(text: &str, byte_offset: usize) -> (u32, u32) {
     let prefix = &text[..offset];
     let newlines = prefix.bytes().filter(|&b| b == b'\n').count() as u32;
     let line_start = prefix.rfind('\n').map(|i| i + 1).unwrap_or(0);
-    // col is char-indexed usually, but we'll stick to byte offset within line for now
     let col = (offset - line_start) as u32;
     (newlines, col)
 }

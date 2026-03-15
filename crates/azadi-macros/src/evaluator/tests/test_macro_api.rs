@@ -95,8 +95,7 @@ fn test_process_files_with_shared_macros() {
     let output_file = temp_dir.path().join("output.txt");
 
     // Process files to a single output file
-    let mut config = EvalConfig::default();
-    config.backup_dir = temp_dir.path().join("backup");
+    let config = EvalConfig::default();
     process_files_from_config(&[file1, file2], &output_file, config).unwrap();
 
     // Verify the combined output

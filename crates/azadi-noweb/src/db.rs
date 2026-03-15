@@ -8,7 +8,7 @@
 //   src_snapshots  : source-path → file-content bytes
 //                    Snapshots of input files written at the end of a run.
 
-use redb::{Database, TableDefinition};
+use redb::{Database, ReadableTable, TableDefinition};
 use std::path::Path;
 
 // ---------------------------------------------------------------------------
@@ -74,6 +74,20 @@ pub fn macro_key(driver_file: &str, expanded_line: u32) -> String {
 // ---------------------------------------------------------------------------
 // AzadiDb
 // ---------------------------------------------------------------------------
+
+fn copy_table(
+    rtxn: &redb::ReadTransaction,
+    wtxn: &redb::WriteTransaction,
+    table: TableDefinition<&str, &[u8]>,
+) -> Result<(), DbError> {
+    let src = rtxn.open_table(table).map_err(|e| DbError::Db(e.to_string()))?;
+    let mut dst = wtxn.open_table(table).map_err(|e| DbError::Db(e.to_string()))?;
+    for item in src.iter().map_err(|e| DbError::Db(e.to_string()))? {
+        let (k, v) = item.map_err(|e| DbError::Db(e.to_string()))?;
+        dst.insert(k.value(), v.value()).map_err(|e| DbError::Db(e.to_string()))?;
+    }
+    Ok(())
+}
 
 pub struct AzadiDb {
     db: Database,
@@ -212,6 +226,40 @@ impl AzadiDb {
         let key = macro_key(driver_file, expanded_line);
         let val = table.get(key.as_str()).map_err(|e| DbError::Db(e.to_string()))?;
         Ok(val.map(|v| v.value().to_vec()))
+    }
+
+    /// Merge all entries from this database into the database at `target_path`.
+    /// Retries if the target is temporarily locked by another process.
+    /// Later-written entries win on key conflicts.
+    pub fn merge_into(&self, target_path: &Path) -> Result<(), DbError> {
+        let target = loop {
+            match Database::create(target_path) {
+                Ok(db) => break db,
+                Err(redb::DatabaseError::DatabaseAlreadyOpen) => {
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                }
+                Err(e) => return Err(DbError::Db(e.to_string())),
+            }
+        };
+
+        // Ensure all tables exist in target.
+        let wtxn = target.begin_write().map_err(|e| DbError::Db(e.to_string()))?;
+        wtxn.open_table(GEN_BASELINES).map_err(|e| DbError::Db(e.to_string()))?;
+        wtxn.open_table(NOWEB_MAP).map_err(|e| DbError::Db(e.to_string()))?;
+        wtxn.open_table(MACRO_MAP).map_err(|e| DbError::Db(e.to_string()))?;
+        wtxn.open_table(SRC_SNAPSHOTS).map_err(|e| DbError::Db(e.to_string()))?;
+        wtxn.commit().map_err(|e| DbError::Db(e.to_string()))?;
+
+        let rtxn = self.db.begin_read().map_err(|e| DbError::Db(e.to_string()))?;
+        let wtxn = target.begin_write().map_err(|e| DbError::Db(e.to_string()))?;
+        {
+            copy_table(&rtxn, &wtxn, GEN_BASELINES)?;
+            copy_table(&rtxn, &wtxn, NOWEB_MAP)?;
+            copy_table(&rtxn, &wtxn, MACRO_MAP)?;
+            copy_table(&rtxn, &wtxn, SRC_SNAPSHOTS)?;
+        }
+        wtxn.commit().map_err(|e| DbError::Db(e.to_string()))?;
+        Ok(())
     }
 
     // ── src_snapshots ────────────────────────────────────────────────────────

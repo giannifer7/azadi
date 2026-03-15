@@ -4,12 +4,11 @@ use serde_json::{json, Value};
 use std::io::{self, BufRead};
 use std::path::PathBuf;
 
-pub fn run_mcp(work_dir: PathBuf, gen_dir: PathBuf) -> Result<(), crate::Error> {
+pub fn run_mcp(db_path: PathBuf, gen_dir: PathBuf) -> Result<(), crate::Error> {
     let stdin = io::stdin();
-    let db_path = work_dir.join("azadi.db");
-    
+
     let db = if db_path.exists() {
-        Some(AzadiDb::open(db_path)?)
+        Some(AzadiDb::open(&db_path)?)
     } else {
         None
     };

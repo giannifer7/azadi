@@ -75,16 +75,7 @@ fn test_nested_directory_creation() -> Result<(), AzadiError> {
     write_file(&mut writer, &nested_path, "Nested content")?;
 
     let gen_dir = writer.get_gen_base().join("dir1").join("dir2");
-    let private_dir = writer.get_private_dir().join("dir1").join("dir2");
-
-    assert!(
-        gen_dir.exists(),
-        "Generated directory structure should exist"
-    );
-    assert!(
-        private_dir.exists(),
-        "Private directory structure should exist"
-    );
+    assert!(gen_dir.exists(), "Generated directory structure should exist");
 
     let baseline = writer.get_baseline_for_test("dir1/dir2/test.txt");
     assert!(
@@ -250,7 +241,7 @@ fn test_formatter_is_applied() -> Result<(), AzadiError> {
         formatters: formatters2,
     };
     let mut writer =
-        SafeFileWriter::with_config(temp.path().join("gen"), temp.path().join("private"), config);
+        SafeFileWriter::with_config(temp.path().join("gen"), config);
 
     let test_file = PathBuf::from("test.txt");
     write_file(&mut writer, &test_file, "original content")?;
@@ -275,7 +266,7 @@ fn test_formatter_error_propagates() -> Result<(), AzadiError> {
         formatters,
     };
     let mut writer =
-        SafeFileWriter::with_config(temp.path().join("gen"), temp.path().join("private"), config);
+        SafeFileWriter::with_config(temp.path().join("gen"), config);
 
     let test_file = PathBuf::from("test.txt");
     let result = write_file(&mut writer, &test_file, "some content");
@@ -310,7 +301,7 @@ fn test_formatter_prevents_false_positive() -> Result<(), AzadiError> {
         formatters,
     };
     let mut writer =
-        SafeFileWriter::with_config(temp.path().join("gen"), temp.path().join("private"), config);
+        SafeFileWriter::with_config(temp.path().join("gen"), config);
 
     let test_file = PathBuf::from("test.txt");
     write_file(&mut writer, &test_file, "initial content")?;

@@ -864,6 +864,12 @@ impl Clip {
         self.writer.db()
     }
 
+    /// Merge the temp database into `target` (e.g. `./azadi.db`) and clean up.
+    /// Call this after `write_files()` and any src_snapshot writes.
+    pub fn finish(self, target: &Path) -> Result<(), AzadiError> {
+        self.writer.finish(target).map_err(AzadiError::SafeWriter)
+    }
+
     /// Expand a chunk and write to an arbitrary writer.
     pub fn get_chunk<W: io::Write>(
         &self,

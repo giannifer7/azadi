@@ -46,10 +46,6 @@ struct Args {
     #[arg(long = "special", default_value = "%")]
     special: char,
 
-    /// Working dir for backups
-    #[arg(long = "work-dir", default_value = "_azadi_work")]
-    work_dir: PathBuf,
-
     /// List of include paths separated by the path separator
     #[arg(long = "include", default_value = ".")]
     include: String,
@@ -92,16 +88,9 @@ fn run(args: Args) -> Result<(), EvalError> {
     let config = EvalConfig {
         special_char: args.special,
         include_paths,
-        backup_dir: args.work_dir.clone(),
         discovery_mode: false,
         allow_env: args.allow_env,
     };
-
-    // Ensure work directory exists
-    if !args.work_dir.exists() {
-        std::fs::create_dir_all(&args.work_dir)
-            .map_err(|e| EvalError::Runtime(format!("Failed to create work directory: {}", e)))?;
-    }
 
     let final_inputs: Vec<PathBuf> = if let Some(ref dir) = args.directory {
         let mut all = Vec::new();

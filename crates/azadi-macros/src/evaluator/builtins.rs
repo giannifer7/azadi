@@ -318,11 +318,7 @@ pub fn builtin_here(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> 
     let prepend_triplet = (start_pos, eval.get_special_char(), false);
     let append_triplet = (node.end_pos, expansion.into_bytes(), true);
 
-    super::source_utils::modify_source(
-        &path,
-        &[prepend_triplet, append_triplet],
-        Some(&eval.get_backup_dir_path()),
-    )?;
+    super::source_utils::modify_source(&path, &[prepend_triplet, append_triplet])?;
 
     eval.set_early_exit();
     Ok("".into())

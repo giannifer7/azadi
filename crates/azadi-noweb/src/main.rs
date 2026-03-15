@@ -20,10 +20,6 @@ struct Args {
     #[arg(long)]
     chunks: Option<String>,
 
-    /// Private work directory
-    #[arg(long, default_value = "_azadi_work")]
-    priv_dir: PathBuf,
-
     /// Base directory of generated files
     #[arg(long = "gen", default_value = "gen")]
     gen_dir: PathBuf,
@@ -84,7 +80,6 @@ fn run(args: Args) -> Result<(), AzadiError> {
 
     let safe_writer = SafeFileWriter::with_config(
         &args.gen_dir,
-        &args.priv_dir,
         SafeWriterConfig {
             formatters,
             ..SafeWriterConfig::default()
@@ -112,6 +107,8 @@ fn run(args: Args) -> Result<(), AzadiError> {
             write_chunks(&mut clipper, &chunks, &mut handle)?;
         }
     }
+
+    clipper.finish(std::path::Path::new("azadi.db"))?;
 
     Ok(())
 }

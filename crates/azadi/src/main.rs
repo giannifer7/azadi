@@ -71,15 +71,11 @@ struct Args {
     #[arg(long, default_value = ".")]
     include: String,
 
-    /// Work directory (macro backups + noweb private files)
-    #[arg(long, default_value = "_azadi_work")]
-    work_dir: PathBuf,
+    /// Path to the azadi database [default: azadi.db in current directory]
+    #[arg(long, default_value = "azadi.db")]
+    db: PathBuf,
 
     // ── debugging ─────────────────────────────────────────────────────────────
-    /// Capture trace data for back-propagation
-    #[arg(long)]
-    trace: bool,
-
     /// Print macro-expanded text to stderr before noweb processing
     #[arg(long)]
     dump_expanded: bool,
@@ -221,12 +217,9 @@ fn run(args: Args) -> Result<(), Error> {
     let pathsep = default_pathsep();
     let include_paths: Vec<PathBuf> = args.include.split(&pathsep).map(PathBuf::from).collect();
 
-    std::fs::create_dir_all(&args.work_dir).map_err(Error::Io)?;
-
     let eval_config = EvalConfig {
         special_char: args.special,
         include_paths: include_paths.clone(),
-        backup_dir: args.work_dir.clone(),
         discovery_mode: false,
         allow_env: args.allow_env,
     };
@@ -249,7 +242,6 @@ fn run(args: Args) -> Result<(), Error> {
 
     let safe_writer = SafeFileWriter::with_config(
         &args.gen_dir,
-        &args.work_dir,
         SafeWriterConfig {
             formatters,
             ..SafeWriterConfig::default()
@@ -313,23 +305,15 @@ fn run(args: Args) -> Result<(), Error> {
     for full_path in &drivers {
         let content = std::fs::read_to_string(full_path)?;
         
-        let expanded = if args.trace {
-            let (expanded_bytes, map_entries) = azadi_macros::macro_api::process_string_tracing(
-                &content,
-                Some(full_path),
-                &mut evaluator,
-            )?;
-            
-            let serialized_entries: Vec<(u32, Vec<u8>)> = map_entries.into_iter()
-                .map(|(li, entry)| {
-                    (li, postcard::to_allocvec(&entry).unwrap())
-                })
-                .collect();
-            clip.db().set_macro_map_entries(&full_path.to_string_lossy(), &serialized_entries)?;
-            expanded_bytes
-        } else {
-            process_string(&content, Some(full_path), &mut evaluator)?
-        };
+        let (expanded, map_entries) = azadi_macros::macro_api::process_string_tracing(
+            &content,
+            Some(full_path),
+            &mut evaluator,
+        )?;
+        let serialized_entries: Vec<(u32, Vec<u8>)> = map_entries.into_iter()
+            .map(|(li, entry)| (li, postcard::to_allocvec(&entry).unwrap()))
+            .collect();
+        clip.db().set_macro_map_entries(&full_path.to_string_lossy(), &serialized_entries)?;
         
         let expanded_str = String::from_utf8_lossy(&expanded);
         if args.dump_expanded {
@@ -353,6 +337,9 @@ fn run(args: Args) -> Result<(), Error> {
         }
         Ok(())
     })()?;
+
+    // Phase 4: merge temp db into the db file.
+    clip.finish(&args.db)?;
 
     // Write depfile if requested.
     if let Some(ref depfile_path) = args.depfile {
@@ -380,13 +367,13 @@ fn main() {
     
     let result = match cli.command {
         Some(Commands::Trace { out_file, line }) => {
-            run_trace(out_file, line, cli.args.work_dir, cli.args.gen_dir)
+            run_trace(out_file, line, cli.args.db, cli.args.gen_dir)
         }
         Some(Commands::Where { out_file, line }) => {
-            run_where(out_file, line, cli.args.work_dir, cli.args.gen_dir)
+            run_where(out_file, line, cli.args.db, cli.args.gen_dir)
         }
         Some(Commands::Mcp) => {
-            mcp::run_mcp(cli.args.work_dir, cli.args.gen_dir)
+            mcp::run_mcp(cli.args.db, cli.args.gen_dir)
         }
         None => run(cli.args),
     };
@@ -399,15 +386,14 @@ fn main() {
 
 // ── query tools ─────────────────────────────────────────────────────────────
 
-fn run_where(out_file: String, line: u32, db_dir: PathBuf, gen_dir: PathBuf) -> Result<(), Error> {
-    let db_path = db_dir.join("azadi.db");
+fn run_where(out_file: String, line: u32, db_path: PathBuf, gen_dir: PathBuf) -> Result<(), Error> {
     if !db_path.exists() {
         return Err(Error::Io(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            format!("Database not found at {}. Did you specify the correct --work-dir?", db_path.display())
+            format!("Database not found at {}. Run azadi on your source files first.", db_path.display()),
         )));
     }
-    let db = azadi_noweb::db::AzadiDb::open(db_path)?;
+    let db = azadi_noweb::db::AzadiDb::open(&db_path)?;
 
     match lookup::perform_where(&out_file, line, &db, &gen_dir) {
         Ok(Some(json)) => {
@@ -426,15 +412,14 @@ fn run_where(out_file: String, line: u32, db_dir: PathBuf, gen_dir: PathBuf) -> 
     }
 }
 
-fn run_trace(out_file: String, line: u32, db_dir: PathBuf, gen_dir: PathBuf) -> Result<(), Error> {
-    let db_path = db_dir.join("azadi.db");
+fn run_trace(out_file: String, line: u32, db_path: PathBuf, gen_dir: PathBuf) -> Result<(), Error> {
     if !db_path.exists() {
         return Err(Error::Io(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            format!("Database not found at {}. Did you specify the correct --work-dir?", db_path.display())
+            format!("Database not found at {}. Run azadi on your source files first.", db_path.display()),
         )));
     }
-    let db = azadi_noweb::db::AzadiDb::open(db_path)?;
+    let db = azadi_noweb::db::AzadiDb::open(&db_path)?;
 
     match lookup::perform_trace(&out_file, line, &db, &gen_dir) {
         Ok(Some(json)) => {

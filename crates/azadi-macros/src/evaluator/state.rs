@@ -10,7 +10,6 @@ use std::sync::Arc;
 pub struct EvalConfig {
     pub special_char: char,
     pub include_paths: Vec<PathBuf>,
-    pub backup_dir: PathBuf,
     /// When true, `%include`/`%import` evaluate their path argument but do not
     /// recurse into the file.  The resolved path is recorded in
     /// `EvaluatorState::discovered_includes` instead.  Used by the directory
@@ -27,7 +26,6 @@ impl Default for EvalConfig {
         Self {
             special_char: '%',
             include_paths: vec![PathBuf::from(".")],
-            backup_dir: PathBuf::from("_azadi_work"),
             discovery_mode: false,
             allow_env: false,
         }

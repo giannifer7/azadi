@@ -12,10 +12,8 @@ impl TestSetup {
     pub fn new(comment_markers: &[&str]) -> Self {
         let temp_dir = TempDir::new().unwrap();
         let gen_path = temp_dir.path().join("gen");
-        let private_path = temp_dir.path().join("private");
         fs::create_dir_all(&gen_path).unwrap();
-        fs::create_dir_all(&private_path).unwrap();
-        let safe_writer = SafeFileWriter::new(gen_path, private_path);
+        let safe_writer = SafeFileWriter::new(gen_path);
 
         let comment_markers = comment_markers
             .iter()
