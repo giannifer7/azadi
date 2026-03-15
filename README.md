@@ -295,7 +295,7 @@ literate source that was expanded to produce the output line.
 
 ### MCP server (`azadi mcp`)
 
-`azadi mcp` starts a [Model Context Protocol](https://spec.modelcontextprotocol.io/)
+`azadi mcp` starts a [Model Context Protocol](https://modelcontextprotocol.io/)
 server over stdin/stdout. It exposes a single tool — `azadi_trace` — that
 IDE extensions and AI agents can call to trace generated-file locations back to
 their literate source.
