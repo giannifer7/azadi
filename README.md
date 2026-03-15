@@ -247,7 +247,7 @@ Leading whitespace in every argument is stripped. This lets you align
 multi-argument calls without spaces leaking into the expanded text:
 
 ```
-%def(tag, name, value, <%(name)>%(value)</%(name)>)
+%def(tag, name, value, %{<%(name)>%(value)</%(name)>%})
 %tag( div,
       Hello world)
 ```
