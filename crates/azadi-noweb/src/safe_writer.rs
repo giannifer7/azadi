@@ -44,7 +44,6 @@ impl From<io::Error> for SafeWriterError {
 #[derive(Debug, Clone)]
 pub struct SafeWriterConfig {
     pub backup_enabled: bool,
-    pub allow_overwrites: bool,
     pub modification_check: bool,
     pub buffer_size: usize,
     pub formatters: HashMap<String, String>, // file-extension → shell command
@@ -54,7 +53,6 @@ impl Default for SafeWriterConfig {
     fn default() -> Self {
         SafeWriterConfig {
             backup_enabled: false,
-            allow_overwrites: false,
             modification_check: false,
             buffer_size: 8192,
             formatters: HashMap::new(),
@@ -252,7 +250,6 @@ impl SafeFileWriter {
             && output_file.is_file()
             && old_file.is_file()
             && self.content_differs(&output_file, &old_file)?
-            && !self.config.allow_overwrites
         {
             return Err(SafeWriterError::ModifiedExternally(output_file));
         }

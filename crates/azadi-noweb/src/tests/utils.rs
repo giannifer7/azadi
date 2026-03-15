@@ -9,7 +9,6 @@ pub(crate) fn create_test_writer() -> (TempDir, SafeFileWriter) {
     let config = SafeWriterConfig {
         backup_enabled: true,
         modification_check: true,
-        allow_overwrites: false,
         buffer_size: 8192,
         formatters: std::collections::HashMap::new(),
     };

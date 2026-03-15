@@ -68,8 +68,8 @@ current `gen/` file against that baseline:
   - To keep your manual change: edit the literate source to match your
     intent and rerun azadi.
 
-If you need to suppress this protection (e.g. in a CI pipeline that always
-regenerates from scratch), pass `--allow-overwrites`.
+In CI, start from a clean checkout so `gen/` always matches `_azadi_work/__old__/`
+and no conflict arises.
 
 ## Build-system integration
 

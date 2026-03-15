@@ -231,14 +231,14 @@ fn test_invalid_path() -> Result<(), AzadiError> {
 }
 
 #[test]
-fn test_config_changes() -> Result<(), AzadiError> {
+fn test_modified_externally_is_detected() -> Result<(), AzadiError> {
     let (_temp, mut writer) = create_test_writer();
     let test_file = PathBuf::from("test.txt");
 
-    // Write initial content
+    // Write initial content to establish a baseline in __old__/
     write_file(&mut writer, &test_file, "Initial content")?;
 
-    // Modify file externally
+    // Simulate an external edit to the gen/ file
     thread::sleep(Duration::from_millis(10));
     let final_path = writer.get_gen_base().join(&test_file);
     {
@@ -246,19 +246,20 @@ fn test_config_changes() -> Result<(), AzadiError> {
         write!(file, "Modified externally")?;
     }
 
-    // Change config to allow overwrites
-    let mut config = writer.get_config().clone();
-    config.allow_overwrites = true;
-    writer.set_config(config);
-
-    // Should succeed now even though file was modified
-    write_file(&mut writer, &test_file, "New content")?;
-
-    let content = fs::read_to_string(&final_path)?;
-    assert_eq!(
-        content, "New content",
-        "Should allow overwrite with modified configuration"
+    // Next run must refuse to overwrite and report ModifiedExternally
+    let result = write_file(&mut writer, &test_file, "New content");
+    assert!(
+        matches!(
+            result,
+            Err(AzadiError::SafeWriter(SafeWriterError::ModifiedExternally(_)))
+        ),
+        "Expected ModifiedExternally, got: {:?}",
+        result
     );
+
+    // The externally modified content must be preserved
+    let content = fs::read_to_string(&final_path)?;
+    assert_eq!(content, "Modified externally");
 
     Ok(())
 }

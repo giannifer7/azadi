@@ -295,7 +295,7 @@ fn test_formatter_is_applied() -> Result<(), AzadiError> {
     let config = SafeWriterConfig {
         backup_enabled: true,
         modification_check: true,
-        allow_overwrites: false,
+
         buffer_size: 8192,
         formatters: formatters2,
     };
@@ -323,7 +323,7 @@ fn test_formatter_error_propagates() -> Result<(), AzadiError> {
     let config = SafeWriterConfig {
         backup_enabled: false,
         modification_check: false,
-        allow_overwrites: false,
+
         buffer_size: 8192,
         formatters,
     };
@@ -361,7 +361,7 @@ fn test_formatter_prevents_false_positive() -> Result<(), AzadiError> {
     let config = SafeWriterConfig {
         backup_enabled: true,
         modification_check: true,
-        allow_overwrites: false,
+
         buffer_size: 8192,
         formatters,
     };
