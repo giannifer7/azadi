@@ -492,9 +492,10 @@ fn run_trace(out_file: String, line: u32, db_dir: PathBuf, gen_dir: PathBuf) -> 
         });
 
         // Try to look up macro-map
-        if let Ok(Some(bytes)) = db.get_macro_map_bytes(&nw_entry.src_file, nw_entry.src_line) {
-            if let Ok(m_entry) = postcard::from_bytes::<MacroMapEntry>(&bytes) {
-                let obj = result.as_object_mut().unwrap();
+        if let Ok(Some(bytes)) = db.get_macro_map_bytes(&nw_entry.src_file, nw_entry.src_line)
+            && let Ok(m_entry) = postcard::from_bytes::<MacroMapEntry>(&bytes)
+        {
+            let obj = result.as_object_mut().unwrap();
                 obj.insert("src_file".to_string(), serde_json::Value::String(m_entry.src_file));
                 obj.insert("src_line".to_string(), serde_json::Value::Number((m_entry.src_line + 1).into()));
                 obj.insert("src_col".to_string(), serde_json::Value::Number(m_entry.src_col.into()));
@@ -506,10 +507,9 @@ fn run_trace(out_file: String, line: u32, db_dir: PathBuf, gen_dir: PathBuf) -> 
                     SpanKind::VarBinding { ref var_name } => ("VarBinding", Some(("var_name", var_name.clone()))),
                     SpanKind::Computed => ("Computed", None),
                 };
-                obj.insert("kind".to_string(), serde_json::Value::String(kind_str.to_string()));
-                if let Some((k, v)) = extra {
-                    obj.insert(k.to_string(), serde_json::Value::String(v));
-                }
+            obj.insert("kind".to_string(), serde_json::Value::String(kind_str.to_string()));
+            if let Some((k, v)) = extra {
+                obj.insert(k.to_string(), serde_json::Value::String(v));
             }
         }
 

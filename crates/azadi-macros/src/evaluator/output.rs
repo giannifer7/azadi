@@ -221,23 +221,22 @@ impl TracingOutput {
                 break;
             }
             
-            if let Some(entry) = active_span {
-                if let Some(src_path) = sources.source_files().get(entry.span.src as usize) {
-                    if let Some(src_content_bytes) = sources.get_source(entry.span.src) {
-                        let src_content = String::from_utf8_lossy(src_content_bytes);
-                        let (src_line, src_col) = find_line_col_0_indexed(&src_content, entry.span.pos);
-                        
-                        results.push((
-                            out_line_idx,
-                            MacroMapEntry {
-                                src_file: src_path.to_string_lossy().into_owned(),
-                                src_line,
-                                src_col,
-                                kind: entry.span.kind.clone(),
-                            }
-                        ));
-                    }
-                }
+            if let Some(entry) = active_span
+                && let Some(src_path) = sources.source_files().get(entry.span.src as usize)
+                && let Some(src_content_bytes) = sources.get_source(entry.span.src)
+            {
+                let src_content = String::from_utf8_lossy(src_content_bytes);
+                let (src_line, src_col) =
+                    find_line_col_0_indexed(&src_content, entry.span.pos);
+                results.push((
+                    out_line_idx,
+                    MacroMapEntry {
+                        src_file: src_path.to_string_lossy().into_owned(),
+                        src_line,
+                        src_col,
+                        kind: entry.span.kind.clone(),
+                    },
+                ));
             }
             
             line_start_offset = line_end_offset + 1;
