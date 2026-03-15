@@ -21,6 +21,66 @@ advanced or step-by-step use.
 
 ---
 
+## Installation
+
+### Arch Linux
+
+```bash
+paru -S azadi-bin   # or: yay -S azadi-bin
+```
+
+### Nix
+
+```bash
+nix profile install github:giannifer7/azadi
+```
+
+Or in a flake input:
+
+```nix
+inputs.azadi.url = "github:giannifer7/azadi";
+environment.systemPackages = [ inputs.azadi.packages.x86_64-linux.default ];
+```
+
+### Pre-built binaries (Linux, Windows)
+
+Download from the [latest release](https://github.com/giannifer7/azadi/releases/latest):
+
+| File | Platform | Notes |
+|------|----------|-------|
+| `azadi-x86_64-linux.tar.gz` | Linux x86_64 | glibc build — tarball with all three binaries |
+| `azadi-glibc` / `azadi-macros-glibc` / `azadi-noweb-glibc` | Linux x86_64 | glibc, individual binaries |
+| `azadi-musl` / `azadi-macros-musl` / `azadi-noweb-musl` | Linux x86_64 | musl, individual binaries — see note below |
+| `azadi-fedora` / `azadi-macros-fedora` / `azadi-noweb-fedora` | Fedora/RHEL | Fedora build |
+| `*.deb` | Debian/Ubuntu | install with `sudo dpkg -i` |
+| `*.rpm` | Fedora/RHEL | install with `sudo rpm -i` |
+| `azadi.exe` / `azadi-macros.exe` / `azadi-noweb.exe` | Windows x86_64 | native build |
+| `azadi-mingw64.exe` / ... | Windows x86_64 | MinGW cross-compiled build |
+
+**musl vs glibc binaries**
+
+The musl builds are fully statically linked — no shared library dependencies
+at all, as confirmed by `ldd azadi-musl` reporting *statically linked*. This
+makes them suitable for:
+
+- Any Linux distro regardless of glibc version (old RHEL/CentOS, Alpine, etc.)
+- Minimal or scratch containers
+- Environments where you just want to `curl` and run without worrying about
+  library compatibility
+
+The glibc builds are dynamically linked against glibc and are the better
+choice on standard Debian/Ubuntu/Fedora systems where glibc is already
+present, as glibc's runtime is generally faster.
+
+**Quick install (musl, no package manager):**
+
+```bash
+curl -sL https://github.com/giannifer7/azadi/releases/latest/download/azadi-musl \
+     -o /usr/local/bin/azadi && chmod +x /usr/local/bin/azadi
+```
+
+---
+
 ## Quick start
 
 ```bash
