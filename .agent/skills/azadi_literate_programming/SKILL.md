@@ -89,7 +89,9 @@ Delimiters are configurable: `--open-delim`, `--close-delim`, `--chunk-end`.
 ```
 
 Always wrap macro bodies in `%{ ... %}` — required when they contain commas
-or parentheses, and good style otherwise. Wrap non-trivial arguments too:
+or parentheses, and good style otherwise. Wrap non-trivial arguments too.
+Note: leading whitespace inside `%{` is preserved, so `%{ value%}` expands
+to ` value` — start content flush against `%{` when leading space is unwanted:
 
 ```
 %def(greet, name, %{Hello, %(name)!%})
