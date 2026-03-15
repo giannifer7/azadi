@@ -63,7 +63,7 @@ def api_get(path: str, token: str) -> dict:
             "X-GitHub-Api-Version": "2022-11-28",
         },
     )
-    with urllib.request.urlopen(req) as r:
+    with urllib.request.urlopen(req, timeout=15) as r:
         return json.loads(r.read())
 
 
@@ -75,7 +75,7 @@ def download_asset(url: str, token: str) -> bytes:
             "Accept": "application/octet-stream",
         },
     )
-    with urllib.request.urlopen(req) as r:
+    with urllib.request.urlopen(req, timeout=120) as r:
         return r.read()
 
 
@@ -91,8 +91,8 @@ def wait_for_release(version: str, token: str, timeout: int = 600, poll: int = 2
             if all(a in names for a in NEEDED_ASSETS):
                 print(" ready.")
                 return data
-        except urllib.error.HTTPError:
-            pass  # release not yet published
+        except (urllib.error.URLError, TimeoutError):
+            pass  # network blip or release not yet published
         print(".", end="", flush=True)
         time.sleep(poll)
     raise SystemExit(f"\nTimed out after {timeout}s waiting for release assets.")
@@ -178,6 +178,26 @@ def flake(version: str, sri_azadi: str) -> str:
 """
 
 
+# ── version bump ──────────────────────────────────────────────────────────────
+
+def bump_cargo_version(version: str) -> None:
+    """Update [workspace.package] version in Cargo.toml."""
+    cargo_toml = REPO_ROOT / "Cargo.toml"
+    text = cargo_toml.read_text()
+    import re
+    patched = re.sub(
+        r'^(version\s*=\s*)"[^"]+"',
+        f'\\1"{version}"',
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if patched == text:
+        raise SystemExit(f"Could not find version field in {cargo_toml}")
+    cargo_toml.write_text(patched)
+    print(f"  Bumped Cargo.toml to {version}")
+
+
 # ── subprocess helpers (git, makepkg only) ─────────────────────────────────────
 
 def run(args: list, cwd: Path) -> None:
@@ -201,6 +221,12 @@ def main() -> None:
     token   = gh_token()
 
     if args.tag:
+        print(f"Bumping version to {version}...")
+        bump_cargo_version(version)
+        run(["cargo", "build"], cwd=REPO_ROOT)  # update Cargo.lock
+        run(["git", "add", "Cargo.toml", "Cargo.lock"], cwd=REPO_ROOT)
+        run(["git", "commit", "-m", f"chore: bump version to {version}"], cwd=REPO_ROOT)
+        run(["git", "push", "origin", "main"], cwd=REPO_ROOT)
         print(f"Tagging v{version}...")
         run(["git", "tag", "-a", f"v{version}", "-m", f"v{version}"], cwd=REPO_ROOT)
         run(["git", "push", "origin", f"v{version}"], cwd=REPO_ROOT)
