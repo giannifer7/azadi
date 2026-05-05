@@ -103,6 +103,10 @@ Completed or materially improved:
   `crates/weaveback-tangle/src/db/fts.rs` is now a small facade over exported
   result types, helper functions, prose FTS, tags, and embeddings under
   `crates/weaveback-tangle/src/db/fts/`.
+* `weaveback-tangle` safe writer has been split at Rust-file level.
+  `crates/weaveback-tangle/src/safe_writer.rs` now owns the public error,
+  config, and writer type; helper methods, write flow, accessors, and path
+  validation live under `crates/weaveback-tangle/src/safe_writer/`.
 * A clean DB retangle exposed stale generated fixes that had not been preserved
   in canonical sources.  The small canonical catch-ups are now recorded in
   `lint.wvb`, `process.wvb`, the LSP manifest, workflow docs, and `project.adoc`.
@@ -139,6 +143,7 @@ File | Lines | Status
 `crates/weaveback-api/src/lookup.rs` | 29 | Completed; facade now includes focused `src/lookup/*.rs` files.
 `crates/weaveback-api/src/coverage/cargo.rs` | 29 | Completed; facade now includes focused `src/coverage/cargo/*.rs` files.
 `crates/weaveback-tangle/src/db/fts.rs` | 14 | Completed; facade now includes focused `src/db/fts/*.rs` files.
+`crates/weaveback-tangle/src/safe_writer.rs` | 83 | Completed; facade now includes focused `src/safe_writer/*.rs` files.
 `crates/weaveback-macro/src/evaluator/core.rs` | 886 | Large but not first priority.
 
 These numbers are not themselves the rule.  The rule is whether a maintainer can

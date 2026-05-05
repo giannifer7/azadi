@@ -176,7 +176,11 @@ final argument.
 ```rust
 // <[safe-writer-helpers]>=
 impl SafeFileWriter {
-    fn atomic_copy<P: AsRef<Path>>(&self, source: P, destination: P) -> io::Result<()> {
+    pub(in crate::safe_writer) fn atomic_copy<P: AsRef<Path>>(
+        &self,
+        source: P,
+        destination: P,
+    ) -> io::Result<()> {
         let destination = destination.as_ref();
         if let Some(parent) = destination.parent() {
             fs::create_dir_all(parent)?;
@@ -198,7 +202,7 @@ impl SafeFileWriter {
         Ok(())
     }
 
-    fn copy_if_different<P: AsRef<Path>>(
+    pub(in crate::safe_writer) fn copy_if_different<P: AsRef<Path>>(
         &self,
         source: P,
         destination: P,
@@ -240,7 +244,11 @@ impl SafeFileWriter {
         Ok(())
     }
 
-    fn run_formatter(&self, command: &str, file: &Path) -> Result<(), SafeWriterError> {
+    pub(in crate::safe_writer) fn run_formatter(
+        &self,
+        command: &str,
+        file: &Path,
+    ) -> Result<(), SafeWriterError> {
         let parts = shlex::split(command).ok_or_else(|| {
             SafeWriterError::FormatterError(format!(
                 "could not parse formatter command: '{}'", command
@@ -268,7 +276,7 @@ impl SafeFileWriter {
         Ok(())
     }
 
-    fn trim_trailing_whitespace(&self, path: &Path) -> io::Result<()> {
+    pub(in crate::safe_writer) fn trim_trailing_whitespace(&self, path: &Path) -> io::Result<()> {
         let content = fs::read(path)?;
         if let Ok(text) = std::str::from_utf8(&content) {
             let ends_with_newline = content.last() == Some(&b'\n');
@@ -464,7 +472,7 @@ It enforces the same three rules described in the Security section above.
 
 ```rust
 // <[validate-filename]>=
-fn validate_filename(path: &Path) -> Result<(), SafeWriterError> {
+pub(in crate::safe_writer) fn validate_filename(path: &Path) -> Result<(), SafeWriterError> {
     use std::path::Component;
 
     if path.is_absolute() {
@@ -508,20 +516,80 @@ fn validate_filename(path: &Path) -> Result<(), SafeWriterError> {
 // I'd Really Rather You Didn't edit this generated file.
 
 use crate::db::{WeavebackDb, DbError};
-use shlex;
 use std::collections::HashMap;
-use std::fs::{self, File};
-use std::io::Read;
-use std::io::{self, BufReader};
+use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
+
+mod accessors;
+mod helpers;
+mod paths;
+mod write_flow;
 
 // <[safe-writer-errors]>
 // <[safe-writer-config]>
 // <[safe-writer-struct]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-tangle/src/safe_writer/helpers.rs]>=
+// weaveback-tangle/src/safe_writer/helpers.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::*;
+use std::fs::{self, File};
+use std::io::Read;
+use std::io::{self, BufReader};
+use std::path::Path;
+
 // <[safe-writer-helpers]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-tangle/src/safe_writer/write_flow.rs]>=
+// weaveback-tangle/src/safe_writer/write_flow.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::paths::validate_filename;
+use super::*;
+use std::fs;
+use std::path::{Path, PathBuf};
+
 // <[safe-writer-rw]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-tangle/src/safe_writer/accessors.rs]>=
+// weaveback-tangle/src/safe_writer/accessors.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::*;
+use std::path::Path;
+
 // <[safe-writer-accessors]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-tangle/src/safe_writer/paths.rs]>=
+// weaveback-tangle/src/safe_writer/paths.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::SafeWriterError;
+use std::path::Path;
+
 // <[validate-filename]>
 
 // @
