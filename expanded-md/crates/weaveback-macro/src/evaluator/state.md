@@ -14,10 +14,13 @@ source-file registry, and call-site records for the tracing infrastructure.
 ### Scope stack instead of a hash-chain
 
 `EvaluatorState` keeps a `Vec<ScopeFrame>`.  Each macro call pushes a new
-`ScopeFrame` and pops it on return.  Variable and macro lookups walk the
-stack from top (innermost scope) to bottom (global scope), returning the first
-match.  This gives correct lexical shadowing without the overhead of cloning
-entire hash maps or maintaining parent pointers.
+`ScopeFrame` and pops it on return.  Variable lookup reads only the current
+frame.  Macro lookup walks the stack from top (innermost scope) to bottom
+(global scope), returning the first match.
+
+This keeps data flow explicit: values enter a macro through parameters,
+`%alias(..., name=value)` frozen bindings, script stores, `%env`, or `%export`.
+Outer `%set` bindings do not leak into macro bodies.
 
 `%export` exploits the flat Vec: it copies a binding one index down
 (`stack_len - 2`) into the parent frame, making the binding survive the
@@ -218,7 +221,7 @@ impl Default for EvalConfig {
 
 `None`:: Body is macro-expanded and returned as-is.
 `Python`:: Body is macro-expanded first, then the result string is
-  executed as a script.  All visible scope variables are injected into the
+  executed as a script.  Current-frame variables are injected into the
   script environment.  Use verbatim blocks (`%[ ... %]`) inside the body when
   literal script text is required.
 
@@ -423,7 +426,8 @@ map).
 
 The helper methods on `EvaluatorState` encapsulate common patterns: the three
 `set_*_variable` variants manage the span-density levels of `TrackedValue`,
-and `get_variable` / `get_macro` both walk the scope stack from top to bottom.
+variable lookup reads only the current frame, and `get_macro` walks the scope
+stack from top to bottom.
 
 ```rust
 // <[evaluator state]>=
@@ -529,31 +533,22 @@ impl EvaluatorState {
 
     /// Retrieve just the string value of a variable.
     pub fn get_variable(&self, name: &str) -> String {
-        for frame in self.scope_stack.iter().rev() {
-            if let Some(tv) = frame.variables.get(name) {
-                return tv.value.clone();
-            }
-        }
-        "".to_string()
+        self.get_variable_opt(name).unwrap_or_default()
     }
 
     pub fn get_variable_opt(&self, name: &str) -> Option<String> {
-        for frame in self.scope_stack.iter().rev() {
-            if let Some(tv) = frame.variables.get(name) {
-                return Some(tv.value.clone());
-            }
-        }
-        None
+        self.scope_stack
+            .last()
+            .and_then(|frame| frame.variables.get(name))
+            .map(|tv| tv.value.clone())
     }
 
     /// Retrieve the tracked value of a variable.
     pub fn get_tracked_variable(&self, name: &str) -> Option<TrackedValue> {
-        for frame in self.scope_stack.iter().rev() {
-            if let Some(tv) = frame.variables.get(name) {
-                return Some(tv.clone());
-            }
-        }
-        None
+        self.scope_stack
+            .last()
+            .and_then(|frame| frame.variables.get(name))
+            .cloned()
     }
 
     pub fn define_macro(&mut self, mac: MacroDefinition) -> EvalResult<()> {

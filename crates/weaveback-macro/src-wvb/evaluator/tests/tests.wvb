@@ -80,7 +80,7 @@ eval API.  Tests live under `src/evaluator/tests/` and are gated by
 
 | `test_skill_examples`
 | Exact examples from `SKILL.md`: positional/named params, arity edge cases,
-  dynamic vs lexical scoping, `%export` freeze
+  current-frame variable lookup, `%export` freeze
 
 | `test_predicates`
 | `%eq`, `%neq`, `%not`: equality, inequality, logical negation, arity errors,

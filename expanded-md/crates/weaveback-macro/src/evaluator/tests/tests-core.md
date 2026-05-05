@@ -188,12 +188,14 @@ fn test_source_manager_add_source_bytes_and_files_list() {
 }
 
 #[test]
-fn test_state_scope_variables_shadow_and_pop() {
+fn test_state_variables_are_current_frame_only() {
     let mut st = EvaluatorState::new(EvalConfig::default());
     st.set_variable("x", "outer");
     assert_eq!(st.get_variable("x"), "outer");
 
     st.push_scope();
+    assert_eq!(st.get_variable_opt("x"), None);
+    assert_eq!(st.get_variable("x"), "");
     st.set_variable("x", "inner");
     assert_eq!(st.get_variable("x"), "inner");
 

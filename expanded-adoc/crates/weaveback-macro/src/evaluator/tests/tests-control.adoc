@@ -398,8 +398,8 @@ mod tests {
         // %export now does a plain upward copy — no automatic free-variable freezing.
         // Variables resolved in the macro body (e.g. via %set) are exported as
         // their evaluated string values.  Macros are copied as-is: free variables
-        // in the body will be looked up dynamically at the call site, which now
-        // means strict undefined-variable errors if they are not rebound.
+        // in the body are not captured, and outer variables do not leak into
+        // the later call frame.
         let source = r#"
 %def(maker, base, name, %{
     %def(AFILE, param, %(base)/%(name)%(param).txt)

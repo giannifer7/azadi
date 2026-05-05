@@ -630,21 +630,17 @@ fn test_too_many_args_is_error() {
     );
 }
 
-/// %def uses *dynamic* scoping for outer variables: the value at *call* time is used.
+/// Macro-local variable lookup is current-frame-only; outer variables do not leak.
 #[test]
-fn test_outer_variable_is_dynamic() {
-    let result = process_string_defaults(
+fn test_outer_variable_does_not_leak_into_macro_body() {
+    let err = process_string_defaults(
         "%set(greeting, Hi)\n\
          %def(greet, name, %(greeting) %(name)!)\n\
          %set(greeting, Bye)\n\
          %greet(Alice)",
     )
-    .unwrap();
-    let s = std::str::from_utf8(&result).unwrap();
-    assert!(
-        s.contains("Bye Alice!"),
-        "expected dynamic 'Bye', got: {s:?}"
-    );
+    .unwrap_err();
+    assert!(err.to_string().contains("Undefined variable"));
 }
 
 /// Named params are matched by name; any order among named args is valid.

@@ -68,9 +68,10 @@ The two paths share scope management and parameter-binding logic; only the leaf
 === Lexical scope via a stack of frames
 
 Variables and macros live in a `Vec<ScopeFrame>`.  Each macro call pushes a
-new frame and pops it on exit; lookups walk the stack from top (inner) to
-bottom (outer).  This is simpler than a hash-chain and makes `%export` easy:
-copy a binding one frame down.
+new frame and pops it on exit.  Variables are looked up only in the current
+frame, so outer `%set` bindings do not leak into macro bodies.  Macros still
+walk the stack from top (inner) to bottom (outer).  This keeps data flow
+explicit and makes `%export` easy: copy a binding one frame down.
 
 === Built-in dispatch before user macros
 

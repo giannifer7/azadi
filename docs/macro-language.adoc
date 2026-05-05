@@ -154,8 +154,13 @@ The evaluator maintains a `Vec<ScopeFrame>`. Each frame holds:
 Frame 0 is the global frame; it is never popped. Each macro call pushes a
 fresh empty frame, binds parameters into it, runs the body, and pops on return.
 
-**Lookup** walks from the top of the stack to frame 0 and returns the first
-match. A binding in an inner scope shadows the same name in an outer scope.
+**Variable lookup** reads only the current top frame. Outer `%set` bindings do
+not leak into macro bodies; pass values as parameters or freeze them explicitly
+with `%alias(..., name=value)`.
+
+**Macro lookup** walks from the top of the stack to frame 0 and returns the
+first match. A macro binding in an inner scope shadows the same name in an
+outer scope.
 
 **Assignment** (`%set`, parameter binding) always targets the **current top
 frame**. There is no way to assign to an outer scope directly; use `%export`
@@ -201,7 +206,7 @@ Given a call `%foo(a, b, key = c)` and a definition `%def(foo, p, q, r, body)`:
 
 === `%(name)` — reference
 
-Looks up `name` in the scope stack (top-to-bottom).
+Looks up `name` in the current scope frame only.
 
 * A missing variable is `UndefinedVariable(name)`.
 
@@ -358,8 +363,9 @@ not freeze free variables for you.
 Copies the binding for `name` one level up the scope stack (to the parent
 frame).
 
-* For both variables and macros, the binding is copied **as-is** — no
-  automatic free-variable freezing occurs.
+* For variables, the evaluated string value is copied.
+* For macros, the binding is copied **as-is** — no automatic free-variable
+  freezing occurs.
 * At global scope (no parent frame), `%export` is a no-op and emits a
   non-fatal warning.
 

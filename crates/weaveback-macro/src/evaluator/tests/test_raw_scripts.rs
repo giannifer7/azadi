@@ -30,7 +30,7 @@ fn test_pydef_with_tagged_verbatim_body() {
 
 #[test]
 fn test_pydef_macro_aware_body_still_expands() {
-    let src = "%set(prefix, hi )%pydef(greet, name, %{\"%(prefix)\"+name%})%greet(world)";
+    let src = "%pydef(greet, prefix, name, %{\"%(prefix)\"+name%})%greet(hi , world)";
     let result = process_string_defaults(src).unwrap();
     assert_eq!(std::str::from_utf8(&result).unwrap(), "hi world");
 }

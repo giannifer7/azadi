@@ -47,7 +47,7 @@ numbers, acronyms, SCREAMING-KEBAB edge cases</td></tr>
 basic, include, error, nested macros, sigil, shared macros</td></tr>
   <tr><td>`test_macro_api`</td><td>`process_string`, `process_file`, `process_files_from_config`, `discover_includes_in_file` at the macro_api layer</td></tr>
   <tr><td>`test_skill_examples`</td><td>Exact examples from `SKILL.md`: positional/named params, arity edge cases,<br>
-dynamic vs lexical scoping, `%export` freeze</td></tr>
+current-frame variable lookup, `%export` freeze</td></tr>
   <tr><td>`test_predicates`</td><td>`%eq`, `%neq`, `%not`: equality, inequality, logical negation, arity errors,<br>
 canonical boolean output, integration with `%if`</td></tr>
   <tr><td>`test_raw_scripts`</td><td>Verbatim `%[ ... %]` blocks inside `%pydef`: literal script bodies,<br>

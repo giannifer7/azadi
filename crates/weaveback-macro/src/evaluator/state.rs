@@ -237,31 +237,22 @@ impl EvaluatorState {
 
     /// Retrieve just the string value of a variable.
     pub fn get_variable(&self, name: &str) -> String {
-        for frame in self.scope_stack.iter().rev() {
-            if let Some(tv) = frame.variables.get(name) {
-                return tv.value.clone();
-            }
-        }
-        "".to_string()
+        self.get_variable_opt(name).unwrap_or_default()
     }
 
     pub fn get_variable_opt(&self, name: &str) -> Option<String> {
-        for frame in self.scope_stack.iter().rev() {
-            if let Some(tv) = frame.variables.get(name) {
-                return Some(tv.value.clone());
-            }
-        }
-        None
+        self.scope_stack
+            .last()
+            .and_then(|frame| frame.variables.get(name))
+            .map(|tv| tv.value.clone())
     }
 
     /// Retrieve the tracked value of a variable.
     pub fn get_tracked_variable(&self, name: &str) -> Option<TrackedValue> {
-        for frame in self.scope_stack.iter().rev() {
-            if let Some(tv) = frame.variables.get(name) {
-                return Some(tv.clone());
-            }
-        }
-        None
+        self.scope_stack
+            .last()
+            .and_then(|frame| frame.variables.get(name))
+            .cloned()
     }
 
     pub fn define_macro(&mut self, mac: MacroDefinition) -> EvalResult<()> {
