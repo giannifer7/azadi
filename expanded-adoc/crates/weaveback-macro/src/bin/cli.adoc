@@ -466,33 +466,35 @@ build and invoke the binary as a subprocess, exercising the full CLI contract:
 
 [source,rust]
 ----
-// <[@file weaveback-macro/tests/test_macro_cli.rs]>=
-// weaveback-macro/tests/test_macro_cli.rs
-// I'd Really Rather You Didn't edit this generated file.
-
-// crates/weaveback-macro/tests/test_macro_cli.rs
-
+// <[macro-cli-test-support]>=
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use tempfile::TempDir;
 
-// Helper function to create a file with content
-fn create_test_file(dir: &Path, name: &str, content: &str) -> PathBuf {
+pub(crate) fn create_test_file(dir: &Path, name: &str, content: &str) -> PathBuf {
     let path = dir.join(name);
     let mut file = fs::File::create(&path).unwrap();
     write!(file, "{}", content).unwrap();
     path.canonicalize().unwrap()
 }
 
-// Helper to build and get command
-fn cargo_weaveback_macro_cli() -> Result<escargot::CargoRun, Box<dyn std::error::Error>> {
+pub(crate) fn cargo_weaveback_macro_cli() -> Result<escargot::CargoRun, Box<dyn std::error::Error>> {
     Ok(escargot::CargoBuild::new()
         .bin("weaveback-macro")
         .current_release()
         .current_target()
         .run()?)
 }
+// @
+----
+
+
+[source,rust]
+----
+// <[macro-cli-test-basic]>=
+use crate::support::{cargo_weaveback_macro_cli, create_test_file};
+use std::fs;
+use tempfile::TempDir;
 
 #[test]
 fn test_basic_macro_processing() -> Result<(), Box<dyn std::error::Error>> {
@@ -627,8 +629,17 @@ fn test_multiple_inputs() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+// @
+----
 
-// 4) Test a custom sigil
+
+[source,rust]
+----
+// <[macro-cli-test-sigils]>=
+use crate::support::{cargo_weaveback_macro_cli, create_test_file};
+use std::fs;
+use tempfile::TempDir;
+
 #[test]
 fn test_custom_sigil() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TempDir::new()?;
@@ -698,8 +709,17 @@ fn test_unicode_sigil() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+// @
+----
 
-// 5) Test using a colon-separated include path
+
+[source,rust]
+----
+// <[macro-cli-test-includes]>=
+use crate::support::{cargo_weaveback_macro_cli, create_test_file};
+use std::fs;
+use tempfile::TempDir;
+
 #[test]
 fn test_colon_separated_includes() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TempDir::new()?;
@@ -774,8 +794,17 @@ fn test_custom_pathsep_includes() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+// @
+----
 
-// 8) Test that the CLI can handle a large input file (smoke test)
+
+[source,rust]
+----
+// <[macro-cli-test-stress]>=
+use crate::support::{cargo_weaveback_macro_cli, create_test_file};
+use std::fs;
+use tempfile::TempDir;
+
 #[test]
 fn test_large_input() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TempDir::new()?;
@@ -812,6 +841,15 @@ fn test_large_input() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+// @
+----
+
+
+[source,rust]
+----
+// <[macro-cli-test-strict]>=
+use crate::support::{cargo_weaveback_macro_cli, create_test_file};
+use tempfile::TempDir;
 
 #[test]
 fn test_undefined_variable_is_strict_by_default_cli() -> Result<(), Box<dyn std::error::Error>> {
@@ -868,7 +906,17 @@ fn test_unbound_params_are_strict_by_default_cli() -> Result<(), Box<dyn std::er
 
     Ok(())
 }
+// @
+----
 
+
+
+[source,rust]
+----
+// <[macro-cli-test-config]>=
+use crate::support::{cargo_weaveback_macro_cli, create_test_file};
+use std::fs;
+use tempfile::TempDir;
 
 #[test]
 fn test_define_cli() -> Result<(), Box<dyn std::error::Error>> {
@@ -956,6 +1004,116 @@ fn test_recursion_limit_cli() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+// @
+----
+
+
+[source,rust]
+----
+// <[@file weaveback-macro/tests/test_macro_cli.rs]>=
+// weaveback-macro/tests/test_macro_cli.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// crates/weaveback-macro/tests/test_macro_cli.rs
+
+#[path = "test_macro_cli/basic.rs"]
+mod basic;
+#[path = "test_macro_cli/config.rs"]
+mod config;
+#[path = "test_macro_cli/includes.rs"]
+mod includes;
+#[path = "test_macro_cli/sigils.rs"]
+mod sigils;
+#[path = "test_macro_cli/stress.rs"]
+mod stress;
+#[path = "test_macro_cli/strict.rs"]
+mod strict;
+#[path = "test_macro_cli/support.rs"]
+mod support;
+
+// @
+----
+
+
+[source,rust]
+----
+// <[@file weaveback-macro/tests/test_macro_cli/support.rs]>=
+// weaveback-macro/tests/test_macro_cli/support.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[macro-cli-test-support]>
+
+// @
+----
+
+
+[source,rust]
+----
+// <[@file weaveback-macro/tests/test_macro_cli/basic.rs]>=
+// weaveback-macro/tests/test_macro_cli/basic.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[macro-cli-test-basic]>
+
+// @
+----
+
+
+[source,rust]
+----
+// <[@file weaveback-macro/tests/test_macro_cli/sigils.rs]>=
+// weaveback-macro/tests/test_macro_cli/sigils.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[macro-cli-test-sigils]>
+
+// @
+----
+
+
+[source,rust]
+----
+// <[@file weaveback-macro/tests/test_macro_cli/includes.rs]>=
+// weaveback-macro/tests/test_macro_cli/includes.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[macro-cli-test-includes]>
+
+// @
+----
+
+
+[source,rust]
+----
+// <[@file weaveback-macro/tests/test_macro_cli/stress.rs]>=
+// weaveback-macro/tests/test_macro_cli/stress.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[macro-cli-test-stress]>
+
+// @
+----
+
+
+[source,rust]
+----
+// <[@file weaveback-macro/tests/test_macro_cli/strict.rs]>=
+// weaveback-macro/tests/test_macro_cli/strict.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[macro-cli-test-strict]>
+
+// @
+----
+
+
+[source,rust]
+----
+// <[@file weaveback-macro/tests/test_macro_cli/config.rs]>=
+// weaveback-macro/tests/test_macro_cli/config.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[macro-cli-test-config]>
 
 // @
 ----
