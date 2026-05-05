@@ -16,13 +16,8 @@ See [lib.adoc](lib.adoc) for the module map.
 
 ```rust
 // <[lookup-types]>=
-use weaveback_macro::evaluator::output::{PreciseTracingOutput, SourceSpan, SpanKind, SpanRange};
-use weaveback_macro::evaluator::{EvalConfig, Evaluator};
-use weaveback_macro::macro_api::process_string_precise;
 use weaveback_tangle::db::WeavebackDb;
-use weaveback_tangle::lookup::{find_best_noweb_entry, find_best_source_config, find_line_col};
 use weaveback_core::PathResolver;
-use serde_json::{Value, json};
 
 #[derive(Debug, thiserror::Error)]
 pub enum LookupError {
@@ -51,6 +46,9 @@ pub fn perform_where(
     db: &WeavebackDb,
     resolver: &PathResolver,
 ) -> Result<Option<Value>, LookupError> {
+    use serde_json::json;
+    use weaveback_tangle::lookup::find_best_noweb_entry;
+
     if line == 0 {
         return Err(LookupError::InvalidInput("Line number must be >= 1".to_string()));
     }
@@ -91,6 +89,10 @@ noweb-induced indent is subtracted before querying the span map.
 
 ```rust
 // <[lookup-trace]>=
+use crate::lookup::context::build_source_context_value;
+use serde_json::json;
+use weaveback_tangle::lookup::{find_best_noweb_entry, find_best_source_config};
+
 fn trace_warnings_enabled() -> bool {
     std::env::var_os("WB_TRACE_WARNINGS").is_some()
 }
@@ -106,12 +108,6 @@ pub fn load_source_text(
     } else {
         std::fs::read_to_string(&src_path).map_err(LookupError::Io)
     }
-}
-
-pub fn build_source_context_value(src_content: &str, src_line_1: usize) -> Value {
-    let mut obj = serde_json::Map::new();
-    append_source_context(&mut obj, src_content, src_line_1);
-    Value::Object(obj)
 }
 
 pub fn perform_trace_coarse(
@@ -165,6 +161,11 @@ pub fn perform_trace(
     resolver: &PathResolver,
     eval_config: EvalConfig,
 ) -> Result<Option<Value>, LookupError> {
+    use crate::lookup::span::{append_def_locations, append_span_fields, span_at_line};
+    use weaveback_macro::evaluator::output::SpanKind;
+    use weaveback_macro::evaluator::Evaluator;
+    use weaveback_macro::macro_api::process_string_precise;
+
     let mut result = match perform_trace_coarse(out_file, line, db, resolver)? {
         None => return Ok(None),
         Some(value) => value,
@@ -229,99 +230,19 @@ pub fn perform_trace(
 ```
 
 
-## Span helpers
+## Source context helpers
 
-`span_at_line` converts a 0-indexed `(line, col_char)` pair to a byte offset
-and delegates to `PreciseTracingOutput::span_at_byte`.
-
-`append_span_fields` enriches the result JSON with the macro-level source
-location, token kind, and source-section context, looking up the source file
-path and content from the evaluator's source manager.
-
-`append_def_locations` queries the database for all definition sites of a
-variable or macro name and appends them as a JSON array.  Each entry carries
-`file`, `line` (1-indexed), and `col` (1-indexed UTF-8 character position).
+`build_source_context_value` and `append_source_context` extract the source
+section breadcrumb, source-section range, and prose context around a traced
+source location.  Chunk bodies and listing fences are omitted from prose so the
+context remains explanatory rather than generated-code-heavy.
 
 ```rust
-// <[lookup-span]>=
-/// Find the `SourceSpan` covering `col_char_0` (0-indexed character position)
-/// of 0-indexed `line_0` in the given expanded text and span ranges.
-fn span_at_line<'a>(
-    expanded: &str,
-    ranges: &'a [SpanRange],
-    line_0: u32,
-    col_char_0: u32,
-) -> Option<&'a SourceSpan> {
-    let line_start = if line_0 == 0 {
-        0usize
-    } else {
-        let mut count = 0u32;
-        let mut found = None;
-        for (i, b) in expanded.bytes().enumerate() {
-            if b == b'\n' {
-                count += 1;
-                if count == line_0 {
-                    found = Some(i + 1);
-                    break;
-                }
-            }
-        }
-        found?
-    };
-    // Convert 0-indexed char position to byte offset within the line.
-    let line_text = &expanded[line_start..];
-    let byte_col = line_text
-        .char_indices()
-        .nth(col_char_0 as usize)
-        .map(|(i, _)| i)
-        .unwrap_or(line_text.len());
-    PreciseTracingOutput::span_at_byte(ranges, line_start + byte_col)
-}
-
-/// Append macro-level fields to `result` from `span`.
-fn append_span_fields(
-    result: &mut Value,
-    span: &SourceSpan,
-    sources: &Evaluator,
-) {
-    let src_manager = sources.sources();
-    let Some(src_path) = src_manager.source_files().get(span.src as usize) else {
-        return;
-    };
-    let Some(src_bytes) = src_manager.get_source(span.src) else {
-        return;
-    };
-    let src_content = String::from_utf8_lossy(src_bytes);
-    let (src_line_1, src_col_1) = find_line_col(&src_content, span.pos);
-
-    let obj = result.as_object_mut().unwrap();
-    obj.insert("src_file".into(), Value::String(src_path.to_string_lossy().into_owned()));
-    obj.insert("src_line".into(), Value::Number(src_line_1.into()));
-    obj.insert("src_col".into(), Value::Number(src_col_1.into()));
-    append_source_context(obj, &src_content, src_line_1 as usize);
-
-    let kind_str = match &span.kind {
-        SpanKind::Literal => "Literal",
-        SpanKind::MacroBody { .. } => "MacroBody",
-        SpanKind::MacroArg { .. } => "MacroArg",
-        SpanKind::VarBinding { .. } => "VarBinding",
-        SpanKind::Computed => "Computed",
-    };
-    obj.insert("kind".into(), Value::String(kind_str.to_string()));
-
-    match &span.kind {
-        SpanKind::MacroBody { macro_name } => {
-            obj.insert("macro_name".into(), Value::String(macro_name.clone()));
-        }
-        SpanKind::MacroArg { macro_name, param_name } => {
-            obj.insert("macro_name".into(), Value::String(macro_name.clone()));
-            obj.insert("param_name".into(), Value::String(param_name.clone()));
-        }
-        SpanKind::VarBinding { var_name } => {
-            obj.insert("var_name".into(), Value::String(var_name.clone()));
-        }
-        _ => {}
-    }
+// <[lookup-context]>=
+pub fn build_source_context_value(src_content: &str, src_line_1: usize) -> Value {
+    let mut obj = serde_json::Map::new();
+    append_source_context(&mut obj, src_content, src_line_1);
+    Value::Object(obj)
 }
 
 fn heading_level(line: &str) -> Option<usize> {
@@ -417,11 +338,13 @@ fn extract_prose(lines: &[&str], start: usize, end: usize) -> String {
     collapsed.join("\n")
 }
 
-fn append_source_context(
+pub(in crate::lookup) fn append_source_context(
     obj: &mut serde_json::Map<String, Value>,
     src_content: &str,
     src_line_1: usize,
 ) {
+    use serde_json::json;
+
     let lines: Vec<&str> = src_content.lines().collect();
     if lines.is_empty() {
         return;
@@ -442,17 +365,120 @@ fn append_source_context(
     );
     obj.insert("source_section_prose".into(), Value::String(section_prose));
 }
+// @
+```
+
+
+## Span helpers
+
+`span_at_line` converts a 0-indexed `(line, col_char)` pair to a byte offset
+and delegates to `PreciseTracingOutput::span_at_byte`.
+
+`append_span_fields` enriches the result JSON with the macro-level source
+location, token kind, and source-section context, looking up the source file
+path and content from the evaluator's source manager.
+
+`append_def_locations` queries the database for all definition sites of a
+variable or macro name and appends them as a JSON array.  Each entry carries
+`file`, `line` (1-indexed), and `col` (1-indexed UTF-8 character position).
+
+```rust
+// <[lookup-span]>=
+/// Find the `SourceSpan` covering `col_char_0` (0-indexed character position)
+/// of 0-indexed `line_0` in the given expanded text and span ranges.
+pub(in crate::lookup) fn span_at_line<'a>(
+    expanded: &str,
+    ranges: &'a [SpanRange],
+    line_0: u32,
+    col_char_0: u32,
+) -> Option<&'a SourceSpan> {
+    let line_start = if line_0 == 0 {
+        0usize
+    } else {
+        let mut count = 0u32;
+        let mut found = None;
+        for (i, b) in expanded.bytes().enumerate() {
+            if b == b'\n' {
+                count += 1;
+                if count == line_0 {
+                    found = Some(i + 1);
+                    break;
+                }
+            }
+        }
+        found?
+    };
+    // Convert 0-indexed char position to byte offset within the line.
+    let line_text = &expanded[line_start..];
+    let byte_col = line_text
+        .char_indices()
+        .nth(col_char_0 as usize)
+        .map(|(i, _)| i)
+        .unwrap_or(line_text.len());
+    PreciseTracingOutput::span_at_byte(ranges, line_start + byte_col)
+}
+
+/// Append macro-level fields to `result` from `span`.
+pub(in crate::lookup) fn append_span_fields(
+    result: &mut Value,
+    span: &SourceSpan,
+    sources: &Evaluator,
+) {
+    use weaveback_tangle::lookup::find_line_col;
+
+    let src_manager = sources.sources();
+    let Some(src_path) = src_manager.source_files().get(span.src as usize) else {
+        return;
+    };
+    let Some(src_bytes) = src_manager.get_source(span.src) else {
+        return;
+    };
+    let src_content = String::from_utf8_lossy(src_bytes);
+    let (src_line_1, src_col_1) = find_line_col(&src_content, span.pos);
+
+    let obj = result.as_object_mut().unwrap();
+    obj.insert("src_file".into(), Value::String(src_path.to_string_lossy().into_owned()));
+    obj.insert("src_line".into(), Value::Number(src_line_1.into()));
+    obj.insert("src_col".into(), Value::Number(src_col_1.into()));
+    append_source_context(obj, &src_content, src_line_1 as usize);
+
+    let kind_str = match &span.kind {
+        SpanKind::Literal => "Literal",
+        SpanKind::MacroBody { .. } => "MacroBody",
+        SpanKind::MacroArg { .. } => "MacroArg",
+        SpanKind::VarBinding { .. } => "VarBinding",
+        SpanKind::Computed => "Computed",
+    };
+    obj.insert("kind".into(), Value::String(kind_str.to_string()));
+
+    match &span.kind {
+        SpanKind::MacroBody { macro_name } => {
+            obj.insert("macro_name".into(), Value::String(macro_name.clone()));
+        }
+        SpanKind::MacroArg { macro_name, param_name } => {
+            obj.insert("macro_name".into(), Value::String(macro_name.clone()));
+            obj.insert("param_name".into(), Value::String(param_name.clone()));
+        }
+        SpanKind::VarBinding { var_name } => {
+            obj.insert("var_name".into(), Value::String(var_name.clone()));
+        }
+        _ => {}
+    }
+}
 
 /// Look up definition sites from the db and append them to `obj` as a JSON array.
 /// Each entry has `file`, `line` (1-indexed), and `col` (1-indexed character position).
 /// `use_var_defs`: true → query VAR_DEFS, false → query MACRO_DEFS.
-fn append_def_locations(
+pub(in crate::lookup) fn append_def_locations(
     obj: &mut serde_json::Map<String, Value>,
     field: &str,
     name: &str,
     db: &WeavebackDb,
     use_var_defs: bool,
 ) {
+    use serde_json::json;
+    use weaveback_tangle::lookup::find_line_col;
+
     let entries = if use_var_defs {
         db.query_var_defs(name)
     } else {
@@ -487,7 +513,9 @@ fn append_def_locations(
 // I'd Really Rather You Didn't edit this generated file.
 
 use super::*;
+use serde_json::json;
 use std::path::PathBuf;
+use weaveback_macro::evaluator::EvalConfig;
 use weaveback_tangle::db::{Confidence, NowebMapEntry};
 
 fn resolver() -> PathResolver {
@@ -666,14 +694,84 @@ fn perform_trace_validates_line_before_db_lookup() {
 ## Assembly
 
 ```rust
+// <[@file weaveback-api/src/lookup/context.rs]>=
+// weaveback-api/src/lookup/context.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use serde_json::Value;
+
+// <[lookup-context]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/lookup/span.rs]>=
+// weaveback-api/src/lookup/span.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use crate::lookup::context::append_source_context;
+use serde_json::Value;
+use weaveback_macro::evaluator::Evaluator;
+use weaveback_macro::evaluator::output::{PreciseTracingOutput, SourceSpan, SpanKind, SpanRange};
+use weaveback_tangle::db::WeavebackDb;
+
+// <[lookup-span]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/lookup/trace.rs]>=
+// weaveback-api/src/lookup/trace.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use crate::lookup::{LookupError, PathResolver, WeavebackDb};
+use serde_json::Value;
+use weaveback_macro::evaluator::EvalConfig;
+
+// <[lookup-trace]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/lookup/where_lookup.rs]>=
+// weaveback-api/src/lookup/where_lookup.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use crate::lookup::{LookupError, PathResolver, WeavebackDb};
+use serde_json::Value;
+
+// <[lookup-where]>
+
+// @
+```
+
+
+```rust
 // <[@file weaveback-api/src/lookup.rs]>=
 // weaveback-api/src/lookup.rs
 // I'd Really Rather You Didn't edit this generated file.
 
+mod context;
+mod span;
+mod trace;
+mod where_lookup;
+
+pub use context::build_source_context_value;
+pub use trace::{load_source_text, perform_trace, perform_trace_coarse};
+pub use where_lookup::perform_where;
+
+#[cfg(test)]
+use context::append_source_context;
+#[cfg(test)]
+use span::append_def_locations;
+
 // <[lookup-types]>
-// <[lookup-where]>
-// <[lookup-trace]>
-// <[lookup-span]>
 #[cfg(test)]
 mod tests;
 
