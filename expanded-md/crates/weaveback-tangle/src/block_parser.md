@@ -108,7 +108,7 @@ It splits on `----`/`....`/`++++` fences and `== …` section headers.
 // <[block-parser-adoc]>=
 /// Parse an AsciiDoc document using ACDC, falling back to the simple line
 /// scanner if parsing fails.
-fn parse_adoc_raw(source: &str) -> Vec<(u32, u32, &'static str, String)> {
+pub(in crate::block_parser) fn parse_adoc_raw(source: &str) -> Vec<(u32, u32, &'static str, String)> {
     if has_unclosed_adoc_fence(source) {
         return parse_adoc_raw_simple(source);
     }
@@ -359,14 +359,14 @@ fn parse_adoc_raw_simple(source: &str) -> Vec<(u32, u32, &'static str, String)> 
     blocks
 }
 
-fn is_adoc_fence(line: &str) -> bool {
+pub(in crate::block_parser) fn is_adoc_fence(line: &str) -> bool {
     let t = line.trim_end();
     (t.starts_with("----") && t.chars().all(|c| c == '-'))
         || (t.starts_with("....") && t.chars().all(|c| c == '.'))
         || (t.starts_with("++++") && t.chars().all(|c| c == '+'))
 }
 
-fn is_adoc_section_header(line: &str) -> bool {
+pub(in crate::block_parser) fn is_adoc_section_header(line: &str) -> bool {
     let mut chars = line.chars();
     if chars.next() != Some('=') {
         return false;
@@ -376,7 +376,7 @@ fn is_adoc_section_header(line: &str) -> bool {
     trimmed.starts_with(' ') || trimmed.is_empty()
 }
 
-fn has_unclosed_adoc_fence(source: &str) -> bool {
+pub(in crate::block_parser) fn has_unclosed_adoc_fence(source: &str) -> bool {
     let mut current: Option<&str> = None;
 
     for line in source.lines() {
@@ -420,7 +420,7 @@ behaviour of the unknown-extension path.
 /// * `"section"` — a heading
 /// * `"code"`    — a fenced code block
 /// * `"para"`    — a paragraph or other leaf element
-fn parse_markdown_raw(source: &str) -> Vec<(u32, u32, &'static str, String)> {
+pub(in crate::block_parser) fn parse_markdown_raw(source: &str) -> Vec<(u32, u32, &'static str, String)> {
     use pulldown_cmark::{Event, Parser, Tag, TagEnd};
 
     // Build a byte→line lookup table.
@@ -486,7 +486,7 @@ line numbers.
 ```rust
 // <[block-parser-utils]>=
 /// Map of byte offset → 1-based line number.
-fn build_line_table(source: &str) -> Vec<usize> {
+pub(in crate::block_parser) fn build_line_table(source: &str) -> Vec<usize> {
     let mut table = Vec::with_capacity(source.len() + 1);
     let mut line = 1usize;
     for byte in source.bytes() {
@@ -499,7 +499,7 @@ fn build_line_table(source: &str) -> Vec<usize> {
     table
 }
 
-fn byte_to_line(table: &[usize], byte: usize) -> u32 {
+pub(in crate::block_parser) fn byte_to_line(table: &[usize], byte: usize) -> u32 {
     table.get(byte).copied().unwrap_or(1) as u32
 }
 // @
@@ -729,6 +729,43 @@ fn block_index_is_sequential() {
 ## Assembly
 
 ```rust
+// <[@file weaveback-tangle/src/block_parser/adoc.rs]>=
+// weaveback-tangle/src/block_parser/adoc.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::utils::{build_line_table, byte_to_line};
+
+// <[block-parser-adoc]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-tangle/src/block_parser/markdown.rs]>=
+// weaveback-tangle/src/block_parser/markdown.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::utils::{build_line_table, byte_to_line};
+
+// <[block-parser-markdown]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-tangle/src/block_parser/utils.rs]>=
+// weaveback-tangle/src/block_parser/utils.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[block-parser-utils]>
+
+// @
+```
+
+
+```rust
 // <[@file weaveback-tangle/src/block_parser.rs]>=
 // weaveback-tangle/src/block_parser.rs
 // I'd Really Rather You Didn't edit this generated file.
@@ -739,11 +776,18 @@ fn block_index_is_sequential() {
 /// prose paragraphs) and computes a BLAKE3 hash for each block.  The hashes
 /// are stored in the database so that unchanged blocks can be skipped on the
 /// next run.
+mod adoc;
+mod markdown;
+mod utils;
+
+use adoc::parse_adoc_raw;
+use markdown::parse_markdown_raw;
+
+#[cfg(test)]
+use adoc::{has_unclosed_adoc_fence, is_adoc_fence, is_adoc_section_header};
+
 // <[block-parser-types]>
 // <[block-parser-entry]>
-// <[block-parser-adoc]>
-// <[block-parser-markdown]>
-// <[block-parser-utils]>
 #[cfg(test)]
 mod tests;
 

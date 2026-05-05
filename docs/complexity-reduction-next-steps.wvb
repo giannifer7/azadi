@@ -86,6 +86,10 @@ Completed or materially improved:
   `crates/weaveback-docgen/src/xref.rs` is now a small facade over module-key
   conversion, workspace discovery, Rust analysis, import resolution, adoc
   declaration scanning, exclusion rules, and graph building.
+* `weaveback-tangle` block parsing has been split at Rust-file level.
+  `crates/weaveback-tangle/src/block_parser.rs` is now a small facade over
+  AsciiDoc parsing, Markdown parsing, and shared byte-to-line utilities under
+  `crates/weaveback-tangle/src/block_parser/`.
 * A clean DB retangle exposed stale generated fixes that had not been preserved
   in canonical sources.  The small canonical catch-ups are now recorded in
   `lint.wvb`, `process.wvb`, the LSP manifest, workflow docs, and `project.adoc`.
@@ -119,6 +123,7 @@ File | Lines | Status
 `crates/weaveback-api/src/process/markdown_normalize.rs` | 34 | Completed; facade now includes focused `src/process/markdown_normalize/*.rs` files.
 `crates/weaveback-api/src/coverage/lcov/summary.rs` | 372 | Partially improved; lookup and range helpers now live under `src/coverage/lcov/summary/`.
 `crates/weaveback-docgen/src/xref.rs` | 56 | Completed; facade now includes focused `src/xref/*.rs` files.
+`crates/weaveback-tangle/src/block_parser.rs` | 57 | Completed; facade now includes focused `src/block_parser/*.rs` files.
 `crates/weaveback-macro/src/evaluator/core.rs` | 886 | Large but not first priority.
 ¤])
 
