@@ -183,7 +183,55 @@ use super::*;
 ¤rust_file(weaveback-api/src/apply_back/heuristics.rs, ¤[
 use super::*;
 
-// <[applyback-heuristics]>
+mod body;
+mod macro_arg;
+mod noweb;
+mod ranking;
+mod search;
+
+pub(in crate::apply_back) use macro_arg::attempt_macro_arg_patch;
+pub(in crate::apply_back) use noweb::resolve_noweb_entry;
+pub(in crate::apply_back) use search::{
+    search_macro_arg_candidate,
+    search_macro_body_candidate,
+    search_macro_call_candidate,
+};
+
+#[cfg(test)]
+pub(in crate::apply_back) use body::attempt_macro_body_fix;
+#[cfg(test)]
+pub(in crate::apply_back) use ranking::{choose_best_candidate, rank_candidate};
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/heuristics/macro_arg.rs, ¤[
+// <[applyback-heuristics-macro-arg]>
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/heuristics/body.rs, ¤[
+use super::*;
+
+// <[applyback-heuristics-body]>
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/heuristics/ranking.rs, ¤[
+use super::*;
+
+// <[applyback-heuristics-ranking]>
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/heuristics/noweb.rs, ¤[
+use super::*;
+
+// <[applyback-heuristics-noweb]>
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/heuristics/search.rs, ¤[
+use super::body::attempt_macro_body_fix;
+use super::macro_arg::attempt_macro_arg_patch;
+use super::ranking::{candidate_line_indices, choose_best_candidate, chunk_context_bonus, rank_candidate};
+use super::*;
+
+// <[applyback-heuristics-search]>
 ¤])
 
 ¤rust_file(weaveback-api/src/apply_back/resolve.rs, ¤[

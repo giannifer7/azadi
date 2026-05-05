@@ -15,7 +15,7 @@ new literals from the new expansion while keeping variable references fixed.
 Returns `None` when the structure is ambiguous (e.g., adjacent variables with
 no literal separator).
 
-¤rust_chunk(applyback-heuristics, ¤[
+¤rust_chunk(applyback-heuristics-macro-arg, ¤[
 /// For a `MacroArg` span: replace the changed portion at or after byte column `src_col`.
 ///
 /// Primary strategy: exact match of `old_text` at `src_col` (works when `old_text` is
@@ -80,7 +80,9 @@ pub(in crate::apply_back) fn attempt_macro_arg_patch(
     }
     None
 }
+¤])
 
+¤rust_chunk(applyback-heuristics-body, ¤[
 /// For a `MacroBodyWithVars` span: reconstruct the body template with only the
 /// literal (non-variable) parts updated.
 ///
@@ -160,8 +162,10 @@ pub(in crate::apply_back) fn attempt_macro_body_fix(
 
     if new_body == body_line { None } else { Some(new_body) }
 }
+¤])
 
-fn candidate_line_indices(
+¤rust_chunk(applyback-heuristics-ranking, ¤[
+pub(super) fn candidate_line_indices(
     lines: &[String],
     hinted: usize,
     anchor_text: Option<&str>,
@@ -226,7 +230,7 @@ pub(in crate::apply_back) fn choose_best_candidate(
     }
 }
 
-fn chunk_context_bonus(
+pub(super) fn chunk_context_bonus(
     db: &WeavebackDb,
     src_file: &str,
     hinted_line_0: usize,
@@ -245,7 +249,9 @@ fn chunk_context_bonus(
         0
     }
 }
+¤])
 
+¤rust_chunk(applyback-heuristics-noweb, ¤[
 pub(in crate::apply_back) fn resolve_noweb_entry(
     db: &WeavebackDb,
     out_file: &str,
@@ -262,7 +268,9 @@ pub(in crate::apply_back) fn resolve_noweb_entry(
     find_best_noweb_entry(db, resolved.to_string_lossy().as_ref(), out_line_0, resolver)
         .map_err(ApplyBackError::Db)
 }
+¤])
 
+¤rust_chunk(applyback-heuristics-search, ¤[
 pub(in crate::apply_back) fn search_macro_arg_candidate(request: MacroArgSearch<'_>) -> Option<CandidateResolution> {
     let candidate_indices = candidate_line_indices(
         request.lines,

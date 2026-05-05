@@ -215,7 +215,90 @@ use super::*;
 
 use super::*;
 
-// <[applyback-heuristics]>
+mod body;
+mod macro_arg;
+mod noweb;
+mod ranking;
+mod search;
+
+pub(in crate::apply_back) use macro_arg::attempt_macro_arg_patch;
+pub(in crate::apply_back) use noweb::resolve_noweb_entry;
+pub(in crate::apply_back) use search::{
+    search_macro_arg_candidate,
+    search_macro_body_candidate,
+    search_macro_call_candidate,
+};
+
+#[cfg(test)]
+pub(in crate::apply_back) use body::attempt_macro_body_fix;
+#[cfg(test)]
+pub(in crate::apply_back) use ranking::{choose_best_candidate, rank_candidate};
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/heuristics/macro_arg.rs]>=
+// weaveback-api/src/apply_back/heuristics/macro_arg.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[applyback-heuristics-macro-arg]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/heuristics/body.rs]>=
+// weaveback-api/src/apply_back/heuristics/body.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::*;
+
+// <[applyback-heuristics-body]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/heuristics/ranking.rs]>=
+// weaveback-api/src/apply_back/heuristics/ranking.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::*;
+
+// <[applyback-heuristics-ranking]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/heuristics/noweb.rs]>=
+// weaveback-api/src/apply_back/heuristics/noweb.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::*;
+
+// <[applyback-heuristics-noweb]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/heuristics/search.rs]>=
+// weaveback-api/src/apply_back/heuristics/search.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::body::attempt_macro_body_fix;
+use super::macro_arg::attempt_macro_arg_patch;
+use super::ranking::{candidate_line_indices, choose_best_candidate, chunk_context_bonus, rank_candidate};
+use super::*;
+
+// <[applyback-heuristics-search]>
 
 // @
 ```
