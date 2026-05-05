@@ -119,6 +119,10 @@ Completed or materially improved:
   `crates/weaveback-api/src/apply_back/heuristics.rs` is now a facade over
   macro-argument patching, macro-body patching, ranking, noweb resolution, and
   search orchestration under `crates/weaveback-api/src/apply_back/heuristics/`.
+* `weaveback-api` apply-back primitive tests have been split at Rust-file level.
+  `crates/weaveback-api/src/apply_back/tests/primitives.rs` is now a module
+  map, with focused primitive test files under
+  `crates/weaveback-api/src/apply_back/tests/primitives/`.
 * A clean DB retangle exposed stale generated fixes that had not been preserved
   in canonical sources.  The small canonical catch-ups are now recorded in
   `lint.wvb`, `process.wvb`, the LSP manifest, workflow docs, and `project.adoc`.
@@ -158,6 +162,7 @@ File | Lines | Status
 `crates/weaveback-tangle/src/safe_writer.rs` | 83 | Completed; facade now includes focused `src/safe_writer/*.rs` files.
 `crates/weaveback-macro/tests/test_macro_cli.rs` | 12 | Completed; facade now includes focused `tests/test_macro_cli/*.rs` files.
 `crates/weaveback-api/src/apply_back/heuristics.rs` | 20 | Completed; facade now includes focused `src/apply_back/heuristics/*.rs` files.
+`crates/weaveback-api/src/apply_back/tests/primitives.rs` | 10 | Completed; facade now includes focused `src/apply_back/tests/primitives/*.rs` files.
 `crates/weaveback-macro/src/evaluator/core.rs` | 886 | Large but not first priority.
 
 These numbers are not themselves the rule.  The rule is whether a maintainer can

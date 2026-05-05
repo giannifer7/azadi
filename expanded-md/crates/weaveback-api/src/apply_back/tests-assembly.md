@@ -63,9 +63,102 @@ mod workspace;
 // weaveback-api/src/apply_back/tests/primitives.rs
 // I'd Really Rather You Didn't edit this generated file.
 
-use super::*;
+mod do_patch;
+mod fuzzy;
+mod macro_fixes;
+mod model;
+mod oracle;
+mod ranking;
+mod run;
+mod verify;
 
-// <[applyback-tests-primitives]>
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/tests/primitives/fuzzy.rs]>=
+// weaveback-api/src/apply_back/tests/primitives/fuzzy.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[applyback-tests-primitives-fuzzy]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/tests/primitives/oracle.rs]>=
+// weaveback-api/src/apply_back/tests/primitives/oracle.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[applyback-tests-primitives-oracle]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/tests/primitives/macro_fixes.rs]>=
+// weaveback-api/src/apply_back/tests/primitives/macro_fixes.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[applyback-tests-primitives-macro-fixes]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/tests/primitives/model.rs]>=
+// weaveback-api/src/apply_back/tests/primitives/model.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[applyback-tests-primitives-model]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/tests/primitives/verify.rs]>=
+// weaveback-api/src/apply_back/tests/primitives/verify.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[applyback-tests-primitives-verify]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/tests/primitives/do_patch.rs]>=
+// weaveback-api/src/apply_back/tests/primitives/do_patch.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[applyback-tests-primitives-do-patch]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/tests/primitives/ranking.rs]>=
+// weaveback-api/src/apply_back/tests/primitives/ranking.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[applyback-tests-primitives-ranking]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/tests/primitives/run.rs]>=
+// weaveback-api/src/apply_back/tests/primitives/run.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[applyback-tests-primitives-run]>
 
 // @
 ```

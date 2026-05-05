@@ -3,7 +3,9 @@
 Pure helper behavior and small local transformations used by apply-back.
 
 ```rust
-// <[applyback-tests-primitives]>=
+// <[applyback-tests-primitives-fuzzy]>=
+use super::super::*;
+
 // ── fuzzy_find_line ────────────────────────────────────────────────────
 
 #[test]
@@ -32,6 +34,13 @@ fn fuzzy_find_line_tolerates_leading_whitespace() {
     let ls = lines("   bar baz   ");
     assert_eq!(fuzzy_find_line(&ls, 0, "bar baz", 0), Some(0));
 }
+// @
+```
+
+
+```rust
+// <[applyback-tests-primitives-oracle]>=
+use super::super::*;
 
 // ── splice_line ────────────────────────────────────────────────────────
 
@@ -83,6 +92,13 @@ fn differing_token_pair_returns_none_when_token_counts_differ() {
     let result = differing_token_pair("foo", "foo bar");
     assert_eq!(result, None);
 }
+// @
+```
+
+
+```rust
+// <[applyback-tests-primitives-macro-fixes]>=
+use super::super::*;
 
 // ── attempt_macro_arg_patch ────────────────────────────────────────────
 
@@ -159,6 +175,40 @@ fn attempt_macro_body_fix_no_match_returns_none() {
     assert_eq!(result, None);
 }
 
+// ── attempt_macro_body_fix with vars ────────────────────────────────────
+
+#[test]
+fn attempt_macro_body_fix_with_single_var_updates_literal() {
+    // body: "Hello %(name). Bye."
+    // old expanded: "Hello Alice. Bye."
+    // new expanded: "Hello Alice. Later."
+    // Expects the literal suffix " Bye." → " Later." while preserving %(name).
+    let result = attempt_macro_body_fix(
+        "Hello %(name). Bye.",
+        "Hello Alice. Bye.",
+        "Hello Alice. Later.",
+        '%',
+    );
+    assert!(result.is_some(), "expected Some result, got None");
+    let new_body = result.unwrap();
+    assert!(new_body.contains("Later"), "expected 'Later' in: {new_body}");
+    assert!(new_body.contains("%(name)"), "expected var ref preserved in: {new_body}");
+}
+
+#[test]
+fn attempt_macro_body_fix_returns_none_when_body_eq_expanded() {
+    // body line IS exactly the expanded text → result is just the new expanded text
+    let result = attempt_macro_body_fix("plain text", "plain text", "new text", '%');
+    assert_eq!(result, Some("new text".to_string()));
+}
+// @
+```
+
+
+```rust
+// <[applyback-tests-primitives-model]>=
+use super::super::*;
+
 // ── ApplyBackError Display ─────────────────────────────────────────────
 
 #[test]
@@ -209,6 +259,13 @@ fn strip_indent_returns_original_when_no_match() {
     let result = strip_indent("hello", "    ");
     assert_eq!(result, "hello");
 }
+// @
+```
+
+
+```rust
+// <[applyback-tests-primitives-verify]>=
+use super::super::*;
 
 // ── verify_candidate ────────────────────────────────────────────────────
 
@@ -236,6 +293,13 @@ fn verify_candidate_returns_false_when_line_out_of_range() {
     let path = std::path::Path::new("test.adoc");
     assert!(!verify_candidate(src, path, &config, 99, "only one line"));
 }
+// @
+```
+
+
+```rust
+// <[applyback-tests-primitives-do-patch]>=
+use super::super::*;
 
 // ── do_patch ─────────────────────────────────────────────────────────────
 
@@ -294,6 +358,13 @@ fn do_patch_dry_run_does_not_modify_lines() {
     let msg = String::from_utf8(out).unwrap();
     assert!(msg.contains("dry-run"));
 }
+// @
+```
+
+
+```rust
+// <[applyback-tests-primitives-ranking]>=
+use super::super::*;
 
 // ── rank_candidate ─────────────────────────────────────────────────────
 
@@ -332,6 +403,13 @@ fn choose_best_candidate_returns_none_when_empty() {
     let result = choose_best_candidate(vec![]);
     assert!(result.is_none());
 }
+// @
+```
+
+
+```rust
+// <[applyback-tests-primitives-run]>=
+use super::super::*;
 
 // ── run_apply_back with missing db ─────────────────────────────────────
 
@@ -350,33 +428,6 @@ fn run_apply_back_reports_missing_database() {
     assert!(result.is_ok());
     let msg = String::from_utf8(out).unwrap();
     assert!(msg.contains("Database not found"));
-}
-
-// ── attempt_macro_body_fix with vars ────────────────────────────────────
-
-#[test]
-fn attempt_macro_body_fix_with_single_var_updates_literal() {
-    // body: "Hello %(name). Bye."
-    // old expanded: "Hello Alice. Bye."
-    // new expanded: "Hello Alice. Later."
-    // Expects the literal suffix " Bye." → " Later." while preserving %(name).
-    let result = attempt_macro_body_fix(
-        "Hello %(name). Bye.",
-        "Hello Alice. Bye.",
-        "Hello Alice. Later.",
-        '%',
-    );
-    assert!(result.is_some(), "expected Some result, got None");
-    let new_body = result.unwrap();
-    assert!(new_body.contains("Later"), "expected 'Later' in: {new_body}");
-    assert!(new_body.contains("%(name)"), "expected var ref preserved in: {new_body}");
-}
-
-#[test]
-fn attempt_macro_body_fix_returns_none_when_body_eq_expanded() {
-    // body line IS exactly the expanded text → result is just the new expanded text
-    let result = attempt_macro_body_fix("plain text", "plain text", "new text", '%');
-    assert_eq!(result, Some("new text".to_string()));
 }
 // @
 ```

@@ -52,9 +52,46 @@ mod workspace;
 ¤])
 
 ¤rust_file(weaveback-api/src/apply_back/tests/primitives.rs, ¤[
-use super::*;
+mod do_patch;
+mod fuzzy;
+mod macro_fixes;
+mod model;
+mod oracle;
+mod ranking;
+mod run;
+mod verify;
+¤])
 
-// <[applyback-tests-primitives]>
+¤rust_file(weaveback-api/src/apply_back/tests/primitives/fuzzy.rs, ¤[
+// <[applyback-tests-primitives-fuzzy]>
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/tests/primitives/oracle.rs, ¤[
+// <[applyback-tests-primitives-oracle]>
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/tests/primitives/macro_fixes.rs, ¤[
+// <[applyback-tests-primitives-macro-fixes]>
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/tests/primitives/model.rs, ¤[
+// <[applyback-tests-primitives-model]>
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/tests/primitives/verify.rs, ¤[
+// <[applyback-tests-primitives-verify]>
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/tests/primitives/do_patch.rs, ¤[
+// <[applyback-tests-primitives-do-patch]>
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/tests/primitives/ranking.rs, ¤[
+// <[applyback-tests-primitives-ranking]>
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/tests/primitives/run.rs, ¤[
+// <[applyback-tests-primitives-run]>
 ¤])
 
 ¤rust_file(weaveback-api/src/apply_back/tests/workspace.rs, ¤[
