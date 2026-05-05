@@ -161,7 +161,80 @@ pub(in crate::coverage) use summary::{compute_unmapped_ranges, find_noweb_entrie
 
 use super::*;
 
+mod attribution;
+mod emit;
+mod summary;
+mod types;
+
+pub use attribution::{
+    collect_cargo_attributions,
+    collect_cargo_span_attributions,
+};
+pub(in crate::coverage) use attribution::trace_generated_location;
+pub use emit::{
+    emit_augmented_cargo_message,
+    emit_cargo_summary_message,
+};
+pub use summary::{
+    build_cargo_attribution_summary,
+    build_location_attribution_summary,
+};
+pub use types::{
+    CargoDiagnostic,
+};
+#[cfg(test)]
+pub use types::CargoDiagnosticSpan;
+pub(in crate::coverage) use types::CargoMessageEnvelope;
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/coverage/cargo/attribution.rs]>=
+// weaveback-api/src/coverage/cargo/attribution.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::*;
+
 // <[coverage-cargo-attribution]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/coverage/cargo/emit.rs]>=
+// weaveback-api/src/coverage/cargo/emit.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::*;
+
+// <[coverage-cargo-emit]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/coverage/cargo/summary.rs]>=
+// weaveback-api/src/coverage/cargo/summary.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::*;
+
+// <[coverage-cargo-summary]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/coverage/cargo/types.rs]>=
+// weaveback-api/src/coverage/cargo/types.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[coverage-cargo-types]>
 
 // @
 ```

@@ -99,6 +99,10 @@ Completed or materially improved:
   `crates/weaveback-api/src/lookup.rs` is now a small facade over where lookup,
   trace orchestration, span/definition helpers, and source-context extraction
   under `crates/weaveback-api/src/lookup/`.
+* `weaveback-api` cargo coverage attribution has been split at Rust-file level.
+  `crates/weaveback-api/src/coverage/cargo.rs` is now a small facade over cargo
+  message types, diagnostic attribution collection, source-summary grouping, and
+  JSON message emission under `crates/weaveback-api/src/coverage/cargo/`.
 * A clean DB retangle exposed stale generated fixes that had not been preserved
   in canonical sources.  The small canonical catch-ups are now recorded in
   `lint.wvb`, `process.wvb`, the LSP manifest, workflow docs, and `project.adoc`.
@@ -133,6 +137,7 @@ File | Lines | Status
 `crates/weaveback-docgen/src/xref.rs` | 56 | Completed; facade now includes focused `src/xref/*.rs` files.
 `crates/weaveback-tangle/src/block_parser.rs` | 57 | Completed; facade now includes focused `src/block_parser/*.rs` files.
 `crates/weaveback-api/src/lookup.rs` | 29 | Completed; facade now includes focused `src/lookup/*.rs` files.
+`crates/weaveback-api/src/coverage/cargo.rs` | 29 | Completed; facade now includes focused `src/coverage/cargo/*.rs` files.
 `crates/weaveback-macro/src/evaluator/core.rs` | 886 | Large but not first priority.
 
 These numbers are not themselves the rule.  The rule is whether a maintainer can

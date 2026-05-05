@@ -2,9 +2,14 @@
 
 Cargo JSON/text diagnostic attribution, generated-span tracing, and cargo command wrapping.
 
+== Message Types
+
+Cargo emits machine-readable compiler messages as JSON envelopes. These structs
+model only the fields needed for attribution.
+
 [source,rust]
 ----
-// <[coverage-cargo-attribution]>=
+// <[coverage-cargo-types]>=
 #[derive(Debug, serde::Deserialize)]
 pub(in crate::coverage) struct CargoMessageEnvelope {
     pub(in crate::coverage) reason: String,
@@ -23,7 +28,18 @@ pub struct CargoDiagnosticSpan {
     pub column_start: u32,
     pub is_primary: bool,
 }
+// @
+----
 
+
+== Attribution Collection
+
+Attribution collection traces primary diagnostic spans, or all spans when
+building the richer per-span summary.
+
+[source,rust]
+----
+// <[coverage-cargo-attribution]>=
 pub fn collect_cargo_attributions(
     diagnostic: &CargoDiagnostic,
     db: Option<&weaveback_tangle::db::WeavebackDb>,
@@ -125,7 +141,19 @@ pub(in crate::coverage) fn trace_generated_location(
         .ok()
         .flatten()
 }
+// @
+----
 
+
+== Summary Grouping
+
+The summary helpers group traced generated spans by source file and source
+section so cargo output can point back to literate explanations, not just
+generated-code coordinates.
+
+[source,rust]
+----
+// <[coverage-cargo-summary]>=
 pub fn build_cargo_attribution_summary(
     span_attributions: &[serde_json::Value],
 ) -> serde_json::Value {
@@ -352,7 +380,18 @@ pub fn build_location_attribution_summary(records: &[serde_json::Value]) -> serd
             .collect::<Vec<_>>(),
     })
 }
+// @
+----
 
+
+== Message Emission
+
+The emission helpers preserve cargo's JSON stream and add Weaveback attribution
+fields to compiler messages plus a synthetic end-of-stream summary.
+
+[source,rust]
+----
+// <[coverage-cargo-emit]>=
 pub fn emit_augmented_cargo_message(
     original_line: &str,
     attributions: Vec<serde_json::Value>,
