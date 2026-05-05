@@ -285,7 +285,76 @@ use super::*;
 
 use super::*;
 
-// <[db-fts]>
+mod embeddings;
+mod helpers;
+mod prose;
+mod tags;
+mod types;
+
+pub use types::{BlockForEmbedding, FtsResult, SemanticResult, TaggedBlock};
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-tangle/src/db/fts/types.rs]>=
+// weaveback-tangle/src/db/fts/types.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[db-fts-types]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-tangle/src/db/fts/helpers.rs]>=
+// weaveback-tangle/src/db/fts/helpers.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[db-fts-helpers]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-tangle/src/db/fts/prose.rs]>=
+// weaveback-tangle/src/db/fts/prose.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::helpers::normalise_snapshot_path;
+use super::*;
+
+// <[db-fts-prose]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-tangle/src/db/fts/tags.rs]>=
+// weaveback-tangle/src/db/fts/tags.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::*;
+
+// <[db-fts-tags]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-tangle/src/db/fts/embeddings.rs]>=
+// weaveback-tangle/src/db/fts/embeddings.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::helpers::{cosine_similarity, normalise_snapshot_path, prose_snippet};
+use super::*;
+
+// <[db-fts-embeddings]>
 
 // @
 ```

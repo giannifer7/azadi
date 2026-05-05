@@ -190,5 +190,39 @@ use super::*;
 ¤rust_file(weaveback-tangle/src/db/fts.rs, ¤[
 use super::*;
 
-// <[db-fts]>
+mod embeddings;
+mod helpers;
+mod prose;
+mod tags;
+mod types;
+
+pub use types::{BlockForEmbedding, FtsResult, SemanticResult, TaggedBlock};
+¤])
+
+¤rust_file(weaveback-tangle/src/db/fts/types.rs, ¤[
+// <[db-fts-types]>
+¤])
+
+¤rust_file(weaveback-tangle/src/db/fts/helpers.rs, ¤[
+// <[db-fts-helpers]>
+¤])
+
+¤rust_file(weaveback-tangle/src/db/fts/prose.rs, ¤[
+use super::helpers::normalise_snapshot_path;
+use super::*;
+
+// <[db-fts-prose]>
+¤])
+
+¤rust_file(weaveback-tangle/src/db/fts/tags.rs, ¤[
+use super::*;
+
+// <[db-fts-tags]>
+¤])
+
+¤rust_file(weaveback-tangle/src/db/fts/embeddings.rs, ¤[
+use super::helpers::{cosine_similarity, normalise_snapshot_path, prose_snippet};
+use super::*;
+
+// <[db-fts-embeddings]>
 ¤])

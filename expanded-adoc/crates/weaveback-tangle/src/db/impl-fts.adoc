@@ -28,7 +28,7 @@ augmentation over the existing FTS-plus-tags pipeline.
 
 [source,rust]
 ----
-// <[db-fts]>=
+// <[db-fts-types]>=
 /// A single result from `search_prose`.
 #[derive(Debug, Clone)]
 pub struct FtsResult {
@@ -74,8 +74,14 @@ pub struct SemanticResult {
     pub tags:       String,
     pub score:      f32,
 }
+// @
+----
 
-fn normalise_snapshot_path(raw: &str, cwd: &std::path::Path) -> String {
+
+[source,rust]
+----
+// <[db-fts-helpers]>=
+pub(super) fn normalise_snapshot_path(raw: &str, cwd: &std::path::Path) -> String {
     let p = std::path::Path::new(raw);
     if p.is_absolute() {
         if let Ok(rel) = p.strip_prefix(cwd) {
@@ -86,7 +92,7 @@ fn normalise_snapshot_path(raw: &str, cwd: &std::path::Path) -> String {
     raw.strip_prefix("./").map(str::to_owned).unwrap_or_else(|| raw.to_string())
 }
 
-fn prose_snippet(content: &str) -> String {
+pub(super) fn prose_snippet(content: &str) -> String {
     let compact = content.split_whitespace().collect::<Vec<_>>().join(" ");
     let mut chars = compact.chars();
     let prefix: String = chars.by_ref().take(160).collect();
@@ -97,7 +103,7 @@ fn prose_snippet(content: &str) -> String {
     }
 }
 
-fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
+pub(super) fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     if a.is_empty() || a.len() != b.len() {
         return 0.0;
     }
@@ -116,7 +122,13 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
         dot / denom
     }
 }
+// @
+----
 
+
+[source,rust]
+----
+// <[db-fts-prose]>=
 impl WeavebackDb {
     /// Rebuild the `prose_fts` index from `src_snapshots` + `source_blocks`.
     /// Drops and re-inserts all rows so the index is always consistent.
@@ -223,7 +235,15 @@ impl WeavebackDb {
         })?;
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
+}
+// @
+----
 
+
+[source,rust]
+----
+// <[db-fts-tags]>=
+impl WeavebackDb {
     /// List all tagged blocks, optionally filtered to a single source file.
     /// `file_filter` should be a plain relative path (no leading `./`).
     pub fn list_block_tags(
@@ -276,6 +296,32 @@ impl WeavebackDb {
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
 
+    /// Store LLM-generated tags for a block. Overwrites any previous entry.
+    /// `tags` is a comma-separated string, e.g. `"fts,sqlite,search"`.
+    pub fn set_block_tags(
+        &mut self,
+        src_file: &str,
+        block_index: u32,
+        content_hash: &[u8],
+        tags: &str,
+    ) -> Result<(), DbError> {
+        let file_id = intern_file(&self.conn, src_file)?;
+        self.conn.execute(
+            "INSERT OR REPLACE INTO block_tags (src_file, block_index, content_hash, tags)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![file_id, block_index, content_hash, tags],
+        )?;
+        Ok(())
+    }
+}
+// @
+----
+
+
+[source,rust]
+----
+// <[db-fts-embeddings]>=
+impl WeavebackDb {
     /// Return all prose blocks that need embeddings for `model`.
     pub fn get_blocks_needing_embeddings(
         &self,
@@ -301,24 +347,6 @@ impl WeavebackDb {
             })
         })?;
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
-    }
-
-    /// Store LLM-generated tags for a block. Overwrites any previous entry.
-    /// `tags` is a comma-separated string, e.g. `"fts,sqlite,search"`.
-    pub fn set_block_tags(
-        &mut self,
-        src_file: &str,
-        block_index: u32,
-        content_hash: &[u8],
-        tags: &str,
-    ) -> Result<(), DbError> {
-        let file_id = intern_file(&self.conn, src_file)?;
-        self.conn.execute(
-            "INSERT OR REPLACE INTO block_tags (src_file, block_index, content_hash, tags)
-             VALUES (?1, ?2, ?3, ?4)",
-            params![file_id, block_index, content_hash, tags],
-        )?;
-        Ok(())
     }
 
     /// Store an embedding vector for a prose block. Overwrites any previous entry.
