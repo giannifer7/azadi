@@ -64,7 +64,24 @@ use super::*;
 ¤])
 
 ¤rust_file(weaveback-api/src/coverage/tests_coverage/cargo_extra.rs, ¤[
-use super::*;
+mod attribution;
+mod emission;
+mod run;
+mod text;
+¤])
 
-// <[coverage-tests-cargo-extra]>
+¤rust_file(weaveback-api/src/coverage/tests_coverage/cargo_extra/attribution.rs, ¤[
+// <[coverage-tests-cargo-extra-attribution]>
+¤])
+
+¤rust_file(weaveback-api/src/coverage/tests_coverage/cargo_extra/emission.rs, ¤[
+// <[coverage-tests-cargo-extra-emission]>
+¤])
+
+¤rust_file(weaveback-api/src/coverage/tests_coverage/cargo_extra/text.rs, ¤[
+// <[coverage-tests-cargo-extra-text]>
+¤])
+
+¤rust_file(weaveback-api/src/coverage/tests_coverage/cargo_extra/run.rs, ¤[
+// <[coverage-tests-cargo-extra-run]>
 ¤])

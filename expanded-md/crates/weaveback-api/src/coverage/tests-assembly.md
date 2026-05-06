@@ -131,9 +131,54 @@ use super::*;
 // weaveback-api/src/coverage/tests_coverage/cargo_extra.rs
 // I'd Really Rather You Didn't edit this generated file.
 
-use super::*;
+mod attribution;
+mod emission;
+mod run;
+mod text;
 
-// <[coverage-tests-cargo-extra]>
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/coverage/tests_coverage/cargo_extra/attribution.rs]>=
+// weaveback-api/src/coverage/tests_coverage/cargo_extra/attribution.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[coverage-tests-cargo-extra-attribution]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/coverage/tests_coverage/cargo_extra/emission.rs]>=
+// weaveback-api/src/coverage/tests_coverage/cargo_extra/emission.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[coverage-tests-cargo-extra-emission]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/coverage/tests_coverage/cargo_extra/text.rs]>=
+// weaveback-api/src/coverage/tests_coverage/cargo_extra/text.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[coverage-tests-cargo-extra-text]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/coverage/tests_coverage/cargo_extra/run.rs]>=
+// weaveback-api/src/coverage/tests_coverage/cargo_extra/run.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[coverage-tests-cargo-extra-run]>
 
 // @
 ```

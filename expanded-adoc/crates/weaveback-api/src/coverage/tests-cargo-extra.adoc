@@ -4,7 +4,9 @@ Additional cargo attribution and cargo-writer diagnostic tests.
 
 [source,rust]
 ----
-// <[coverage-tests-cargo-extra]>=
+// <[coverage-tests-cargo-extra-attribution]>=
+use super::super::*;
+
 #[test]
 fn collect_cargo_attributions_maps_generated_span_back_to_source() {
     let mut db = WeavebackDb::open_temp().expect("db");
@@ -155,18 +157,7 @@ fn build_cargo_attribution_summary_groups_by_source_file() {
     );
     assert_eq!(summary["sources"][1]["src_file"], "src/b.adoc");
 }
-#[test]
-fn emit_cargo_summary_message_outputs_json_with_reason() {
-    let mut out = Vec::new();
-    emit_cargo_summary_message(5, &[], &mut out).unwrap();
-    let s = String::from_utf8(out).unwrap();
-    let val: serde_json::Value = serde_json::from_str(s.trim()).unwrap();
-    assert_eq!(val["reason"], "weaveback-summary");
-    assert_eq!(val["compiler_message_count"], 5);
-    assert_eq!(val["generated_span_count"], 0);
-}
 
-// ── build_location_attribution_summary ────────────────────────────────
 #[test]
 fn test_collect_cargo_attributions_with_mock() {
     let tmp = tempdir().unwrap();
@@ -205,6 +196,25 @@ fn test_collect_cargo_attributions_with_mock() {
     assert_eq!(attributions.len(), 1);
     assert_eq!(attributions[0]["src_file"].as_str(), Some(project_root.join(src_file).to_string_lossy().as_ref()));
 }
+// @
+----
+
+
+[source,rust]
+----
+// <[coverage-tests-cargo-extra-emission]>=
+use super::super::*;
+
+#[test]
+fn emit_cargo_summary_message_outputs_json_with_reason() {
+    let mut out = Vec::new();
+    emit_cargo_summary_message(5, &[], &mut out).unwrap();
+    let s = String::from_utf8(out).unwrap();
+    let val: serde_json::Value = serde_json::from_str(s.trim()).unwrap();
+    assert_eq!(val["reason"], "weaveback-summary");
+    assert_eq!(val["compiler_message_count"], 5);
+    assert_eq!(val["generated_span_count"], 0);
+}
 
 #[test]
 fn test_emit_augmented_cargo_message() {
@@ -219,6 +229,14 @@ fn test_emit_augmented_cargo_message() {
     assert_eq!(parsed["reason"], "compiler-message");
     assert!(parsed.get("weaveback_attributions").is_some());
 }
+// @
+----
+
+
+[source,rust]
+----
+// <[coverage-tests-cargo-extra-text]>=
+use super::super::*;
 
 #[test]
 fn test_collect_text_attributions_scans_locations() {
@@ -264,6 +282,15 @@ fn test_emit_text_attribution_message() {
     assert_eq!(parsed["stream"], "stdout");
     assert_eq!(parsed["text"], "some test line");
 }
+// @
+----
+
+
+[source,rust]
+----
+// <[coverage-tests-cargo-extra-run]>=
+use super::super::*;
+use crate::coverage::tests_coverage::CARGO_TEST_MUTEX;
 
 #[test]
 fn test_run_cargo_annotated_to_writer_mega_mock() {
