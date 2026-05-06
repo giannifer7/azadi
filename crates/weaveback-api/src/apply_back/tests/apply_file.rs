@@ -113,4 +113,3 @@ fn apply_patches_to_file_dry_run_does_not_mutate() {
     let content = std::fs::read_to_string(ws.root.join("src/test.adoc")).unwrap();
     assert_eq!(content, "line1\n");
 }
-

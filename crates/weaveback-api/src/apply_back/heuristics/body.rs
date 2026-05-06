@@ -82,4 +82,3 @@ pub(in crate::apply_back) fn attempt_macro_body_fix(
 
     if new_body == body_line { None } else { Some(new_body) }
 }
-

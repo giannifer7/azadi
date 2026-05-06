@@ -20,4 +20,3 @@ pub fn config_in_temp_dir(temp_dir: &Path) -> EvalConfig {
 pub fn evaluator_in_temp_dir(temp_dir: &Path) -> Evaluator {
     Evaluator::new(config_in_temp_dir(temp_dir))
 }
-

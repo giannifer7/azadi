@@ -85,4 +85,3 @@ pub(in crate::xref) fn analyze_file(path: &Path) -> (Vec<String>, Vec<String>) {
     collect_items(&file.items, &mut use_paths, &mut symbols);
     (use_paths, symbols)
 }
-

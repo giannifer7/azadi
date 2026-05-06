@@ -120,4 +120,3 @@ omega
     let expanded = setup.clip.expand("list", "").unwrap();
     assert_eq!(expanded, vec!["alpha\n", "omega\n"]);
 }
-

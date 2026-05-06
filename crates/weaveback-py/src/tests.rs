@@ -60,4 +60,3 @@ fn test_py_workspace_basic() {
         let _ = ws.apply_change_plan(py, plan_any.clone());
     });
 }
-

@@ -91,4 +91,3 @@ fn test_recursion_limit_cli() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-

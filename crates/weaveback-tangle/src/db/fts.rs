@@ -10,4 +10,3 @@ mod tags;
 mod types;
 
 pub use types::{BlockForEmbedding, FtsResult, SemanticResult, TaggedBlock};
-

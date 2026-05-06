@@ -218,4 +218,3 @@ mod tests {
         assert!(NodeKind::try_from(99).is_err());
     }
 }
-

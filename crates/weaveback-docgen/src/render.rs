@@ -304,4 +304,3 @@ fn find_adoc_files(root: &Path) -> Vec<PathBuf> {
 }
 #[cfg(test)]
 mod tests;
-

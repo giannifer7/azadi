@@ -62,4 +62,3 @@ pub(in crate::block_parser) fn parse_markdown_raw(source: &str) -> Vec<(u32, u32
     }
     blocks
 }
-

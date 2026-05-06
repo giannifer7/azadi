@@ -142,4 +142,3 @@ pub fn perform_trace(
 
     Ok(Some(result))
 }
-

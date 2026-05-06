@@ -143,4 +143,3 @@ fn test_variable_substitution_with_conditional_logic_missing_param_is_error() {
 
     assert!(err.to_string().contains("Unbound parameter"));
 }
-

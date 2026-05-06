@@ -104,4 +104,3 @@ fn test_run_tangle_all_fails_if_pass_fails() {
     // it exits with error 101 or similar.
     assert!(res.is_err());
 }
-

@@ -61,4 +61,3 @@ pub(in crate::evaluator::builtins) fn single_ident_param(
 
     Ok(text)
 }
-

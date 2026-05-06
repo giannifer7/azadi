@@ -37,5 +37,3 @@ impl Evaluator {
         self.state.dependency_discovery_active = enabled;
     }
 }
-
-

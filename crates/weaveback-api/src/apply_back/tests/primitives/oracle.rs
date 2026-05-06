@@ -53,4 +53,3 @@ fn differing_token_pair_returns_none_when_token_counts_differ() {
     let result = differing_token_pair("foo", "foo bar");
     assert_eq!(result, None);
 }
-

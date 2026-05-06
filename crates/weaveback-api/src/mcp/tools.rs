@@ -180,4 +180,3 @@ pub(super) fn tools_list_result() -> Value {
                                     ]
                                 })
 }
-

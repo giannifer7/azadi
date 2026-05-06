@@ -21,4 +21,3 @@ fn run_apply_back_reports_missing_database() {
     let msg = String::from_utf8(out).unwrap();
     assert!(msg.contains("Database not found"));
 }
-

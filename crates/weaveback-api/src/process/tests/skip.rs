@@ -92,4 +92,3 @@ fn test_compute_skip_set_with_dependencies() {
     assert!(!skip_set.contains("base"));
     assert!(!skip_set.contains("dep"));
 }
-

@@ -3,6 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
+use super::args::ProcessError;
 use super::markdown_normalize::is_markdown_ext;
 
 
@@ -50,13 +51,18 @@ pub(super) fn write_expanded_document(
     expanded_md_dir: &Path,
     expanded_ext: Option<&str>,
     expanded: &str,
-) -> Result<PathBuf, String> {
+) -> Result<PathBuf, ProcessError> {
     let expanded_dir = if is_markdown_ext(expanded_ext) { expanded_md_dir } else { expanded_adoc_dir };
     let out_path = expanded_output_path(full_path, base_dir, expanded_dir, expanded_ext);
     if let Some(parent) = out_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(parent).map_err(|source| ProcessError::ExpandedWrite {
+            path: out_path.clone(),
+            source,
+        })?;
     }
-    std::fs::write(&out_path, expanded).map_err(|e| e.to_string())?;
+    std::fs::write(&out_path, expanded).map_err(|source| ProcessError::ExpandedWrite {
+        path: out_path.clone(),
+        source,
+    })?;
     Ok(out_path)
 }
-

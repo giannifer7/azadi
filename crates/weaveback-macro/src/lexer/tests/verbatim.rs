@@ -37,4 +37,3 @@ fn test_nested_tagged_verbatim_blocks() {
         ],
     );
 }
-

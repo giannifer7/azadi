@@ -138,4 +138,3 @@ fn test_multiple_inputs() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-

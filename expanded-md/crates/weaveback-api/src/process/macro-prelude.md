@@ -7,12 +7,18 @@
 pub(super) fn evaluate_macro_preludes(
     evaluator: &mut Evaluator,
     preludes: &[PathBuf],
-) -> Result<(), String> {
+) -> Result<(), ProcessError> {
     for prelude in preludes {
         let content = std::fs::read_to_string(prelude)
-            .map_err(|e| format!("{}: {e}", prelude.display()))?;
+            .map_err(|source| ProcessError::PreludeRead {
+                path: prelude.clone(),
+                source,
+            })?;
         process_string(&content, Some(prelude), evaluator)
-            .map_err(|e| format!("{}: {e}", prelude.display()))?;
+            .map_err(|source| ProcessError::PreludeEval {
+                path: prelude.clone(),
+                source,
+            })?;
     }
     Ok(())
 }

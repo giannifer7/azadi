@@ -141,4 +141,3 @@ fn list_block_tags_with_filter_returns_empty_for_fresh_db() {
     let tags = list_block_tags(Some("some/file.adoc"), &path).unwrap();
     assert!(tags.is_empty());
 }
-

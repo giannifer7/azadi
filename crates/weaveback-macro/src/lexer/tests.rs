@@ -89,4 +89,3 @@ fn assert_tokens_with_sigil(input: &str, sigil: char, expected: &[(TokenKind, &s
         );
     }
 }
-

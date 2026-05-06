@@ -70,4 +70,3 @@ use rules::{
 
 #[cfg(test)]
 mod tests;
-

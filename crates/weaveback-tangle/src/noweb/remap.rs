@@ -152,4 +152,3 @@ pub(in crate::noweb) fn remap_noweb_entries(
         .filter_map(|(i, e)| e.map(|entry| (i as u32, entry)))
         .collect()
 }
-

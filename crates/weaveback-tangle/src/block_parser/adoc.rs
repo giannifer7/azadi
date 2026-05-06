@@ -291,4 +291,3 @@ pub(in crate::block_parser) fn has_unclosed_adoc_fence(source: &str) -> bool {
 
     current.is_some()
 }
-

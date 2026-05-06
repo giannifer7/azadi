@@ -21,4 +21,3 @@ fn test_unclosed_block_comment_lex_error() {
     assert!(!errors.is_empty(), "expected lex error for unclosed comment");
     assert!(errors[0].message.contains("comment") || errors[0].message.contains("Unclosed"));
 }
-

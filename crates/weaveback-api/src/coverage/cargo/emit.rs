@@ -52,4 +52,3 @@ pub fn emit_cargo_summary_message(
     writeln!(out)?;
     Ok(())
 }
-

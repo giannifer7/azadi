@@ -46,4 +46,3 @@ pub struct SemanticResult {
     pub tags:       String,
     pub score:      f32,
 }
-

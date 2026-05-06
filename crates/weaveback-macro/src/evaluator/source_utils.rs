@@ -48,4 +48,3 @@ pub fn modify_source(
     f.write_all(&result)?;
     Ok(())
 }
-

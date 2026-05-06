@@ -47,4 +47,3 @@ fn test_emit_text_attribution_message() {
     assert_eq!(parsed["stream"], "stdout");
     assert_eq!(parsed["text"], "some test line");
 }
-

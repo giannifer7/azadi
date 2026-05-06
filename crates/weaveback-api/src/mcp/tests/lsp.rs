@@ -69,4 +69,3 @@ fn mcp_lsp_formatting_success_path() {
     let out = mcp_drive(&ws, req);
     assert!(out.contains("\"id\":1300"));
 }
-

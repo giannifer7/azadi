@@ -318,4 +318,3 @@ fn apply_change_plan_writes_successful_edits_and_reports_failures() {
     assert_eq!(result.failed_edit_ids, vec!["bad"]);
     assert_eq!(workspace.read_source("docs/sample.adoc"), "after\nkeep\n");
 }
-

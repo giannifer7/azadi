@@ -79,4 +79,3 @@ pub(in crate::server) fn handle_chunk(request: Request, url: &str, project_root:
         "def_end":   entry.def_end,
     })));
 }
-

@@ -106,4 +106,3 @@ fn test_if_with_macro_condition() {
         "condition is false."
     );
 }
-

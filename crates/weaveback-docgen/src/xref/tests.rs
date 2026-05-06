@@ -147,4 +147,3 @@ fn test_build_xref_orchestration() {
     let b = xref.get("crate_b/lib").unwrap();
     assert!(b.imports.iter().any(|l| l.key == "crate_a/sub"));
 }
-

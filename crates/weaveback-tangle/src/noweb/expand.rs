@@ -249,4 +249,3 @@ impl ChunkStore {
         self.expand(chunk_name, "")
     }
 }
-

@@ -104,4 +104,3 @@ fn attempt_macro_body_fix_returns_none_when_body_eq_expanded() {
     let result = attempt_macro_body_fix("plain text", "plain text", "new text", '%');
     assert_eq!(result, Some("new text".to_string()));
 }
-

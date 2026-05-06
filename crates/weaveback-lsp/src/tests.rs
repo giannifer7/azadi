@@ -55,4 +55,3 @@ msg2 = read_msg()
     let result = client.initialize(std::env::current_dir().unwrap().as_path());
     assert!(result.is_ok());
 }
-

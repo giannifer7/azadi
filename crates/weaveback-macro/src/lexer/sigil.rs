@@ -239,4 +239,3 @@ impl<'a> Lexer<'a> {
         false
     }
 }
-

@@ -46,4 +46,3 @@ pub fn scan_adoc_file_declarations(
     }
     map
 }
-

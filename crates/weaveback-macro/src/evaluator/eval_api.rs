@@ -106,4 +106,3 @@ pub fn eval_string_with_defaults(source: &str) -> EvalResult<String> {
     let mut evaluator = Evaluator::new(EvalConfig::default());
     eval_string(source, None, &mut evaluator)
 }
-

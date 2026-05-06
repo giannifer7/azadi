@@ -53,4 +53,3 @@ impl Parser {
         Self::parse_tokens(stdin.lock().lines())
     }
 }
-

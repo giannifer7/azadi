@@ -116,4 +116,3 @@ str(int(base) + int(size))
         assert_eq!(result.trim(), "42");
     }
 }
-

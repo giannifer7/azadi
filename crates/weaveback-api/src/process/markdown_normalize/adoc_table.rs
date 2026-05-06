@@ -250,4 +250,3 @@ pub(crate) fn normalize_adoc_tables_for_markdown(input: &str) -> String {
     }
     rendered
 }
-

@@ -62,4 +62,3 @@ impl Drop for TestWorkspace {
         let _ = fs::remove_dir_all(&self.root);
     }
 }
-

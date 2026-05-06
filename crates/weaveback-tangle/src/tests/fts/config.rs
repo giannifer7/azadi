@@ -67,4 +67,3 @@ fn db_run_config_overwrite() {
     db.set_run_config("k", "v2").unwrap();
     assert_eq!(db.get_run_config("k").unwrap(), Some("v2".to_string()));
 }
-

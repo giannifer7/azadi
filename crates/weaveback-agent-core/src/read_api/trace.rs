@@ -127,4 +127,3 @@ pub fn trace(
 
     Ok(Some(result))
 }
-

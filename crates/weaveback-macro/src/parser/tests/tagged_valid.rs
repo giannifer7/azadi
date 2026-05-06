@@ -97,4 +97,3 @@ fn test_multiple_macros_across_blocks() {
     // Just structural validity — tag matching and lex/parse pass.
     assert!(lex_parse(src).is_ok());
 }
-

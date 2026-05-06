@@ -148,4 +148,3 @@ fn test_handler_integration() {
     assert!(noted.contains("[NOTE]"));
     assert!(noted.contains("AI suggestion"));
 }
-

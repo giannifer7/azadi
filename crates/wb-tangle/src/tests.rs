@@ -141,4 +141,3 @@ fn test_bin_run_apply_back() {
     let res = run_apply_back(vec!["test.rs".to_string()], false, &single);
     let _ = res;
 }
-

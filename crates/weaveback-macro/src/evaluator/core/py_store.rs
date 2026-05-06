@@ -12,5 +12,3 @@ impl Evaluator {
         self.py_store.get(key).cloned().unwrap_or_default()
     }
 }
-
-

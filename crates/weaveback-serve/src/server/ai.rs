@@ -29,4 +29,3 @@ pub(crate) use context::{
     section_range,
     title_chain,
 };
-

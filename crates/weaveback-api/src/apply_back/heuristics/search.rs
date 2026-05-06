@@ -173,4 +173,3 @@ pub(in crate::apply_back) fn search_macro_call_candidate(request: MacroCallSearc
 
     choose_best_candidate(candidates)
 }
-

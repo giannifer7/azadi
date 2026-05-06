@@ -38,4 +38,3 @@ fn noweb_syntax_is_close_line() {
     assert!(!syn.is_close_line("not a close"));
     assert!(!syn.is_close_line("# @ more text"));
 }
-

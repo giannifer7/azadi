@@ -35,4 +35,3 @@ fn lex_parse_content_macro_call_succeeds() {
     let ast = lex_parse_content("%foo(bar, baz)", '%', 0).unwrap();
     let _ = ast;
 }
-

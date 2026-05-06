@@ -349,4 +349,3 @@ pub(in crate::server::ai) fn call_openai_api(
     }
     let _ = tx.send("event: done\ndata:\n\n".to_string());
 }
-

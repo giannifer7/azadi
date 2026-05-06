@@ -61,4 +61,3 @@ fn test_search_prose_by_embedding_ranks_semantic_match() {
     assert_eq!(results[0].line_start, 3);
     assert_eq!(results[0].tags, "fruit");
 }
-

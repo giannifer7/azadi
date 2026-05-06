@@ -34,4 +34,3 @@ pub fn write_depfile(path: &std::path::Path, target: &std::path::Path, deps: &[P
     out.push('\n');
     std::fs::write(path, out)
 }
-

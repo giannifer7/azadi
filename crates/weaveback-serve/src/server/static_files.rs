@@ -98,4 +98,3 @@ pub(in crate::server) fn serve_static(request: Request, url: &str, html_dir: &Pa
         }
     }
 }
-

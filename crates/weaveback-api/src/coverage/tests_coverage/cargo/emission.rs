@@ -172,4 +172,3 @@ fn emit_cargo_summary_message_emits_final_grouped_json() {
         json!(["helper", "main"])
     );
 }
-

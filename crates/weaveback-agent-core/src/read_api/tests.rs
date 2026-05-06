@@ -323,4 +323,3 @@ fn trace_returns_literal_source_location_from_noweb_map() {
     assert_eq!(traced.macro_name, None);
     assert_eq!(traced.param_name, None);
 }
-

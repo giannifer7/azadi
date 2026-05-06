@@ -74,4 +74,3 @@ fn test_unicode_sigil() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-

@@ -12,4 +12,3 @@ use crate::WeavebackError;
 use crate::safe_writer::{SafeFileWriter, SafeWriterConfig};
 use std::{collections::HashMap, fs, io::Write, path::PathBuf, thread, time::Duration};
 use tempfile::TempDir;
-

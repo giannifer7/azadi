@@ -137,4 +137,3 @@ pub(in crate::evaluator::builtins) fn builtin_here(eval: &mut Evaluator, node: &
     eval.set_early_exit();
     Ok("".into())
 }
-

@@ -54,4 +54,3 @@ pub(in crate::xref) fn resolve_import(
     }
     None
 }
-

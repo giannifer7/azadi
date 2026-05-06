@@ -157,4 +157,3 @@ fn sse_reader_returns_zero_bytes_on_sender_drop() {
         if n == 0 { break; }
     }
 }
-

@@ -72,4 +72,3 @@ fn test_comment_styles() {
         ],
     );
 }
-

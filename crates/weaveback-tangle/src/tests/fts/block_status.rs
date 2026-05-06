@@ -28,4 +28,3 @@ fn db_get_blocks_needing_embeddings_empty_on_fresh_db() {
     let blocks = db.get_blocks_needing_embeddings("model-x").unwrap();
     assert!(blocks.is_empty());
 }
-

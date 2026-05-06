@@ -41,4 +41,3 @@ fn test_large_input() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-

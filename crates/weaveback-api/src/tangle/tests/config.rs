@@ -73,4 +73,3 @@ model = "text-embedding-3-small"
     assert_eq!(eb.model, "text-embedding-3-small");
     assert_eq!(eb.batch_size, crate::semantic::default_embeddings_batch_size());
 }
-

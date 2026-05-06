@@ -180,4 +180,3 @@ impl Clip {
         self.writer.finish(target).map_err(WeavebackError::SafeWriter)
     }
 }
-

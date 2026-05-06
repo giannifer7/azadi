@@ -99,4 +99,3 @@ pub(in crate::server) fn spawn_source_watcher(project_root: PathBuf) {
         drop(watcher);
     });
 }
-

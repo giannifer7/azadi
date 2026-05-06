@@ -31,4 +31,3 @@ fn fuzzy_find_line_tolerates_leading_whitespace() {
     let ls = lines("   bar baz   ");
     assert_eq!(fuzzy_find_line(&ls, 0, "bar baz", 0), Some(0));
 }
-

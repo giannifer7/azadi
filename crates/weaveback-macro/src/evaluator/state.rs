@@ -298,4 +298,3 @@ impl EvaluatorState {
         self.config.sigil.to_string().into_bytes()
     }
 }
-

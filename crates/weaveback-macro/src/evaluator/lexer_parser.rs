@@ -34,4 +34,3 @@ pub fn lex_parse_content(source: &str, sigil: char, src: u32) -> Result<ASTNode,
 
     Ok(ast)
 }
-

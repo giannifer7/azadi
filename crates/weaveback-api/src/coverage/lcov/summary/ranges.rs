@@ -41,4 +41,3 @@ pub(in crate::coverage) fn compute_unmapped_ranges(generated_lines: &[serde_json
     }
     json!(ranges)
 }
-

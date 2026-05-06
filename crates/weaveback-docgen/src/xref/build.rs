@@ -161,4 +161,3 @@ pub(in crate::xref) fn find_line_col(text: &str, byte_offset: usize) -> (u32, u3
     let col_1 = prefix[line_start..].chars().count() as u32 + 1;
     (line_1, col_1)
 }
-

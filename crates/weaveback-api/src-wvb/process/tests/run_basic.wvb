@@ -1,7 +1,7 @@
 ¤h1(¤[Single-Pass Basic Runner Tests¤])
 
 ¤rust_file(weaveback-api/src/process/tests/run_basic.rs, ¤[
-use super::super::{run_single_pass, SinglePassArgs};
+use super::super::{run_single_pass, ProcessError, SinglePassArgs};
 use std::fs;
 use std::path::PathBuf;
 use tempfile::tempdir;
@@ -104,6 +104,57 @@ fn test_run_single_pass_force_generated() {
     assert_eq!(fs::read_to_string(&out_file).unwrap().trim(), "content");
 
     // force_generated is for when it *matches* the baseline but we want to write anyway.
+}
+#[test]
+fn run_single_pass_force_generated_bypasses_incremental_skip() {
+    let tmp = tempdir().unwrap();
+    let src = tmp.path().join("input.adoc");
+    let gen_dir = tmp.path().join("gen_out");
+    fs::create_dir(&gen_dir).unwrap();
+
+    fs::write(&src, "// <<@file output.txt>>=\ncontent\n// @\n").unwrap();
+    let out_file = gen_dir.join("output.txt");
+    let db_path = tmp.path().join("wb.db");
+
+    let make_args = |force_generated| SinglePassArgs {
+        inputs: vec![src.file_name().unwrap().into()],
+        directory: None,
+        input_dir: tmp.path().to_path_buf(),
+        gen_dir: gen_dir.clone(),
+        open_delim: "<<".to_string(),
+        close_delim: ">>".to_string(),
+        chunk_end: "@".to_string(),
+        comment_markers: "//,#".to_string(),
+        ext: vec!["adoc".to_string()],
+        no_macros: true,
+        macro_prelude: vec![],
+        expanded_ext: None,
+        expanded_adoc_dir: PathBuf::from("expanded-adoc"),
+        expanded_md_dir: PathBuf::from("expanded-md"),
+        macro_only: false,
+        dry_run: false,
+        db: db_path.clone(),
+        depfile: None,
+        stamp: None,
+        strict: false,
+        warn_unused: false,
+        allow_env: false,
+        allow_home: true,
+        force_generated,
+        sigil: '%',
+        include: String::new(),
+        formatter: vec![],
+        no_fts: true,
+        dump_expanded: false,
+        project_root: None,
+    };
+
+    run_single_pass(make_args(false)).unwrap();
+    fs::write(&out_file, "locally modified but source unchanged\n").unwrap();
+
+    run_single_pass(make_args(true)).unwrap();
+
+    assert_eq!(fs::read_to_string(&out_file).unwrap(), "content\n");
 }
 #[test]
 fn run_single_pass_with_custom_sigil() {
@@ -221,7 +272,7 @@ fn run_single_pass_error_missing_input() {
     let res = run_single_pass(args);
     assert!(res.is_err());
     let err = res.unwrap_err();
-    assert!(err.contains("No such file or directory") || err.contains("not found"));
+    assert!(matches!(err, ProcessError::Io { .. }));
 }
 #[test]
 fn run_single_pass_bench_no_fts() {

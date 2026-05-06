@@ -224,4 +224,3 @@ pub(in crate::server) fn handle_apply(mut request: Request, project_root: &Path,
 
     let _ = request.respond(json_resp(serde_json::json!({ "ok": true })));
 }
-

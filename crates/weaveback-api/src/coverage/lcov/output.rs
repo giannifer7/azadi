@@ -185,4 +185,3 @@ pub fn build_coverage_summary_view(
     }
     value
 }
-

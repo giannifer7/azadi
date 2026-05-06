@@ -99,4 +99,3 @@ fn test_ast_no_comments_invariant() {
         check_no_comments(&ast);
     }
 }
-

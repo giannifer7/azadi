@@ -37,4 +37,3 @@ pub use crate::db::{WeavebackDb, NowebMapEntry, ChunkDefEntry, FtsResult, BlockF
 pub use crate::noweb::{ChunkDefinitionMatch, Clip, NowebSyntax, tangle_check};
 pub use crate::safe_writer::SafeFileWriter;
 pub use crate::safe_writer::SafeWriterConfig;
-

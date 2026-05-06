@@ -27,4 +27,3 @@ pub(in crate::server) fn spawn_watcher(watch_dir: PathBuf, senders: SseSenders, 
         drop(watcher);
     });
 }
-

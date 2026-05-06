@@ -1,28 +1,48 @@
 // wb-tangle/src/main.rs
 // I'd Really Rather You Didn't edit this generated file.
 
+use miette::Diagnostic;
 use thiserror::Error;
 use weaveback_macro::evaluator::EvalError;
 use weaveback_tangle::WeavebackError;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Diagnostic)]
 enum Error {
-    #[error("{0}")]
-    Macro(#[from] EvalError),
-    #[error("{0}")]
-    Noweb(#[from] WeavebackError),
-    #[error("{0}")]
-    Io(#[from] std::io::Error),
-    #[error("{0}")]
-    Process(#[from] weaveback_api::process::ProcessError),
-    #[error("{0}")]
-    Generic(String),
+    #[error("macro evaluation failed")]
+    #[diagnostic(code(weaveback::macro_eval))]
+    Macro {
+        #[from]
+        #[source]
+        source: EvalError,
+    },
+    #[error("noweb tangling failed")]
+    #[diagnostic(code(weaveback::noweb))]
+    Noweb {
+        #[from]
+        #[source]
+        source: WeavebackError,
+    },
+    #[error("I/O operation failed")]
+    #[diagnostic(code(weaveback::io))]
+    Io {
+        #[from]
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("single-pass processing failed")]
+    #[diagnostic(code(weaveback::process))]
+    Process {
+        #[from]
+        #[source]
+        source: weaveback_api::process::ProcessError,
+    },
 }
 mod cli_generated;
 use cli_generated::{Cli, Commands, SinglePassCli};
 use clap::Parser;
 fn run_multi_pass(config: &std::path::Path, force_generated: bool) -> Result<(), Error> {
-    weaveback_api::tangle::run_tangle_all(config, force_generated).map_err(Error::Io)
+    weaveback_api::tangle::run_tangle_all(config, force_generated)
+        .map_err(|source| Error::Io { source })
 }
 
 fn run_single_pass_from_cli(s: SinglePassCli, force_generated: bool) -> Result<(), Error> {
@@ -58,7 +78,7 @@ fn run_single_pass_from_cli(s: SinglePassCli, force_generated: bool) -> Result<(
         no_fts:          s.no_fts,
         dump_expanded:   s.dump_expanded,
         project_root:    None,
-    }).map_err(Error::Generic)?;
+    })?;
     Ok(())
 }
 
@@ -89,10 +109,12 @@ fn run_apply_back(
         eval_config: Some(eval_config),
     };
     run_apply_back(opts, &mut std::io::stdout())
-        .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
+        .map_err(|e| Error::Io {
+            source: std::io::Error::other(e.to_string()),
+        })
 }
 
-fn main() {
+fn main() -> miette::Result<()> {
     let cli = Cli::parse();
 
     let result: Result<(), Error> = match cli.command {
@@ -105,11 +127,8 @@ fn main() {
         None => run_multi_pass(&cli.config, cli.force_generated),
     };
 
-    if let Err(e) = result {
-        eprintln!("wb-tangle: {e}");
-        std::process::exit(1);
-    }
+    result?;
+    Ok(())
 }
 #[cfg(test)]
 mod tests;
-

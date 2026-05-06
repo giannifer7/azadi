@@ -77,4 +77,3 @@ fn test_unclosed_after_valid_content() {
     let err = lex_parse("some text %foo{ more text").unwrap_err();
     assert!(err.contains("foo"), "expected 'foo': {}", err);
 }
-

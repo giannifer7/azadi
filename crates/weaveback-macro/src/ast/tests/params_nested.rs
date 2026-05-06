@@ -108,4 +108,3 @@ fn test_param_with_nested_macro() {
     assert_eq!(result.parts.len(), 1);
     check_node(&result.parts[0], NodeKind::Macro, 1);
 }
-

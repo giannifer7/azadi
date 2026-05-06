@@ -129,4 +129,3 @@ fn test_strip_removes_spaces_before_multiple_consecutive_comments() {
     assert_eq!(root.parts[1], comment1_idx);
     assert_eq!(root.parts[2], comment2_idx);
 }
-

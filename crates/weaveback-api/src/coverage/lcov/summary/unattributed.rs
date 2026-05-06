@@ -46,4 +46,3 @@ pub(super) fn record_unattributed_line(
     };
     file.generated_lines.push(generated_line);
 }
-

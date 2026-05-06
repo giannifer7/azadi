@@ -298,4 +298,3 @@ fn run_single_pass_with_var_defs_recording() {
     assert!(!vars.is_empty(), "Should have recorded MYVAR definition");
     assert!(vars[0].0.contains("input.adoc"));
 }
-

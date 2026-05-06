@@ -32,5 +32,3 @@ impl Evaluator {
         Err(EvalError::IncludeNotFound(filename.into()))
     }
 }
-
-

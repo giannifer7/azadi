@@ -61,4 +61,3 @@ use search::{prepare_fts_query, reciprocal_rank};
 
 #[cfg(test)]
 mod tests;
-

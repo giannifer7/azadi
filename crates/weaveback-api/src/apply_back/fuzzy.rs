@@ -29,4 +29,3 @@ pub(in crate::apply_back) fn fuzzy_find_line(lines: &[String], center: usize, ne
     }
     found
 }
-

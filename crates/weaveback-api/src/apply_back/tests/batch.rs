@@ -210,4 +210,3 @@ fn test_apply_patches_to_file_macro_body_literal_success() {
     apply_patches_to_file(ctx, &mut skipped, &mut out).unwrap();
     assert_eq!(std::fs::read_to_string(ws.root.join("src/test.adoc")).unwrap(), "patched body\n");
 }
-

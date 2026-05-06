@@ -143,4 +143,3 @@ fn explicit_html_table_block_is_asciidoc_passthrough_block() {
     let out = normalize_expanded_document(Some("adoc"), input.as_bytes());
     assert_eq!(out.trim(), "++++\n<table><tr><td>A</td></tr></table>\n++++");
 }
-

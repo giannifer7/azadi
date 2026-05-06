@@ -11,6 +11,8 @@
 #   podman build --target fedora -t weaveback-fedora .
 #
 # Python policy:
+#   - CPython 3.14 is mandatory for local CI parity; do not rely on the
+#     distro `python3` version in glibc/dev images
 #   - use uv as the package/tool runner
 #   - keep maturin available for crates/weaveback-py
 #   - keep mypy and pylint installed for python/weaveback-agent even before
@@ -24,11 +26,11 @@ FROM debian:bookworm-slim AS rust-base
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl ca-certificates build-essential pkg-config git graphviz \
-        python3 python3-dev python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
+    UV_PYTHON_INSTALL_DIR=/opt/uv-python \
     UV_INSTALL_DIR=/usr/local/bin \
     UV_TOOL_BIN_DIR=/usr/local/bin \
     PATH=/usr/local/cargo/bin:/usr/local/bin:$PATH
@@ -37,10 +39,14 @@ RUN curl https://sh.rustup.rs -sSf \
     | sh -s -- -y --default-toolchain stable --no-modify-path
 RUN cargo install cargo-llvm-cov
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+RUN uv python install 3.14 \
+    && uv python find 3.14 > /tmp/python314 \
+    && ln -sf "$(cat /tmp/python314)" /usr/local/bin/python3.14 \
+    && ln -sf "$(cat /tmp/python314)" /usr/local/bin/python3
 RUN curl -fsSL https://d2lang.com/install.sh | sh -s -- --prefix /usr/local
-RUN uv tool install --python /usr/bin/python3 maturin \
-    && uv tool install --python /usr/bin/python3 mypy \
-    && uv tool install --python /usr/bin/python3 pylint
+RUN uv tool install --python 3.14 maturin \
+    && uv tool install --python 3.14 mypy \
+    && uv tool install --python 3.14 pylint
 
 # ── cargo-chef planner ────────────────────────────────────────────────────────
 FROM rust-base AS planner

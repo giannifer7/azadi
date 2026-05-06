@@ -87,4 +87,3 @@ pub(super) fn chunk_context_bonus(
         0
     }
 }
-

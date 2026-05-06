@@ -291,4 +291,3 @@ pub fn run_auto_tag(db: &mut WeavebackDb, cfg: &TagConfig) {
 }
 #[cfg(test)]
 mod tests;
-

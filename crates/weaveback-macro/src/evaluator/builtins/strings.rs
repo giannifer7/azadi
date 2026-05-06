@@ -68,4 +68,3 @@ pub(in crate::evaluator::builtins) fn builtin_to_pascal_case(eval: &mut Evaluato
 pub(in crate::evaluator::builtins) fn builtin_to_screaming_case(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
     builtin_single_arg_case(eval, node, "screaming")
 }
-

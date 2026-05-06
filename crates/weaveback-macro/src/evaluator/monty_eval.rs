@@ -67,4 +67,3 @@ pub fn monty_object_to_string(obj: MontyObject) -> String {
         other => format!("{other:?}"),
     }
 }
-

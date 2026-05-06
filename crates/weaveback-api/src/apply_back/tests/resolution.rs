@@ -159,4 +159,3 @@ fn test_search_macro_call_candidate_verified() {
     assert_eq!(best.line_idx, 0);
     assert_eq!(best.new_line, "    !my_macro(new_val)");
 }
-

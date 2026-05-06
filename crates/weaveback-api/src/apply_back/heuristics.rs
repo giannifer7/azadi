@@ -21,4 +21,3 @@ pub(in crate::apply_back) use search::{
 pub(in crate::apply_back) use body::attempt_macro_body_fix;
 #[cfg(test)]
 pub(in crate::apply_back) use ranking::{choose_best_candidate, rank_candidate};
-

@@ -19,4 +19,3 @@ pub struct CargoDiagnosticSpan {
     pub column_start: u32,
     pub is_primary: bool,
 }
-

@@ -33,4 +33,3 @@ pub(in crate::noweb) fn path_is_safe(path: &str) -> Result<(), SafeWriterError> 
     }
     Ok(())
 }
-

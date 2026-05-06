@@ -91,6 +91,8 @@ use std::path::PathBuf;
 use weaveback_macro::evaluator::Evaluator;
 use weaveback_macro::macro_api::process_string;
 
+use super::args::ProcessError;
+
 // <[process-macro-prelude]>
 
 // @
@@ -167,6 +169,7 @@ use super::markdown_table::normalize_markdown_table_for_asciidoc;
 
 use std::path::{Path, PathBuf};
 
+use super::args::ProcessError;
 use super::markdown_normalize::is_markdown_ext;
 
 // <[process-expanded-paths]>
@@ -200,10 +203,10 @@ use std::path::PathBuf;
 
 use weaveback_macro::evaluator::{EvalConfig, Evaluator};
 use weaveback_macro::macro_api::{discover_includes_in_string, process_string};
-use weaveback_tangle::{Clip, SafeFileWriter, SafeWriterConfig};
+use weaveback_tangle::{Clip, SafeFileWriter, SafeWriterConfig, WeavebackError};
 use weaveback_tangle::db::WeavebackDb;
 
-use super::args::SinglePassArgs;
+use super::args::{ProcessError, SinglePassArgs};
 use super::expanded_paths::{expanded_source_key, write_expanded_document};
 use super::fs::{find_files, write_depfile};
 use super::macro_prelude::evaluate_macro_preludes;

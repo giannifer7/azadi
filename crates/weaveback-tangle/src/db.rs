@@ -28,4 +28,3 @@ pub(in crate::db) use schema::CREATE_SCHEMA;
 
 #[cfg(test)]
 mod tests;
-

@@ -337,4 +337,3 @@ pub fn run_apply_back(opts: ApplyBackOptions, out: &mut dyn Write) -> Result<(),
 
     Ok(())
 }
-

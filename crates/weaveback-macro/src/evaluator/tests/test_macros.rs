@@ -90,4 +90,3 @@ fn test_scope_isolation() {
     let result = process_string_defaults(source).unwrap();
     assert_eq!(std::str::from_utf8(&result).unwrap().trim(), "other_value");
 }
-

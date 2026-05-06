@@ -198,4 +198,3 @@ fn block_index_is_sequential() {
         assert_eq!(b.block_index, i as u32);
     }
 }
-

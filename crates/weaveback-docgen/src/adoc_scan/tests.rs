@@ -56,4 +56,3 @@ fn masked_include_preserves_length() {
     assert_eq!(masked.len(), source.len());
     assert!(masked.starts_with("xnclude::"));
 }
-

@@ -316,4 +316,3 @@ fn dep_bodies_skips_missing_definitions() {
     assert_eq!(deps.len(), 1);
     assert_eq!(deps["alpha"]["body"], "alpha");
 }
-

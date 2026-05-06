@@ -161,5 +161,3 @@ impl Evaluator {
         &self.state.source_manager
     }
 }
-
-

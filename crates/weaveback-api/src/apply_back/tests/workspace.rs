@@ -80,4 +80,3 @@ fn run_apply_back_reports_missing_source_map_on_diff() {
     assert!(s.contains("Processing out.rs"));
     assert!(s.contains("skip line 2: no source map entry"));
 }
-

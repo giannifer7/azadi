@@ -47,4 +47,3 @@ fn test_modify_source_insert_beyond_eof_appends() {
 
     assert_eq!(fs::read_to_string(&path).unwrap(), "abcXYZ");
 }
-

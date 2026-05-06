@@ -25,4 +25,3 @@ pub(super) fn send_error<W: Write>(writer: &mut W, id: Option<Value>, msg: &str)
         "content": [{ "type": "text", "text": msg }]
     }));
 }
-

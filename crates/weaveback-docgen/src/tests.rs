@@ -110,4 +110,3 @@ fn parse_args_from_ignores_invalid_special_values() {
     let args = parse_args_from(&raw);
     assert!(args.specials.is_empty());
 }
-

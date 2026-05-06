@@ -66,4 +66,3 @@ fn test_run_cargo_annotated_to_writer_diagnostics_only() {
     assert!(output.contains("compiler-message"));
     assert!(!output.contains("other"), "expected 'other' message to be filtered out");
 }
-

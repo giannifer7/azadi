@@ -52,4 +52,3 @@ pub fn run_lint(
         Ok(())
     }
 }
-

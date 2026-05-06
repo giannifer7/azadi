@@ -56,4 +56,3 @@ fn test_serialize_token_src_field_present() {
     assert_eq!(nodes.len(), 1);
     assert!(nodes[0].starts_with("[10,2,"), "token src not present: {}", nodes[0]);
 }
-

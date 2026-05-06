@@ -175,4 +175,3 @@ fn perform_trace_validates_line_before_db_lookup() {
         .expect_err("invalid line");
     assert!(matches!(err, LookupError::InvalidInput(_)));
 }
-

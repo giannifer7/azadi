@@ -16,4 +16,3 @@ pub(in crate::read_api) fn open_db(config: &WorkspaceConfig) -> Result<Weaveback
 pub(in crate::read_api) fn build_eval_config() -> EvalConfig {
     EvalConfig::default()
 }
-

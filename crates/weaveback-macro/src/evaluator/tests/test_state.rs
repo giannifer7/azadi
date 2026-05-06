@@ -222,4 +222,3 @@ fn test_state_drain_defs_and_unicode_sigil() {
     assert!(st.drain_var_defs().is_empty());
     assert!(st.drain_macro_defs().is_empty());
 }
-

@@ -78,4 +78,3 @@ pub(in crate::server) fn handle_request(
 
     serve_static(request, &url, html_dir);
 }
-

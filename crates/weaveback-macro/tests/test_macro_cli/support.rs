@@ -19,4 +19,3 @@ pub(crate) fn cargo_weaveback_macro_cli() -> Result<escargot::CargoRun, Box<dyn 
         .current_target()
         .run()?)
 }
-

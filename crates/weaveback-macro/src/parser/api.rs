@@ -88,4 +88,3 @@ impl Parser {
         self.nodes.len() - 1
     }
 }
-

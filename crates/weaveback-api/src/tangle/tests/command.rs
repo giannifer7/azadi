@@ -189,4 +189,3 @@ fn build_pass_cmd_uses_output_dir_when_set() {
     assert!(args.windows(2).any(|w| w[0] == "--gen" && w[1] == "out/"));
     assert!(!args.windows(2).any(|w| w[0] == "--gen" && w[1] == "default/"));
 }
-

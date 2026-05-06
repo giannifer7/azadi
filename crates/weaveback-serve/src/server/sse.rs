@@ -41,4 +41,3 @@ impl Read for SseReader {
         }
     }
 }
-

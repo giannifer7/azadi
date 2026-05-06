@@ -41,4 +41,3 @@ pub(in crate::evaluator::builtins) fn builtin_not(eval: &mut Evaluator, node: &A
     };
     if x.is_empty() { Ok("1".into()) } else { Ok("".into()) }
 }
-

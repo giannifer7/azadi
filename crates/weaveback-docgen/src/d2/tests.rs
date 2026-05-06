@@ -105,4 +105,3 @@ fn test_render_d2_mock() {
 
     unsafe { std::env::remove_var("WEAVEBACK_D2_BIN"); }
 }
-

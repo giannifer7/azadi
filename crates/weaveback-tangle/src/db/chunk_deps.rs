@@ -114,4 +114,3 @@ impl WeavebackDb {
         rows.collect::<Result<_, _>>().map_err(DbError::Sql)
     }
 }
-

@@ -83,4 +83,3 @@ fn trace_rejects_zero_line_before_db_lookup() {
     let err = session.trace("gen/out.rs", 0, 1).unwrap_err();
     assert_eq!(err, "out_line must be >= 1");
 }
-

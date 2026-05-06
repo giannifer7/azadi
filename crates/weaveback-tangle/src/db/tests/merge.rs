@@ -70,4 +70,3 @@ fn merge_into_replaces_stale_noweb_rows_for_touched_sources() {
         ]
     );
 }
-

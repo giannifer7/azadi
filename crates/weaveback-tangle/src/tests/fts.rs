@@ -26,4 +26,3 @@ fn block(index: u32, block_type: &str, line_start: u32, line_end: u32) -> Source
         content_hash: [0u8; 32],
     }
 }
-

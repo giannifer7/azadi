@@ -53,4 +53,3 @@ pub(in crate::server) fn handle_save_note(mut request: Request, project_root: &P
         Err(e) => { let _ = request.respond(json_resp(serde_json::json!({"ok":false,"error":format!("{e}")}))); }
     }
 }
-

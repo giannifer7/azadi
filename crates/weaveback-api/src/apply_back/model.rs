@@ -130,4 +130,3 @@ pub(in crate::apply_back) struct MacroCallSearch<'a> {
     pub(in crate::apply_back) src_path: &'a std::path::Path,
     pub(in crate::apply_back) expanded_line: u32,
 }
-

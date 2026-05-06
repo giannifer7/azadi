@@ -101,4 +101,3 @@ pub(in crate::process::markdown_normalize) fn normalize_explicit_table_blocks(ex
     }
     rendered
 }
-

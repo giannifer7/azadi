@@ -265,4 +265,3 @@ pub(in crate::apply_back) fn apply_patches_to_file(
 pub(in crate::apply_back) fn strip_indent<'a>(line: &'a str, indent: &str) -> &'a str {
     line.strip_prefix(indent).unwrap_or(line)
 }
-

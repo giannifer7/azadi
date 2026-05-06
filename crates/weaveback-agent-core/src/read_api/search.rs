@@ -222,4 +222,3 @@ pub fn search(config: &WorkspaceConfig, query: &str, limit: usize) -> Result<Vec
     hits.truncate(limit);
     Ok(hits)
 }
-

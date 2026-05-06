@@ -16,4 +16,3 @@ mod lcov_summary;
 mod summary_output;
 mod location_errors;
 mod cargo_extra;
-

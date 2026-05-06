@@ -32,4 +32,3 @@ pub fn parse_lcov_records(text: &str) -> Vec<(String, u32, u64)> {
 
     out
 }
-

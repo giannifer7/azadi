@@ -6,4 +6,3 @@ mod run;
 
 use std::sync::Mutex;
 pub(super) static CARGO_TEST_MUTEX: Mutex<()> = Mutex::new(());
-

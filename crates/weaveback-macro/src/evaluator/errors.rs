@@ -45,4 +45,3 @@ impl From<String> for EvalError {
         EvalError::Runtime(s)
     }
 }
-

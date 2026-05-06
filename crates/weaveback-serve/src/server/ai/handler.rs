@@ -110,4 +110,3 @@ pub(in crate::server) fn handle_ai(mut request: Request, project_root: &Path, cf
     let response = Response::new(StatusCode(200), sse_headers(), reader, None, None);
     let _ = request.respond(response);
 }
-

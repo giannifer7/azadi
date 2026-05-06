@@ -108,4 +108,3 @@ fn render_docs_skips_up_to_date_outputs() {
     assert_eq!(rendered, vec![out.join("docs/index.html")]);
     assert_eq!(fs::read_to_string(out.join("docs/index.html")).expect("html"), "<html>cached</html>");
 }
-

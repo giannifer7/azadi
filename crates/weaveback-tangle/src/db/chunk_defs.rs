@@ -151,4 +151,3 @@ impl WeavebackDb {
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
 }
-

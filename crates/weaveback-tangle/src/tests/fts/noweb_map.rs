@@ -111,4 +111,3 @@ fn db_get_all_output_mappings() {
     let mappings = db.get_all_output_mappings("s.adoc").unwrap();
     assert_eq!(mappings.len(), 2);
 }
-

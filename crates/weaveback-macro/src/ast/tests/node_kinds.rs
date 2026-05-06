@@ -19,4 +19,3 @@ fn test_node_kind_discriminants() {
     assert_eq!(NodeKind::Macro as i32, 9);
     assert_eq!(NodeKind::Block as i32, 10);
 }
-

@@ -64,4 +64,3 @@ fn test_eval_with_whitespace_only_arg_is_still_missing_name() {
     assert!(matches!(err, EvalError::InvalidUsage(_)));
     assert!(err.to_string().contains("eval requires macroName"));
 }
-

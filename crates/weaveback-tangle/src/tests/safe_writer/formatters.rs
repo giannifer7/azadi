@@ -140,4 +140,3 @@ fn test_formatter_output_is_trailing_whitespace_normalized() -> Result<(), Weave
     assert_eq!(output, "alpha\n");
     Ok(())
 }
-

@@ -55,4 +55,3 @@ fn generate_and_inject_crate_builds_grouped_module_section() {
     assert!(content.contains("top.html"));
     assert!(content.contains("parser/mod.html"));
 }
-

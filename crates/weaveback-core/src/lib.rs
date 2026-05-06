@@ -61,4 +61,3 @@ impl PathResolver {
         self.project_root.join(&self.gen_dir).join(db_path)
     }
 }
-

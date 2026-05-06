@@ -13,6 +13,7 @@ path = "src/lib.rs"
 
 [dependencies]
 thiserror.workspace = true
+miette.workspace = true
 weaveback-core.workspace = true
 weaveback-macro.workspace = true
 weaveback-tangle.workspace = true

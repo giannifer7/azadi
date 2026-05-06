@@ -63,4 +63,3 @@ fn find_files_error_on_missing_dir() {
     let res = find_files(std::path::Path::new("/non/existent/path/for/weaveback/test"), &["adoc".to_string()], &mut Vec::new());
     assert!(res.is_err());
 }
-

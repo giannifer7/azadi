@@ -32,4 +32,3 @@ pub fn perform_where(
         Ok(None)
     }
 }
-

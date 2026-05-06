@@ -10,4 +10,3 @@ pub use apply::{ApplyResult, ChangePreview, PlanValidation};
 pub use change_plan::{ChangePlan, ChangeTarget, PlannedEdit, OutputAnchor};
 pub use read_api::{ChunkContext, SearchHit, TraceResult};
 pub use workspace::{Session, Workspace, WorkspaceConfig};
-

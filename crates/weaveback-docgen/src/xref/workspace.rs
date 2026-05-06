@@ -24,4 +24,3 @@ pub(crate) fn workspace_crate_names(crates_dir: &Path) -> Vec<String> {
     }
     names
 }
-

@@ -303,4 +303,3 @@ fn test_parse_openai_response_errors_on_empty_choices() {
     let v = serde_json::json!({ "choices": [] });
     assert!(parse_openai_response(&v).is_err());
 }
-

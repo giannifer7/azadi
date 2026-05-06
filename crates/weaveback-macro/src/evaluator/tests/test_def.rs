@@ -214,4 +214,3 @@ fn test_arguments_evaluated_before_body() {
     assert_eq!(output.trim(), "hi!there!",
         "expected eager evaluation: hi! and there! expanded before join body runs");
 }
-

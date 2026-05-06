@@ -66,4 +66,3 @@ fn test_run_mcp_loop() {
     assert!(output.contains("\"id\":101"));
     assert!(output.contains("weaveback_trace"));
 }
-

@@ -48,4 +48,3 @@ fn test_root_end_pos_with_block() {
     let root = parser.get_node(0).unwrap();
     assert_eq!(root.end_pos, src.len());
 }
-

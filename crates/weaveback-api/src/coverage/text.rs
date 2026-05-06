@@ -318,4 +318,3 @@ pub fn run_trace(
         Err(lookup::LookupError::Io(e)) => Err(CoverageApiError::Io(e)),
     }
 }
-

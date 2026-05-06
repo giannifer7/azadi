@@ -335,4 +335,3 @@ fn run_apply_back_with_restricted_files() {
     assert!(s.contains("Processing a.rs"));
     assert!(!s.contains("Processing b.rs"));
 }
-

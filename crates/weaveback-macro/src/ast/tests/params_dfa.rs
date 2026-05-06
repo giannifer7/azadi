@@ -55,4 +55,3 @@ fn test_param_block_as_first_token_is_positional() {
     check_node(&result.parts[1], NodeKind::Equal, 0);
     check_node(&result.parts[2], NodeKind::Text,  0);
 }
-

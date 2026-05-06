@@ -11,4 +11,3 @@ pub(super) fn ws_write_file(root: &Path, rel: &str, content: &[u8]) {
     }
     std::fs::write(p, content).unwrap();
 }
-

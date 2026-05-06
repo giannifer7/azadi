@@ -33,4 +33,3 @@ pub struct OutputAnchor {
     pub out_line: u32,
     pub expected_output: String,
 }
-

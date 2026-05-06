@@ -304,4 +304,3 @@ pub fn get_lsp_config(ext: &str) -> Option<(String, String)> {
 }
 #[cfg(test)]
 mod tests;
-

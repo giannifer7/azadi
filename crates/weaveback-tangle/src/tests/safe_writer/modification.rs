@@ -144,4 +144,3 @@ fn test_baseline_always_written() -> Result<(), WeavebackError> {
     );
     Ok(())
 }
-

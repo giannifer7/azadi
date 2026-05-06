@@ -75,4 +75,3 @@ pub(in crate::apply_back) fn differing_token_pair(old_text: &str, new_text: &str
         None
     }
 }
-

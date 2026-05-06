@@ -53,4 +53,3 @@ fn test_path_safety() {
         }
     }
 }
-

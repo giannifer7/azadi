@@ -32,4 +32,3 @@ fn tangle_check_handles_multiple_files() {
     assert_eq!(result["a.txt"], vec!["alpha\n"]);
     assert_eq!(result["b.txt"], vec!["beta\n"]);
 }
-

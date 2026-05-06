@@ -268,4 +268,3 @@ fn mcp_coverage_success_path() {
     let out = mcp_drive(&ws, &req);
     assert!(out.contains("\"id\":1500"));
 }
-

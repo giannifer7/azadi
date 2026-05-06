@@ -167,4 +167,3 @@ pub fn process_string_precise(
     evaluator.evaluate_to(&ast, &mut out)?;
     Ok(out.into_parts())
 }
-

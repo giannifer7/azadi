@@ -29,4 +29,3 @@ pub(crate) fn write_file(
     writer.after_write(path)?;
     Ok(())
 }
-

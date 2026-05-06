@@ -48,5 +48,3 @@ impl Evaluator {
         self.state.drain_warnings()
     }
 }
-
-

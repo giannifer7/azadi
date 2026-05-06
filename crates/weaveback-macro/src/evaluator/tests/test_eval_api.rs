@@ -150,4 +150,3 @@ fn eval_files_with_config_creates_output_dir() {
     .unwrap();
     assert!(out_dir.exists());
 }
-

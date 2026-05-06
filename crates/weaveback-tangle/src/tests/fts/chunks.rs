@@ -85,4 +85,3 @@ fn db_query_chunk_defs_overlapping() {
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].chunk_name, "beta");
 }
-

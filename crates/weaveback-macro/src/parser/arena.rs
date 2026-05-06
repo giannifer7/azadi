@@ -87,4 +87,3 @@ impl Parser {
         (token.pos + special_len, tag_len)
     }
 }
-

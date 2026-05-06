@@ -27,4 +27,3 @@ pub use types::{
 #[cfg(test)]
 pub use types::CargoDiagnosticSpan;
 pub(in crate::coverage) use types::CargoMessageEnvelope;
-

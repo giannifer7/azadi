@@ -53,4 +53,3 @@ fn strip_indent_returns_original_when_no_match() {
     let result = strip_indent("hello", "    ");
     assert_eq!(result, "hello");
 }
-

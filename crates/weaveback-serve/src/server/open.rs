@@ -59,4 +59,3 @@ pub(crate) fn percent_decode(s: &str) -> String {
     }
     out
 }
-

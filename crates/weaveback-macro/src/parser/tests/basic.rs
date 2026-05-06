@@ -144,4 +144,3 @@ fn test_token_kind_conversion() {
     assert!(TokenKind::try_from(-1).is_err());
     assert!(TokenKind::try_from(17).is_err());
 }
-

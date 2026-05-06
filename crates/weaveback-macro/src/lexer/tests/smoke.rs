@@ -11,4 +11,3 @@ fn test_no_error() {
     let tokens = tokens_res.unwrap();
     assert!(!tokens.is_empty());
 }
-

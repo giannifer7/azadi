@@ -104,4 +104,3 @@ pub(in crate::coverage) fn trace_generated_location(
         .ok()
         .flatten()
 }
-

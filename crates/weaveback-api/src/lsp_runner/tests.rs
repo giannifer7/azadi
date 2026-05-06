@@ -153,4 +153,3 @@ while True:
     );
     assert!(res.is_ok(), "run_lsp (refs) failed: {:?}", res.err());
 }
-

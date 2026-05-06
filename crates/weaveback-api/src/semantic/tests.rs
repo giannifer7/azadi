@@ -280,4 +280,3 @@ fn test_run_auto_embed_skips_when_no_blocks() {
     run_auto_embed(&mut db, &cfg);
     // Should not panic, should just complete.
 }
-

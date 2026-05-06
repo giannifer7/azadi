@@ -51,4 +51,3 @@ struct BindingPlan<'a> {
     named: Vec<NamedBinding<'a>>,
     unbound: Vec<&'a str>,
 }
-

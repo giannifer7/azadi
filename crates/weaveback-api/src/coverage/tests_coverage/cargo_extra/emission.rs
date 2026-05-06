@@ -27,4 +27,3 @@ fn test_emit_augmented_cargo_message() {
     assert_eq!(parsed["reason"], "compiler-message");
     assert!(parsed.get("weaveback_attributions").is_some());
 }
-

@@ -17,4 +17,3 @@ mod stress;
 mod strict;
 #[path = "test_macro_cli/support.rs"]
 mod support;
-

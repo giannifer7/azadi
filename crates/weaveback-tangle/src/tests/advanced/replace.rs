@@ -82,4 +82,3 @@ second
         "second definition should be rejected without @replace"
     );
 }
-

@@ -209,4 +209,3 @@ pub(crate) fn build_chunk_context(
         "git_log":              log,
     })
 }
-

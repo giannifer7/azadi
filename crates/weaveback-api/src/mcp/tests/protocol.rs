@@ -73,4 +73,3 @@ fn mcp_list_resources_and_prompts_are_empty_but_covered() {
     assert!(out.contains("\"id\":300"));
     assert!(out.contains("\"id\":301"));
 }
-

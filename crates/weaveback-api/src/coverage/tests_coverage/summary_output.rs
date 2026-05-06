@@ -179,4 +179,3 @@ fn build_location_attribution_summary_returns_empty_for_no_records() {
     assert_eq!(summary["count"], 0);
     assert!(summary["sources"].as_array().unwrap().is_empty());
 }
-

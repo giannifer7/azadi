@@ -65,4 +65,3 @@ fn test_discover_includes_in_file_records_import_target() {
     let result = crate::macro_api::discover_includes_in_file(&main_path, &mut eval).unwrap();
     assert_eq!(result, vec![include_path]);
 }
-

@@ -40,4 +40,3 @@ pub(in crate::evaluator::builtins) fn builtin_env(eval: &mut Evaluator, node: &A
     };
     Ok(std::env::var(lookup_name).unwrap_or_default())
 }
-

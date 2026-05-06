@@ -122,4 +122,3 @@ CREATE VIRTUAL TABLE IF NOT EXISTS prose_fts USING fts5(
     tokenize  = 'porter unicode61'
 );
 ";
-

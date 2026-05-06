@@ -185,4 +185,3 @@ fn clip_db_and_db_mut_are_accessible() {
     let _ = setup.clip.db();
     let _ = setup.clip.db_mut();
 }
-

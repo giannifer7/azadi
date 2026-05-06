@@ -60,4 +60,3 @@ pub(in crate::coverage) use text::{collect_text_attributions, emit_text_attribut
 
 #[cfg(test)]
 mod tests_coverage;
-

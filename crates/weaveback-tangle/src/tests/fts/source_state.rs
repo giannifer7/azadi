@@ -81,4 +81,3 @@ fn db_macro_defs_roundtrip() {
     assert_eq!(defs.len(), 1);
     assert_eq!(defs[0].0, "src.adoc");
 }
-

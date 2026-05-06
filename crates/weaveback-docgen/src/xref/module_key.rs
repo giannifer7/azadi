@@ -36,4 +36,3 @@ pub fn html_path_for_key(key: &str) -> String {
         format!("{}.html", key)
     }
 }
-

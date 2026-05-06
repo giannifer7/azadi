@@ -158,4 +158,3 @@ fn inject_xref_handles_direct_html_and_adoc_override_maps() {
     assert!(adoc_html.contains("user/mod.html"));
     assert!(adoc_html.contains("Merged"));
 }
-

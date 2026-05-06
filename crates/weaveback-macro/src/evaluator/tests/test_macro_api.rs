@@ -118,4 +118,3 @@ fn test_process_files_with_shared_macros() {
     let output = fs::read_to_string(&output_file).unwrap();
     assert_eq!(output.trim(), "Shared content");
 }
-

@@ -57,4 +57,3 @@ pub fn parse_source_blocks(source: &str, extension: &str) -> Vec<SourceBlockEntr
 }
 #[cfg(test)]
 mod tests;
-

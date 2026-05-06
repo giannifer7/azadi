@@ -223,4 +223,3 @@ pub(in crate::apply_back) fn lsp_definition_hint(
         src_line: obj.get("src_line")?.as_u64()? as usize - 1,
     })
 }
-

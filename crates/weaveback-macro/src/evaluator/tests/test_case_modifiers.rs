@@ -94,4 +94,3 @@ fn test_case_conversion_edge_cases() {
     let result = process_string_defaults(r#"%to_camel_case(XML_HTTP_REQUEST)"#).unwrap();
     assert_eq!(String::from_utf8(result).unwrap().trim(), "xmlHttpRequest");
 }
-

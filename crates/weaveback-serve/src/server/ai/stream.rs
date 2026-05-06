@@ -41,4 +41,3 @@ pub(crate) fn sse_headers() -> Vec<Header> {
         Header::from_bytes("Access-Control-Allow-Origin","*").unwrap(),
     ]
 }
-

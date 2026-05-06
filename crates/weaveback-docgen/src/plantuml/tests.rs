@@ -119,4 +119,3 @@ fn collect_plantuml_blocks_offsets_survive_include_directive() {
     assert_eq!(blocks.len(), 1);
     assert_eq!(&src[blocks[0].0..blocks[0].1], "[source,plantuml]\n----\nA -> B\n----");
 }
-

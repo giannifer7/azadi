@@ -12,4 +12,3 @@ pub(in crate::xref) fn is_excluded(path: &Path) -> bool {
             .any(|ex| c.as_os_str() == std::ffi::OsStr::new(ex))
     })
 }
-

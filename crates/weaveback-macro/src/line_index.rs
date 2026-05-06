@@ -33,4 +33,3 @@ impl LineIndex {
 }
 #[cfg(test)]
 mod tests;
-

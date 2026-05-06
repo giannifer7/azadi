@@ -63,4 +63,3 @@ fn test_set_warn_unused_write_files_ok() {
         setup.clip.write_files().unwrap();
     }
 }
-

@@ -615,4 +615,3 @@ pub fn run_mcp<R: BufRead, W: Write>(
     }
     Ok(())
 }
-

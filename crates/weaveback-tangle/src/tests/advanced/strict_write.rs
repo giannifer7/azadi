@@ -36,4 +36,3 @@ fn write_files_incremental_strict_rejects_parse_errors() {
         other => panic!("expected FileChunkRedefinition, got: {:?}", other),
     }
 }
-

@@ -32,4 +32,3 @@ pub(super) struct UnattributedSummary {
     pub(super) mapped_line_end: Option<u32>,
     pub(super) generated_lines: Vec<serde_json::Value>,
 }
-

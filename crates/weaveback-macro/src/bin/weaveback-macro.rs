@@ -310,4 +310,3 @@ mod bin_tests {
         let _ = std::fs::remove_file(ast_file);
     }
 }
-

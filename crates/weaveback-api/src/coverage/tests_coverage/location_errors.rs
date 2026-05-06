@@ -85,4 +85,3 @@ fn coverage_error_io_displays_message() {
 }
 
 // ── print_coverage_summary_to_writer ──────────────────────────────────
-

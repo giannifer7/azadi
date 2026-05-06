@@ -37,4 +37,3 @@ impl From<crate::query::ApiError> for CoverageApiError {
         }
     }
 }
-

@@ -19,4 +19,3 @@ pub(crate) use markdown_normalize::{normalize_adoc_tables_for_markdown, normaliz
 
 #[cfg(test)]
 mod tests;
-

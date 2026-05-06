@@ -18,4 +18,3 @@ pub(in crate::block_parser) fn build_line_table(source: &str) -> Vec<usize> {
 pub(in crate::block_parser) fn byte_to_line(table: &[usize], byte: usize) -> u32 {
     table.get(byte).copied().unwrap_or(1) as u32
 }
-

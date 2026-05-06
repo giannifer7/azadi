@@ -81,4 +81,3 @@ fn test_multiple_unmatched_percents() {
         ],
     );
 }
-

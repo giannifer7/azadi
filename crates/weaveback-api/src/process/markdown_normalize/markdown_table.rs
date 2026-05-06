@@ -72,4 +72,3 @@ pub(in crate::process::markdown_normalize) fn normalize_markdown_table_for_ascii
         .map(|rows| render_asciidoc_table_from_rows(&rows))
         .unwrap_or_else(|| input.to_string())
 }
-

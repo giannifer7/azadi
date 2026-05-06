@@ -229,4 +229,3 @@ pub fn build_location_attribution_summary(records: &[serde_json::Value]) -> serd
             .collect::<Vec<_>>(),
     })
 }
-

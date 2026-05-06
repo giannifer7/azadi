@@ -142,4 +142,3 @@ fn mcp_find_chunk_empty_name_error() {
     let out = mcp_drive(&ws, req);
     assert!(out.contains("name is required"));
 }
-

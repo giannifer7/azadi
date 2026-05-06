@@ -302,4 +302,3 @@ pub(in crate::lint) fn lint_paths(
     }
     Ok(violations)
 }
-

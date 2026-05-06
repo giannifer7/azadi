@@ -91,4 +91,3 @@ pub struct BlockForTagging {
     pub line_end:    u32,
     pub content_hash: Vec<u8>,
 }
-

@@ -141,4 +141,3 @@ fn test_fts_deduplicates_same_path_stored_twice() {
     let r = db.search_prose("once", 10).unwrap();
     assert_eq!(r.len(), 1, "same file stored twice must not produce duplicate FTS rows");
 }
-

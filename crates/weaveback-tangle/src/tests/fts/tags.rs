@@ -157,4 +157,3 @@ fn test_search_finds_block_by_tag_word() {
     assert!(!r.is_empty(), "tag-only word should be findable via FTS");
     assert_eq!(r[0].src_file, "a.adoc");
 }
-

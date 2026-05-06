@@ -124,4 +124,3 @@ pub(in crate::lookup) fn append_def_locations(
         obj.insert(field.into(), Value::Array(locations));
     }
 }
-

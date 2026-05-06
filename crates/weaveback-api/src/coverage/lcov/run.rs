@@ -27,4 +27,3 @@ pub fn run_coverage(
     }
     Ok(())
 }
-

@@ -103,4 +103,3 @@ fn check_node(node: &ASTNode, expected_kind: NodeKind, expected_parts: usize) {
     assert_eq!(node.kind, expected_kind);
     assert_eq!(node.parts.len(), expected_parts);
 }
-

@@ -80,4 +80,3 @@ pub(super) fn lsp_mcp_drive(ws: &McpWorkspace, req: &str) -> String {
     ws.open_db();
     mcp_drive(ws, req)
 }
-

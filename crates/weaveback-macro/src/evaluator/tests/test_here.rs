@@ -91,4 +91,3 @@ fn test_here_multiple_live_calls_is_error_and_noop() {
     assert!(err.contains("multiple live %here calls"));
     assert_eq!(modified, content, "file should remain unchanged on error");
 }
-

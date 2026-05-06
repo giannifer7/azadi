@@ -157,4 +157,3 @@ fn test_escaped_pubfunc_not_macro() {
         ],
     );
 }
-

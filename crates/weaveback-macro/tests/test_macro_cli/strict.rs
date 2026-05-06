@@ -59,4 +59,3 @@ fn test_unbound_params_are_strict_by_default_cli() -> Result<(), Box<dyn std::er
 
     Ok(())
 }
-

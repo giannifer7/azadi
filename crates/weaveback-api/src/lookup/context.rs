@@ -129,4 +129,3 @@ pub(in crate::lookup) fn append_source_context(
     );
     obj.insert("source_section_prose".into(), Value::String(section_prose));
 }
-

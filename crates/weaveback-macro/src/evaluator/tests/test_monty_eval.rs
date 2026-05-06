@@ -86,4 +86,3 @@ fn test_monty_evaluate_compile_error_contains_macro_name() {
         .unwrap_err();
     assert!(err.contains("pydef 'broken': compile error"));
 }
-

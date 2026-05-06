@@ -192,4 +192,3 @@ fn test_collect_cargo_attributions_with_mock() {
     assert_eq!(attributions.len(), 1);
     assert_eq!(attributions[0]["src_file"].as_str(), Some(project_root.join(src_file).to_string_lossy().as_ref()));
 }
-

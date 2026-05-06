@@ -40,4 +40,3 @@ fn choose_best_candidate_returns_none_when_empty() {
     let result = choose_best_candidate(vec![]);
     assert!(result.is_none());
 }
-

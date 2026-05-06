@@ -20,4 +20,3 @@ fn db_get_baseline_missing_returns_none() {
     let db = WeavebackDb::open_temp().unwrap();
     assert!(db.get_baseline("nonexistent.rs").unwrap().is_none());
 }
-

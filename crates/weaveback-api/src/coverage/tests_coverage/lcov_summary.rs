@@ -314,4 +314,3 @@ fn run_coverage_failure_missing_lcov() {
 }
 
 // ── Batch 4: Cargo & Text Attribution ──────────────────────────────────
-

@@ -8,18 +8,69 @@
 ¤rust_chunk(process-args, ¤[
 use std::path::PathBuf;
 
+use miette::Diagnostic;
 use weaveback_macro::evaluator::EvalError;
+use weaveback_tangle::db::DbError;
 use weaveback_tangle::WeavebackError;
 
 /// Combined error type for a single tangle pass.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, Diagnostic)]
 pub enum ProcessError {
-    #[error("{0}")]
-    Tangle(#[from] WeavebackError),
-    #[error("{0}")]
-    Macro(#[from] EvalError),
-    #[error("{0}")]
-    Io(#[from] std::io::Error),
+    #[error("macro evaluation failed")]
+    #[diagnostic(code(weaveback::process::macro_eval))]
+    Macro {
+        #[from]
+        #[source]
+        source: EvalError,
+    },
+
+    #[error("noweb tangling failed")]
+    #[diagnostic(code(weaveback::process::noweb))]
+    Noweb {
+        #[from]
+        #[source]
+        source: WeavebackError,
+    },
+
+    #[error("database operation failed")]
+    #[diagnostic(code(weaveback::process::db))]
+    Db {
+        #[from]
+        #[source]
+        source: DbError,
+    },
+
+    #[error("I/O operation failed")]
+    #[diagnostic(code(weaveback::process::io))]
+    Io {
+        #[from]
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to read macro prelude `{path}`")]
+    #[diagnostic(code(weaveback::process::prelude_read))]
+    PreludeRead {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to evaluate macro prelude `{path}`")]
+    #[diagnostic(code(weaveback::process::prelude_eval))]
+    PreludeEval {
+        path: PathBuf,
+        #[source]
+        source: EvalError,
+    },
+
+    #[error("failed to write expanded document `{path}`")]
+    #[diagnostic(code(weaveback::process::expanded_write))]
+    ExpandedWrite {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
 }
 
 

@@ -19,4 +19,3 @@ pub(in crate::apply_back) fn resolve_noweb_entry(
     find_best_noweb_entry(db, resolved.to_string_lossy().as_ref(), out_line_0, resolver)
         .map_err(ApplyBackError::Db)
 }
-

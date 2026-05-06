@@ -271,4 +271,3 @@ fn find_best_noweb_entry_missing_returns_none() {
     let got = find_best_noweb_entry(&db, "gen/out.rs", 99, &resolver).unwrap();
     assert!(got.is_none());
 }
-

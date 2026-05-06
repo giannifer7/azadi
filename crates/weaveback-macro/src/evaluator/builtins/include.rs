@@ -22,5 +22,3 @@ pub(in crate::evaluator::builtins) fn builtin_import(eval: &mut Evaluator, node:
     let _ = process_include_file(eval, node)?;
     Ok("".into())
 }
-
-

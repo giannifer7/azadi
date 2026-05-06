@@ -108,4 +108,3 @@ fn test_extract_chunk_to_file() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-

@@ -87,4 +87,3 @@ pub fn default_builtins() -> HashMap<String, BuiltinFn> {
     map.insert("not".to_string(), builtin_not as BuiltinFn);
     map
 }
-

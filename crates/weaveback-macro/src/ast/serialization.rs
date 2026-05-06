@@ -192,4 +192,3 @@ mod tests {
         assert!(text.lines().count() > 1);
     }
 }
-

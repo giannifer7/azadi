@@ -31,4 +31,3 @@ pub(crate) fn normalize_expanded_document(expanded_ext: Option<&str>, expanded: 
         expanded
     }
 }
-

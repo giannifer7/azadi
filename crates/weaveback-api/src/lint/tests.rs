@@ -288,4 +288,3 @@ fn run_lint_can_emit_json() {
 
     assert!(run_lint(vec![path], false, None, true).is_ok());
 }
-

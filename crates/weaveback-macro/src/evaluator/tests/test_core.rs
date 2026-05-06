@@ -113,4 +113,3 @@ fn test_core_do_include_accepts_absolute_existing_path() {
     let result = eval.do_include(include_path.to_str().unwrap()).unwrap();
     assert_eq!(result, "absolute include");
 }
-

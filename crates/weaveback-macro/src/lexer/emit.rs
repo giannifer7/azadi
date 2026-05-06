@@ -17,4 +17,3 @@ impl<'a> Lexer<'a> {
         self.errors.push(LexerError { pos, message: message.to_string() });
     }
 }
-

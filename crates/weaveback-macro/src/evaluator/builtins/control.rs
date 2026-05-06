@@ -24,4 +24,3 @@ pub(in crate::evaluator::builtins) fn builtin_if(eval: &mut Evaluator, node: &AS
         }
     }
 }
-

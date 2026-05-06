@@ -250,4 +250,3 @@ fn test_macro_map_entries() {
     assert_eq!(*out_line_2, 2);
     assert_eq!(entry_2.src_line, 2);
 }
-

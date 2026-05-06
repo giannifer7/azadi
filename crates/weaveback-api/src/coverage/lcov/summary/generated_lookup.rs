@@ -35,4 +35,3 @@ pub(in crate::coverage) fn find_noweb_entries_for_generated_file(
 
     None
 }
-

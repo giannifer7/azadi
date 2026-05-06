@@ -175,4 +175,3 @@ impl WeavebackDb {
         rows.collect::<Result<Vec<_>, _>>().map_err(DbError::Sql)
     }
 }
-

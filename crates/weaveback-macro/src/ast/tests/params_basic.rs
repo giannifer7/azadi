@@ -206,4 +206,3 @@ fn test_param_mixed_content() {
     check_node(&result.parts[3], NodeKind::Equal, 0);
     check_node(&result.parts[4], NodeKind::Text, 0);
 }
-

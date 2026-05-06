@@ -28,4 +28,3 @@ fn test_three_lines() {
     assert_eq!(idx.line_col(2), (2, 1));
     assert_eq!(idx.line_col(4), (3, 1));
 }
-

@@ -293,4 +293,3 @@ pub fn build_coverage_summary(
         "unattributed_files": unattributed_files,
     })
 }
-

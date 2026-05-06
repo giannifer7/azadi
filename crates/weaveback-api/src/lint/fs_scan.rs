@@ -58,4 +58,3 @@ pub(in crate::lint) fn collect_literate_files(path: &Path, out: &mut Vec<PathBuf
     }
     Ok(())
 }
-

@@ -65,4 +65,3 @@ pub(in crate::apply_back) fn attempt_macro_arg_patch(
     }
     None
 }
-

@@ -329,4 +329,3 @@ fn is_followed_by_newline(
 
     Ok(end_pos < content.len() && content[end_pos] == b'\n')
 }
-

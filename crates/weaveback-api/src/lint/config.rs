@@ -95,4 +95,3 @@ pub(in crate::lint) fn lint_syntaxes_for_file<'a>(file: &Path, syntaxes: &'a [Li
 
     matched
 }
-

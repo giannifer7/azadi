@@ -29,4 +29,3 @@ fn verify_candidate_returns_false_when_line_out_of_range() {
     let path = std::path::Path::new("test.adoc");
     assert!(!verify_candidate(src, path, &config, 99, "only one line"));
 }
-

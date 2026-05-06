@@ -12,4 +12,3 @@ pub(crate) use run::get_or_spawn_lsp;
 
 #[cfg(test)]
 mod tests;
-

@@ -168,4 +168,3 @@ impl ChunkStore {
         debug!("Finished reading. File chunks: {:?}", self.file_chunks);
     }
 }
-

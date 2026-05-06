@@ -176,4 +176,3 @@ fn strip_existing(content: &str) -> String {
 }
 #[cfg(test)]
 mod tests;
-

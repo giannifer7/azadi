@@ -60,4 +60,3 @@ fn do_patch_dry_run_does_not_modify_lines() {
     let msg = String::from_utf8(out).unwrap();
     assert!(msg.contains("dry-run"));
 }
-

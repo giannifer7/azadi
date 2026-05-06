@@ -235,4 +235,3 @@ fn run_coverage_success() {
     let res = run(cli);
     assert!(res.is_ok());
 }
-

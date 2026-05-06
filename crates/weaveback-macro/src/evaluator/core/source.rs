@@ -46,5 +46,3 @@ impl Evaluator {
         self.state.source_manager.num_sources()
     }
 }
-
-

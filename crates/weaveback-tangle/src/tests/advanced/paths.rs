@@ -62,4 +62,3 @@ fn test_tilde_expansion_blocked_without_allow_home() {
         result
     );
 }
-
