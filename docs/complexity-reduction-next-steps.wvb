@@ -160,6 +160,7 @@ File | Lines | Status
 `crates/weaveback-api/src/apply_back/heuristics.rs` | 20 | Completed; facade now includes focused `src/apply_back/heuristics/*.rs` files.
 `crates/weaveback-api/src/apply_back/tests/primitives.rs` | 10 | Completed; facade now includes focused `src/apply_back/tests/primitives/*.rs` files.
 `crates/weaveback-api/src/coverage/lcov/summary.rs` | 300-ish | Further improved; summary types and unattributed-line accounting now live under `src/coverage/lcov/summary/`.
+`crates/weaveback-api/src/coverage/tests_coverage/cargo.rs` | 12 | Completed; facade now includes focused `src/coverage/tests_coverage/cargo/*.rs` files.
 `crates/weaveback-macro/src/evaluator/core.rs` | 886 | Large but not first priority.
 ¤])
 

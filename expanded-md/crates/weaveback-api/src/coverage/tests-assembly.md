@@ -56,9 +56,32 @@ use super::*;
 // weaveback-api/src/coverage/tests_coverage/cargo.rs
 // I'd Really Rather You Didn't edit this generated file.
 
-use super::*;
+mod emission;
+mod run;
 
-// <[coverage-tests-cargo]>
+// <[coverage-tests-cargo-run-support]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/coverage/tests_coverage/cargo/emission.rs]>=
+// weaveback-api/src/coverage/tests_coverage/cargo/emission.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[coverage-tests-cargo-emission]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/coverage/tests_coverage/cargo/run.rs]>=
+// weaveback-api/src/coverage/tests_coverage/cargo/run.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[coverage-tests-cargo-run]>
 
 // @
 ```

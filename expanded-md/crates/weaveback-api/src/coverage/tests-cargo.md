@@ -3,7 +3,9 @@
 Cargo diagnostic attribution, summary emission, and cargo command wrapping tests.
 
 ```rust
-// <[coverage-tests-cargo]>=
+// <[coverage-tests-cargo-emission]>=
+use super::super::*;
+
 #[test]
 fn emit_augmented_cargo_message_attaches_full_trace_json() {
     let line = r#"{"reason":"compiler-message","message":{"spans":[]}}"#;
@@ -173,9 +175,22 @@ fn emit_cargo_summary_message_emits_final_grouped_json() {
         json!(["helper", "main"])
     );
 }
+// @
+```
 
+
+```rust
+// <[coverage-tests-cargo-run-support]>=
 use std::sync::Mutex;
 pub(super) static CARGO_TEST_MUTEX: Mutex<()> = Mutex::new(());
+// @
+```
+
+
+```rust
+// <[coverage-tests-cargo-run]>=
+use super::super::*;
+use super::CARGO_TEST_MUTEX;
 
 #[test]
 fn run_cargo_annotated_to_writer_traces_real_generated_compile_error() {

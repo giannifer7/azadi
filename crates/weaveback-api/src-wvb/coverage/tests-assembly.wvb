@@ -31,9 +31,18 @@ use super::*;
 ¤])
 
 ¤rust_file(weaveback-api/src/coverage/tests_coverage/cargo.rs, ¤[
-use super::*;
+mod emission;
+mod run;
 
-// <[coverage-tests-cargo]>
+// <[coverage-tests-cargo-run-support]>
+¤])
+
+¤rust_file(weaveback-api/src/coverage/tests_coverage/cargo/emission.rs, ¤[
+// <[coverage-tests-cargo-emission]>
+¤])
+
+¤rust_file(weaveback-api/src/coverage/tests_coverage/cargo/run.rs, ¤[
+// <[coverage-tests-cargo-run]>
 ¤])
 
 ¤rust_file(weaveback-api/src/coverage/tests_coverage/lcov_summary.rs, ¤[
