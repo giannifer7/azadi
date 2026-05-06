@@ -5,9 +5,13 @@ use super::*;
 
 mod generated_lookup;
 mod ranges;
+mod types;
+mod unattributed;
 
 pub(in crate::coverage) use generated_lookup::find_noweb_entries_for_generated_file;
 pub(in crate::coverage) use ranges::compute_unmapped_ranges;
+use types::{SourceSummary, UnattributedSummary};
+use unattributed::record_unattributed_line;
 
 pub fn build_coverage_summary(
     records: &[(String, u32, u64)],
@@ -15,38 +19,6 @@ pub fn build_coverage_summary(
     project_root: &Path,
     resolver: &PathResolver,
 ) -> serde_json::Value {
-    #[derive(Default)]
-    struct SectionSummary {
-        total_lines: usize,
-        covered_lines: usize,
-        missed_lines: usize,
-        chunks: std::collections::BTreeSet<String>,
-        generated_lines: Vec<serde_json::Value>,
-        prose: Option<String>,
-        range: Option<serde_json::Value>,
-        breadcrumb: Vec<String>,
-    }
-
-    #[derive(Default)]
-    struct SourceSummary {
-        total_lines: usize,
-        covered_lines: usize,
-        missed_lines: usize,
-        chunks: std::collections::BTreeSet<String>,
-        sections: std::collections::BTreeMap<String, SectionSummary>,
-    }
-
-    #[derive(Default)]
-    struct UnattributedSummary {
-        total_lines: usize,
-        covered_lines: usize,
-        missed_lines: usize,
-        has_noweb_entries: bool,
-        mapped_line_start: Option<u32>,
-        mapped_line_end: Option<u32>,
-        generated_lines: Vec<serde_json::Value>,
-    }
-
     let mut grouped: std::collections::BTreeMap<String, SourceSummary> =
         std::collections::BTreeMap::new();
     let mut unattributed_grouped: std::collections::BTreeMap<String, UnattributedSummary> =
@@ -77,38 +49,14 @@ pub fn build_coverage_summary(
             .checked_sub(1)
             .and_then(|line_0| noweb_map.get(&line_0))
         else {
-            let covered = *hit_count > 0;
-            let mapped_line_start = noweb_map.keys().min().copied().map(|line_0| line_0 + 1);
-            let mapped_line_end = noweb_map.keys().max().copied().map(|line_0| line_0 + 1);
-            let generated_line = json!({
-                "generated_file": file_name,
-                "generated_line": line_no,
-                "hit_count": hit_count,
-                "covered": covered,
-                "has_noweb_entries": !noweb_map.is_empty(),
-                "mapped_line_start": mapped_line_start,
-                "mapped_line_end": mapped_line_end,
-            });
-            unattributed.push(generated_line.clone());
-            let file = unattributed_grouped.entry(file_name.clone()).or_default();
-            file.total_lines += 1;
-            if covered {
-                file.covered_lines += 1;
-            } else {
-                file.missed_lines += 1;
-            }
-            file.has_noweb_entries |= !noweb_map.is_empty();
-            file.mapped_line_start = match (file.mapped_line_start, mapped_line_start) {
-                (Some(a), Some(b)) => Some(a.min(b)),
-                (None, b) => b,
-                (a, None) => a,
-            };
-            file.mapped_line_end = match (file.mapped_line_end, mapped_line_end) {
-                (Some(a), Some(b)) => Some(a.max(b)),
-                (None, b) => b,
-                (a, None) => a,
-            };
-            file.generated_lines.push(generated_line);
+            record_unattributed_line(
+                file_name,
+                *line_no,
+                *hit_count,
+                noweb_map,
+                &mut unattributed,
+                &mut unattributed_grouped,
+            );
             continue;
         };
 
@@ -132,38 +80,14 @@ pub fn build_coverage_summary(
                 text.clone()
             } else {
                 let Ok(text) = lookup::load_source_text(&src_file, db, resolver) else {
-                    let covered = *hit_count > 0;
-                    let mapped_line_start = noweb_map.keys().min().copied().map(|line_0| line_0 + 1);
-                    let mapped_line_end = noweb_map.keys().max().copied().map(|line_0| line_0 + 1);
-                    let generated_line = json!({
-                        "generated_file": file_name,
-                        "generated_line": line_no,
-                        "hit_count": hit_count,
-                        "covered": covered,
-                        "has_noweb_entries": !noweb_map.is_empty(),
-                        "mapped_line_start": mapped_line_start,
-                        "mapped_line_end": mapped_line_end,
-                    });
-                    unattributed.push(generated_line.clone());
-                    let file = unattributed_grouped.entry(file_name.clone()).or_default();
-                    file.total_lines += 1;
-                    if covered {
-                        file.covered_lines += 1;
-                    } else {
-                        file.missed_lines += 1;
-                    }
-                    file.has_noweb_entries |= !noweb_map.is_empty();
-                    file.mapped_line_start = match (file.mapped_line_start, mapped_line_start) {
-                        (Some(a), Some(b)) => Some(a.min(b)),
-                        (None, b) => b,
-                        (a, None) => a,
-                    };
-                    file.mapped_line_end = match (file.mapped_line_end, mapped_line_end) {
-                        (Some(a), Some(b)) => Some(a.max(b)),
-                        (None, b) => b,
-                        (a, None) => a,
-                    };
-                    file.generated_lines.push(generated_line);
+                    record_unattributed_line(
+                        file_name,
+                        *line_no,
+                        *hit_count,
+                        noweb_map,
+                        &mut unattributed,
+                        &mut unattributed_grouped,
+                    );
                     continue;
                 };
                 source_cache.insert(src_file.clone(), text.clone());
