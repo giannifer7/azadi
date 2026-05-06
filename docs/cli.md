@@ -3,7 +3,6 @@ title: |-
   CLI reference
 ---
 # CLI reference
-
 The old combined `weaveback` binary is gone. The public CLI is now split into
 four focused tools.
 
@@ -52,14 +51,12 @@ wb-tangle --dir src --ext adoc --include . --gen src
 wb-tangle
 ```
 
-
 ### Reconcile edits made in `gen/`
 
 ```bash
 wb-tangle apply-back
 wb-tangle --gen path/to/gen apply-back --dry-run
 ```
-
 
 ### Trace generated code back to literate source
 
@@ -69,7 +66,6 @@ wb-query trace gen/out.rs 120 8 --include .
 wb-query attribute gen/out.rs:120:8 --include .
 ```
 
-
 ### Coverage and diagnostics
 
 ```bash
@@ -77,14 +73,12 @@ wb-query cargo clippy --all-targets -- -D warnings
 wb-query coverage --summary lcov.info
 ```
 
-
 ### Docs server and MCP
 
 ```bash
 wb-serve --watch
 wb-mcp
 ```
-
 
 ## Detailed references
 

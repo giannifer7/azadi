@@ -276,22 +276,29 @@ impl SafeFileWriter {
         Ok(())
     }
 
-    pub(in crate::safe_writer) fn trim_trailing_whitespace(&self, path: &Path) -> io::Result<()> {
+    pub(in crate::safe_writer) fn normalize_trailing_whitespace(&self, path: &Path) -> io::Result<()> {
         let content = fs::read(path)?;
         if let Ok(text) = std::str::from_utf8(&content) {
             let ends_with_newline = content.last() == Some(&b'\n');
+            let mut lines: Vec<&str> = text.split('\n').collect();
+            if ends_with_newline {
+                lines.pop();
+            }
+            while lines
+                .last()
+                .is_some_and(|line| line.trim_end_matches([' ', '\t', '\r']).is_empty())
+            {
+                lines.pop();
+            }
             let mut result = Vec::with_capacity(content.len());
-            for line in text.lines() {
+            for line in lines {
                 result.extend_from_slice(
                     line.trim_end_matches([' ', '\t', '\r']).as_bytes()
                 );
                 result.push(b'\n');
             }
-            if !ends_with_newline && result.last() == Some(&b'\n') {
+            if (!ends_with_newline || result.len() == 1) && result.last() == Some(&b'\n') {
                 result.pop();
-            }
-            if result.len() == 1 && result[0] == b'\n' && content.is_empty() {
-                result.clear();
             }
             fs::write(path, result)?;
         }
@@ -360,8 +367,7 @@ impl SafeFileWriter {
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("");
-        
-        let mut formatted = false;
+
         if let Some(cmd) = self.config.formatters.get(ext).cloned() {
             let pre_size = fs::metadata(&tmp_path).map(|m| m.len()).unwrap_or(0);
             self.run_formatter(&cmd, &tmp_path)?;
@@ -373,12 +379,9 @@ impl SafeFileWriter {
                     )));
                 }
             }
-            formatted = true;
         }
 
-        if !formatted {
-            self.trim_trailing_whitespace(&tmp_path)?;
-        }
+        self.normalize_trailing_whitespace(&tmp_path)?;
 
         // Step 2: content-based modification detection.
         // When a stored baseline exists, compare the on-disk file against it:

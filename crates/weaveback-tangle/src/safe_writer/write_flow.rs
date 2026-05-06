@@ -53,7 +53,6 @@ impl SafeFileWriter {
             .and_then(|e| e.to_str())
             .unwrap_or("");
 
-        let mut formatted = false;
         if let Some(cmd) = self.config.formatters.get(ext).cloned() {
             let pre_size = fs::metadata(&tmp_path).map(|m| m.len()).unwrap_or(0);
             self.run_formatter(&cmd, &tmp_path)?;
@@ -65,12 +64,9 @@ impl SafeFileWriter {
                     )));
                 }
             }
-            formatted = true;
         }
 
-        if !formatted {
-            self.trim_trailing_whitespace(&tmp_path)?;
-        }
+        self.normalize_trailing_whitespace(&tmp_path)?;
 
         // Step 2: content-based modification detection.
         // When a stored baseline exists, compare the on-disk file against it:
@@ -113,4 +109,3 @@ impl SafeFileWriter {
         Ok(written)
     }
 }
-

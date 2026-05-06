@@ -118,6 +118,38 @@ fn test_formatter_prevents_false_positive() -> Result<(), WeavebackError> {
     Ok(())
 }
 
+#[test]
+fn test_formatter_output_is_trailing_whitespace_normalized() -> Result<(), WeavebackError> {
+    let temp = tempfile::TempDir::new().unwrap();
+    let script_path = temp.path().join("fmt.sh");
+    fs::write(
+        &script_path,
+        "#!/bin/sh\nprintf 'alpha   \\n\\n\\n' > \"$1\"\n",
+    )
+    .unwrap();
+    std::process::Command::new("chmod")
+        .arg("+x")
+        .arg(&script_path)
+        .status()
+        .unwrap();
+
+    let mut formatters = HashMap::new();
+    formatters.insert("txt".to_string(), script_path.to_string_lossy().to_string());
+
+    let config = SafeWriterConfig {
+        formatters,
+        ..SafeWriterConfig::default()
+    };
+    let mut writer = SafeFileWriter::with_config(temp.path().join("gen"), config)?;
+
+    let test_file = PathBuf::from("test.txt");
+    write_file(&mut writer, &test_file, "original content")?;
+
+    let output = fs::read_to_string(writer.get_gen_base().join(&test_file))?;
+    assert_eq!(output, "alpha\n");
+    Ok(())
+}
+
 // @@
 ----
 

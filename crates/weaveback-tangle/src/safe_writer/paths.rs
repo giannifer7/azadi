@@ -36,4 +36,3 @@ pub(in crate::safe_writer) fn validate_filename(path: &Path) -> Result<(), SafeW
 
     Ok(())
 }
-

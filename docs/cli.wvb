@@ -1,5 +1,4 @@
 ¤doc(CLI reference, ¤{¤}, ¤{¤}, ¤{¤})
-
 The old combined `weaveback` binary is gone. The public CLI is now split into
 four focused tools.
 
@@ -98,14 +97,12 @@ four focused tools.
 wb-tangle --dir src --ext adoc --include . --gen src
 wb-tangle
 ¤])
-
 ¤h3(Reconcile edits made in `gen/`)
 
 ¤code_block(bash, ¤[
 wb-tangle apply-back
 wb-tangle --gen path/to/gen apply-back --dry-run
 ¤])
-
 ¤h3(Trace generated code back to literate source)
 
 ¤code_block(bash, ¤[
@@ -113,21 +110,18 @@ wb-query where gen/out.rs 120
 wb-query trace gen/out.rs 120 8 --include .
 wb-query attribute gen/out.rs:120:8 --include .
 ¤])
-
 ¤h3(Coverage and diagnostics)
 
 ¤code_block(bash, ¤[
 wb-query cargo clippy --all-targets -- -D warnings
 wb-query coverage --summary lcov.info
 ¤])
-
 ¤h3(Docs server and MCP)
 
 ¤code_block(bash, ¤[
 wb-serve --watch
 wb-mcp
 ¤])
-
 ¤h2(¤[Detailed references¤])
 
 For full flag-by-flag details, read the tool-specific pages:

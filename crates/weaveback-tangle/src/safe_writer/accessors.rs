@@ -36,4 +36,3 @@ impl SafeFileWriter {
         self.db.get_baseline(path).ok().flatten()
     }
 }
-
