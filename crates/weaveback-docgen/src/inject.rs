@@ -242,12 +242,20 @@ pub fn inject_chunk_ids(out_dir: &Path) {
             Ok(r) => r.to_string_lossy().replace('\\', "/"),
             Err(_) => continue,
         };
-        let adoc_rel = rel.replace(".html", ".adoc");
+        let source_ext = if out_dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.ends_with("-md")) {
+            "md"
+        } else {
+            "adoc"
+        };
+        let source_rel = rel.replace(".html", &format!(".{source_ext}"));
 
         let Ok(content) = std::fs::read_to_string(&html_file) else { continue };
         if !content.contains("listingblock") { continue }
 
-        let patched = annotate_chunk_ids(&content, &adoc_rel, re);
+        let patched = annotate_chunk_ids(&content, &source_rel, re);
         if patched != content {
             let _ = std::fs::write(&html_file, &patched);
         }

@@ -21,6 +21,7 @@ blake3.workspace = true
 rayon.workspace = true
 tempfile.workspace = true
 pulldown-cmark.workspace = true
+syntect.workspace = true
 acdc-parser.workspace = true
 acdc-converters-core.workspace = true
 acdc-converters-html.workspace = true

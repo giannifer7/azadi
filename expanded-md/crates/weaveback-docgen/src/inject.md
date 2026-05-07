@@ -325,12 +325,20 @@ pub fn inject_chunk_ids(out_dir: &Path) {
             Ok(r) => r.to_string_lossy().replace('\\', "/"),
             Err(_) => continue,
         };
-        let adoc_rel = rel.replace(".html", ".adoc");
+        let source_ext = if out_dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.ends_with("-md")) {
+            "md"
+        } else {
+            "adoc"
+        };
+        let source_rel = rel.replace(".html", &format!(".{source_ext}"));
 
         let Ok(content) = std::fs::read_to_string(&html_file) else { continue };
         if !content.contains("listingblock") { continue }
 
-        let patched = annotate_chunk_ids(&content, &adoc_rel, re);
+        let patched = annotate_chunk_ids(&content, &source_rel, re);
         if patched != content {
             let _ = std::fs::write(&html_file, &patched);
         }
@@ -429,6 +437,23 @@ fn annotate_chunk_ids_marks_non_file_chunks_and_replaces_old_ids() {
     assert!(patched.contains(r#"id="docs/page.adoc|alpha|1""#));
     assert!(!patched.contains("old"));
     assert!(!patched.contains("@file out.rs|0"));
+}
+
+#[test]
+fn inject_chunk_ids_uses_md_source_extension_for_html_md_site() {
+    let dir = tempdir().expect("tempdir");
+    let out = dir.path().join("html-md");
+    let page = out.join("docs/page.html");
+    fs::create_dir_all(page.parent().unwrap()).expect("dirs");
+    fs::write(
+        &page,
+        r#"<div class="listingblock"><div class="content"><pre><code>// &lt;[alpha]&gt;=</code></pre></div></div>"#,
+    ).expect("write html");
+
+    inject_chunk_ids(&out);
+
+    let patched = fs::read_to_string(page).expect("read html");
+    assert!(patched.contains(r#"id="docs/page.md|alpha|0""#), "patched: {patched}");
 }
 
 #[test]

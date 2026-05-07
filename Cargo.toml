@@ -63,6 +63,7 @@ monty = { git = "https://github.com/pydantic/monty", tag = "v0.0.17" }
 blake3 = "1"
 rayon = "1"
 pulldown-cmark = { version = "0.12", default-features = false, features = ["html"] }
+syntect = "5.3"
 
 # Other potential shared dependencies:
 wasm-bindgen = "0.2.84"

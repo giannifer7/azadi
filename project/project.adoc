@@ -79,6 +79,7 @@ monty = { git = "https://github.com/pydantic/monty", tag = "v0.0.17" }
 blake3 = "1"
 rayon = "1"
 pulldown-cmark = { version = "0.12", default-features = false, features = ["html"] }
+syntect = "5.3"
 
 # Other potential shared dependencies:
 wasm-bindgen = "0.2.84"
@@ -347,7 +348,7 @@ docs:
 docs-md:
     node scripts/serve-ui/build.mjs
     cargo run --release --package weaveback-docgen -- \
-        --no-adoc --no-xref \
+        --no-adoc \
         --plantuml-jar {{PLANTUML_JAR}}
 
 # Generate documentation with precise LSP-based cross-references (requires rust-analyzer)

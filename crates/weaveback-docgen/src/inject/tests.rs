@@ -78,6 +78,23 @@ fn annotate_chunk_ids_marks_non_file_chunks_and_replaces_old_ids() {
 }
 
 #[test]
+fn inject_chunk_ids_uses_md_source_extension_for_html_md_site() {
+    let dir = tempdir().expect("tempdir");
+    let out = dir.path().join("html-md");
+    let page = out.join("docs/page.html");
+    fs::create_dir_all(page.parent().unwrap()).expect("dirs");
+    fs::write(
+        &page,
+        r#"<div class="listingblock"><div class="content"><pre><code>// &lt;[alpha]&gt;=</code></pre></div></div>"#,
+    ).expect("write html");
+
+    inject_chunk_ids(&out);
+
+    let patched = fs::read_to_string(page).expect("read html");
+    assert!(patched.contains(r#"id="docs/page.md|alpha|0""#), "patched: {patched}");
+}
+
+#[test]
 fn do_inject_replaces_old_xref_script_and_filters_missing_targets() {
     let dir = tempdir().expect("tempdir");
     let html_file = dir.path().join("page.html");

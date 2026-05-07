@@ -225,7 +225,7 @@ docs:
 docs-md:
     node scripts/serve-ui/build.mjs
     cargo run --release --package weaveback-docgen -- \
-        --no-adoc --no-xref \
+        --no-adoc \
         --plantuml-jar {{PLANTUML_JAR}}
 
 # Generate documentation with precise LSP-based cross-references (requires rust-analyzer)

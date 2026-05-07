@@ -141,6 +141,14 @@ fn render_markdown_docs_renders_projection_with_theme_assets() {
 }
 
 #[test]
+fn render_markdown_page_wraps_and_highlights_code_blocks_like_asciidoc() {
+    let html = render_markdown_page("```rust\nfn main() {}\n```\n", "demo");
+    assert!(html.contains(r#"<div class="listingblock">"#), "html: {html}");
+    assert!(html.contains(r#"class="language-rust" data-lang="rust""#), "html: {html}");
+    assert!(html.contains("syntax-"), "html: {html}");
+}
+
+#[test]
 fn collect_markdown_diagram_fences_finds_plantuml_and_d2() {
     let source = "before\n<!-- graph: demo -->\n```plantuml\nA -> B\n```\n~~~d2\na -> b\n~~~\n";
     let fences = collect_markdown_diagram_fences(source);
