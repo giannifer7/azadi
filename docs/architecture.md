@@ -32,7 +32,7 @@ Literate source (.md / .adoc / …)
 ```
 
 
-See [tangle module map](../crates/weaveback-tangle/src/weaveback_tangle.adoc) for the
+See [tangle module map](../crates/weaveback-tangle/src/weaveback_tangle.md) for the
 weaveback-tangle internals.
 
 Normal work now uses the split front ends:
@@ -73,7 +73,7 @@ project/
 run. It stores the modification baseline for every generated file (for
 external-edit detection), source maps for tracing, and snapshots of the
 literate sources. The schema and API are documented in
-[db.adoc](../crates/weaveback-tangle/src/db.adoc).
+[db.adoc](../crates/weaveback-tangle/src/db.md).
 
 Because the database uses WAL mode, concurrent builds (`ninja -j4`) and a
 running MCP server never contend: readers never block writers and writers
@@ -94,7 +94,7 @@ Commit `gen/` to version control; add `weaveback.db` to `.gitignore`.
 ## Path normalization (`PathResolver`)
 
 Weaveback uses a centralized `PathResolver` (implemented in
-[`weaveback-core`](../crates/weaveback-core/src-wvb/weaveback_core.wvb)) to
+[`weaveback-core`](../crates/weaveback-core/src-wvb/weaveback_core.md)) to
 ensure consistency between how humans, agents, and language servers see the
 project directory.
 
@@ -111,17 +111,17 @@ relative to the generation directory (`--gen`).
 
 ## Content-based writes
 
-[`SafeFileWriter`](../crates/weaveback-tangle/src/safe_writer.adoc) compares
+[`SafeFileWriter`](../crates/weaveback-tangle/src/safe_writer.md) compares
 the freshly generated content against what is already in `gen/` before writing.
 If they are identical the file is left untouched, keeping build-system
 timestamps stable and avoiding unnecessary recompilation.
 
 ## What happens when you edit a generated file
 
-[`SafeFileWriter`](../crates/weaveback-tangle/src/safe_writer.adoc) protects
+[`SafeFileWriter`](../crates/weaveback-tangle/src/safe_writer.md) protects
 generated files from accidental overwriting. After each successful run it stores
 the bytes of every file it wrote as a baseline in `weaveback.db` (the
-[`gen_baselines`](../crates/weaveback-tangle/src/db.adoc#_gen_baselines)
+[`gen_baselines`](../crates/weaveback-tangle/src/db.md#_gen_baselines)
 table). On the next run, before writing, it compares the current `gen/` file
 against that baseline:
 
@@ -192,7 +192,7 @@ includes `kind`, `src_file`, `src_line`, and — when `--col` narrows to a
 single token — the exact macro name, parameter name, or variable name that
 produced that token.
 
-See [docs/tracing.adoc](tracing.adoc) for the full output schema and examples.
+See [docs/tracing.adoc](tracing.md) for the full output schema and examples.
 
 ## Semantic language-server integration (`wb-query lsp`)
 
@@ -437,49 +437,49 @@ regenerates them, and `just docs` renders all `.adoc` files to `docs/html/`.
 .weaveback-tangle literate sources
 | Document | Generates |
 | --- | --- |
-| [weaveback-tangle crate index](../crates/weaveback-tangle/src/weaveback_tangle.adoc) | `crates/weaveback-tangle/src/lib.rs` |
-| [chunk parser and expander](../crates/weaveback-tangle/src/noweb.adoc) | `crates/weaveback-tangle/src/noweb.rs` |
-| [safe file writer](../crates/weaveback-tangle/src/safe_writer.adoc) | `crates/weaveback-tangle/src/safe_writer.rs` |
-| [persistent database](../crates/weaveback-tangle/src/db.adoc) | `crates/weaveback-tangle/src/db.rs` |
-| [CLI binary](../crates/weaveback-tangle/src/cli.adoc) | `crates/weaveback-tangle/src/main.rs` |
-| [tests](../crates/weaveback-tangle/src/tests/tests.adoc) | `crates/weaveback-tangle/src/tests/` (4 files) |
+| [weaveback-tangle crate index](../crates/weaveback-tangle/src/weaveback_tangle.md) | `crates/weaveback-tangle/src/lib.rs` |
+| [chunk parser and expander](../crates/weaveback-tangle/src/noweb.md) | `crates/weaveback-tangle/src/noweb.rs` |
+| [safe file writer](../crates/weaveback-tangle/src/safe_writer.md) | `crates/weaveback-tangle/src/safe_writer.rs` |
+| [persistent database](../crates/weaveback-tangle/src/db.md) | `crates/weaveback-tangle/src/db.rs` |
+| [CLI binary](../crates/weaveback-tangle/src/cli.md) | `crates/weaveback-tangle/src/main.rs` |
+| [tests](../crates/weaveback-tangle/src/tests/tests.md) | `crates/weaveback-tangle/src/tests/` (4 files) |
 
 .weaveback-lsp literate sources
 | Document | Generates |
 | --- | --- |
-| [weaveback-lsp crate index](../crates/weaveback-lsp/src/weaveback_lsp.adoc) | `crates/weaveback-lsp/src/lib.rs` |
+| [weaveback-lsp crate index](../crates/weaveback-lsp/src/weaveback_lsp.md) | `crates/weaveback-lsp/src/lib.rs` |
 
 .weaveback-core literate sources
 | Document | Generates |
 | --- | --- |
-| [weaveback-core crate index](../crates/weaveback-core/src-wvb/weaveback_core.wvb) | `crates/weaveback-core/src/lib.rs` |
+| [weaveback-core crate index](../crates/weaveback-core/src-wvb/weaveback_core.md) | `crates/weaveback-core/src/lib.rs` |
 
 .weaveback-macro literate sources
 <table>
   <tr><th>Document</th><th>Generates</th></tr>
-  <tr><td>[weaveback-macro crate index](../crates/weaveback-macro/src/weaveback_macro.adoc)</td><td>`crates/weaveback-macro/src/lib.rs`</td></tr>
-  <tr><td>[shared types](../crates/weaveback-macro/src/types.adoc)</td><td>`crates/weaveback-macro/src/types.rs`</td></tr>
-  <tr><td>[line index](../crates/weaveback-macro/src-wvb/line_index.wvb)</td><td>`crates/weaveback-macro/src/line_index.rs`</td></tr>
-  <tr><td>[macro_api](../crates/weaveback-macro/src/macro_api.adoc)</td><td>`crates/weaveback-macro/src/macro_api.rs`</td></tr>
-  <tr><td>[CLI binary](../crates/weaveback-macro/src/bin/cli.adoc)</td><td>`crates/weaveback-macro/src/bin/weaveback-macro.rs`</td></tr>
-  <tr><td>[weaveback-macro parser](../crates/weaveback-macro/src/parser/parser.adoc)</td><td>`crates/weaveback-macro/src/parser/mod.rs`</td></tr>
-  <tr><td>[weaveback-macro lexer](../crates/weaveback-macro/src/lexer/lexer.adoc)</td><td>`crates/weaveback-macro/src/lexer/mod.rs` +<br>
+  <tr><td>[weaveback-macro crate index](../crates/weaveback-macro/src/weaveback_macro.md)</td><td>`crates/weaveback-macro/src/lib.rs`</td></tr>
+  <tr><td>[shared types](../crates/weaveback-macro/src/types.md)</td><td>`crates/weaveback-macro/src/types.rs`</td></tr>
+  <tr><td>[line index](../crates/weaveback-macro/src-wvb/line_index.md)</td><td>`crates/weaveback-macro/src/line_index.rs`</td></tr>
+  <tr><td>[macro_api](../crates/weaveback-macro/src/macro_api.md)</td><td>`crates/weaveback-macro/src/macro_api.rs`</td></tr>
+  <tr><td>[CLI binary](../crates/weaveback-macro/src/bin/cli.md)</td><td>`crates/weaveback-macro/src/bin/weaveback-macro.rs`</td></tr>
+  <tr><td>[weaveback-macro parser](../crates/weaveback-macro/src/parser/parser.md)</td><td>`crates/weaveback-macro/src/parser/mod.rs`</td></tr>
+  <tr><td>[weaveback-macro lexer](../crates/weaveback-macro/src/lexer/lexer.md)</td><td>`crates/weaveback-macro/src/lexer/mod.rs` +<br>
 `crates/weaveback-macro/src/lexer/tests.rs`</td></tr>
-  <tr><td>[weaveback-macro AST](../crates/weaveback-macro/src/ast/ast.adoc)</td><td>`crates/weaveback-macro/src/ast/mod.rs` +<br>
+  <tr><td>[weaveback-macro AST](../crates/weaveback-macro/src/ast/ast.md)</td><td>`crates/weaveback-macro/src/ast/mod.rs` +<br>
 `crates/weaveback-macro/src/ast/serialization.rs` +<br>
 `crates/weaveback-macro/src/ast/tests.rs`</td></tr>
-  <tr><td>[weaveback-macro evaluator (index](../crates/weaveback-macro/src/evaluator/evaluator.adoc))</td><td>`crates/weaveback-macro/src/evaluator/mod.rs` +<br>
+  <tr><td>[weaveback-macro evaluator (index](../crates/weaveback-macro/src/evaluator/evaluator.md))</td><td>`crates/weaveback-macro/src/evaluator/mod.rs` +<br>
 `crates/weaveback-macro/src/evaluator/errors.rs` +<br>
 `crates/weaveback-macro/src/evaluator/lexer_parser.rs`</td></tr>
-  <tr><td>[evaluator state](../crates/weaveback-macro/src/evaluator/state.adoc)</td><td>`crates/weaveback-macro/src/evaluator/state.rs`</td></tr>
-  <tr><td>[evaluator output sinks](../crates/weaveback-macro/src/evaluator/output.adoc)</td><td>`crates/weaveback-macro/src/evaluator/output.rs`</td></tr>
-  <tr><td>[evaluator core](../crates/weaveback-macro/src/evaluator/core.adoc)</td><td>`crates/weaveback-macro/src/evaluator/core.rs`</td></tr>
-  <tr><td>[evaluator builtins](../crates/weaveback-macro/src/evaluator/builtins.adoc)</td><td>`crates/weaveback-macro/src/evaluator/builtins.rs` +<br>
+  <tr><td>[evaluator state](../crates/weaveback-macro/src/evaluator/state.md)</td><td>`crates/weaveback-macro/src/evaluator/state.rs`</td></tr>
+  <tr><td>[evaluator output sinks](../crates/weaveback-macro/src/evaluator/output.md)</td><td>`crates/weaveback-macro/src/evaluator/output.rs`</td></tr>
+  <tr><td>[evaluator core](../crates/weaveback-macro/src/evaluator/core.md)</td><td>`crates/weaveback-macro/src/evaluator/core.rs`</td></tr>
+  <tr><td>[evaluator builtins](../crates/weaveback-macro/src/evaluator/builtins.md)</td><td>`crates/weaveback-macro/src/evaluator/builtins.rs` +<br>
 `crates/weaveback-macro/src/evaluator/case_conversion.rs` +<br>
 `crates/weaveback-macro/src/evaluator/source_utils.rs`</td></tr>
-  <tr><td>[evaluator script back-ends](../crates/weaveback-macro/src/evaluator/scripting.adoc)</td><td>`crates/weaveback-macro/src/evaluator/monty_eval.rs`</td></tr>
-  <tr><td>[evaluator public API](../crates/weaveback-macro/src/evaluator/eval_api.adoc)</td><td>`crates/weaveback-macro/src/evaluator/eval_api.rs`</td></tr>
-  <tr><td>[evaluator tests](../crates/weaveback-macro/src/evaluator/tests.adoc)</td><td>`crates/weaveback-macro/src/evaluator/test_utils.rs` +<br>
+  <tr><td>[evaluator script back-ends](../crates/weaveback-macro/src/evaluator/scripting.md)</td><td>`crates/weaveback-macro/src/evaluator/monty_eval.rs`</td></tr>
+  <tr><td>[evaluator public API](../crates/weaveback-macro/src/evaluator/eval_api.md)</td><td>`crates/weaveback-macro/src/evaluator/eval_api.rs`</td></tr>
+  <tr><td>[evaluator tests](../crates/weaveback-macro/src/evaluator/tests.md)</td><td>`crates/weaveback-macro/src/evaluator/test_utils.rs` +<br>
 `crates/weaveback-macro/src/evaluator/tests/` (21 files)</td></tr>
 </table>
 
@@ -520,17 +520,17 @@ tangled by `just tangle`.
 .tree-sitter-weaveback literate sources
 <table>
   <tr><th>Document</th><th>Generates</th></tr>
-  <tr><td>[tree-sitter-weaveback index](../tree-sitter-weaveback/tree_sitter_weaveback.adoc)</td><td>(overview and module map only)</td></tr>
-  <tr><td>[grammar.adoc](../tree-sitter-weaveback/grammar.adoc)</td><td>`tree-sitter-weaveback/grammar.js`</td></tr>
-  <tr><td>[queries.adoc](../tree-sitter-weaveback/queries.adoc)</td><td>`tree-sitter-weaveback/queries/highlights.scm` +<br>
+  <tr><td>[tree-sitter-weaveback index](../tree-sitter-weaveback/tree_sitter_weaveback.md)</td><td>(overview and module map only)</td></tr>
+  <tr><td>[grammar.adoc](../tree-sitter-weaveback/grammar.md)</td><td>`tree-sitter-weaveback/grammar.js`</td></tr>
+  <tr><td>[queries.adoc](../tree-sitter-weaveback/queries.md)</td><td>`tree-sitter-weaveback/queries/highlights.scm` +<br>
 `tree-sitter-weaveback/queries/injections.scm` +<br>
 `tree-sitter-weaveback/editors/helix/asciidoc-injections.scm`</td></tr>
-  <tr><td>[editors.adoc](../tree-sitter-weaveback/editors.adoc)</td><td>`tree-sitter-weaveback/editors/helix/languages.toml` +<br>
+  <tr><td>[editors.adoc](../tree-sitter-weaveback/editors.md)</td><td>`tree-sitter-weaveback/editors/helix/languages.toml` +<br>
 `tree-sitter-weaveback/editors/helix/install.py` +<br>
 `tree-sitter-weaveback/editors/neovim/weaveback.lua` +<br>
 `tree-sitter-weaveback/editors/neovim/asciidoc.lua` +<br>
 `tree-sitter-weaveback/editors/neovim/install.py`</td></tr>
-  <tr><td>[manifest.adoc](../tree-sitter-weaveback/manifest.adoc)</td><td>`tree-sitter-weaveback/package.json`, `tree-sitter.json`</td></tr>
+  <tr><td>[manifest.adoc](../tree-sitter-weaveback/manifest.md)</td><td>`tree-sitter-weaveback/package.json`, `tree-sitter.json`</td></tr>
 </table>
 
 ## Build-system integration
@@ -564,7 +564,7 @@ file is also declared as an output.
 
 `--formatter EXT=COMMAND` runs a formatter on each generated file with the
 matching extension before it is compared and written
-(implemented in [`SafeFileWriter::run_formatter`](../crates/weaveback-tangle/src/safe_writer.adoc)).
+(implemented in [`SafeFileWriter::run_formatter`](../crates/weaveback-tangle/src/safe_writer.md)).
 Example:
 
 ```bash

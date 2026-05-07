@@ -7,7 +7,7 @@ toc: left
 
 `macro_api.rs` is the byte-oriented public interface used by the combined
 `weaveback` binary and external callers.  It wraps the string-based
-[eval_api](evaluator/eval_api.adoc) layer but returns `Vec<u8>` and offers
+[eval_api](evaluator/eval_api.md) layer but returns `Vec<u8>` and offers
 a streaming `dyn Write` variant.
 
 ## Design rationale

@@ -14,18 +14,21 @@ fn link(key: &str, html: &str) -> XrefLink {
 }
 
 #[test]
-fn rewrite_adoc_links_updates_html_files_only() {
+fn rewrite_doc_links_updates_html_files_only() {
     let dir = tempdir().expect("tempdir");
     let html = dir.path().join("index.html");
     let txt = dir.path().join("plain.txt");
-    fs::write(&html, r#"<a href="guide.adoc#intro">Guide</a>"#).expect("html");
+    fs::write(
+        &html,
+        r#"<a href="guide.adoc#intro">Guide</a><a href="notes.md">Notes</a><a href="raw.wvb">Raw</a><a href="https://example.test/x.adoc">External</a>"#,
+    ).expect("html");
     fs::write(&txt, "guide.adoc").expect("txt");
 
-    rewrite_adoc_links(dir.path());
+    rewrite_doc_links(dir.path());
 
     assert_eq!(
         fs::read_to_string(&html).expect("read html"),
-        r#"<a href="guide.html#intro">Guide</a>"#
+        r#"<a href="guide.html#intro">Guide</a><a href="notes.html">Notes</a><a href="raw.html">Raw</a><a href="https://example.test/x.adoc">External</a>"#
     );
     assert_eq!(fs::read_to_string(&txt).expect("read txt"), "guide.adoc");
 }

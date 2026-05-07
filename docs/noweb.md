@@ -69,5 +69,5 @@ boundaries and semantic definitions. For example, a symbol defined in one chunk
 and used in another can be resolved semantically, taking you directly to the
 original source chunk of the definition.
 
-See [architecture.adoc](architecture.adoc#_semantic_language_server_integration_wb_query_lsp)
+See [architecture.adoc](architecture.md#_semantic_language_server_integration_wb_query_lsp)
 for the full LSP and MCP tool documentation.

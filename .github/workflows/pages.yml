@@ -69,6 +69,8 @@ jobs:
         run: |
           mkdir -p docs/html/docs
           cp docs/ai-panel.png docs/html/docs/ai-panel.png
+          rm -rf docs/html/markdown
+          cp -a docs/html-md docs/html/markdown
 
       - name: Create root index
         run: cp docs/html/README.html docs/html/index.html

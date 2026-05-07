@@ -16,8 +16,8 @@ Two formats are recognised natively:
 Everything else (including `.rs`, `.c`, `.py`, …) is treated as a single
 opaque text block so that any change to the file marks it dirty.
 
-See [db.adoc](db.adoc) for how `SourceBlockEntry` values are stored, and
-[noweb.adoc](noweb.adoc) for how `write_files_incremental` uses them.
+See [db.adoc](db.md) for how `SourceBlockEntry` values are stored, and
+[noweb.adoc](noweb.md) for how `write_files_incremental` uses them.
 
 ## `SourceBlockEntry`
 

@@ -23,7 +23,7 @@ fn test_undefined_variable_is_strict_by_default_cli() -> Result<(), Box<dyn std:
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Undefined variable: missing"),
+        stderr.contains("Undefined variable:") && stderr.contains("missing"),
         "expected undefined-variable error, got: {stderr}"
     );
 
@@ -53,7 +53,9 @@ fn test_unbound_params_are_strict_by_default_cli() -> Result<(), Box<dyn std::er
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Unbound parameter 'msg' in macro 'greet'"),
+        stderr.contains("Unbound parameter")
+            && stderr.contains("'msg'")
+            && stderr.contains("'greet'"),
         "expected unbound-parameter error, got: {stderr}"
     );
 

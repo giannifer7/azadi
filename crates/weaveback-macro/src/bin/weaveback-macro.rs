@@ -6,8 +6,20 @@
 use weaveback_macro::evaluator::{EvalConfig, EvalError, Evaluator};
 use weaveback_macro::macro_api::{discover_includes_in_file, process_files};
 use clap::{ArgGroup, Parser};
+use miette::Diagnostic;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
+#[derive(Debug, Error, Diagnostic)]
+enum Error {
+    #[error("macro evaluation failed")]
+    #[diagnostic(code(weaveback::macro_eval))]
+    Eval {
+        #[from]
+        #[source]
+        source: EvalError,
+    },
+}
 /// Returns the default path separator based on the platform
 fn default_pathsep() -> String {
     if cfg!(windows) {
@@ -183,15 +195,10 @@ fn run(args: Args) -> Result<(), EvalError> {
     apply_cli_defines(&mut evaluator, &args.define)?;
     process_files(&final_inputs, &args.output, &mut evaluator)
 }
-fn main() {
+fn main() -> miette::Result<()> {
     let args = Args::parse();
-    match run(args) {
-        Ok(()) => std::process::exit(0),
-        Err(e) => {
-            eprintln!("Error: {e}");
-            std::process::exit(1);
-        }
-    }
+    run(args).map_err(Error::from)?;
+    Ok(())
 }
 #[cfg(test)]
 mod bin_tests {

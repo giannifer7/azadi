@@ -7,10 +7,10 @@
   what is the token's macro-level kind, and which source section/prose context
   contains it?
 
-Both entry points are called by [`main.rs`](../../wb-tangle/src/main.adoc) for the `where`
-and `trace` subcommands, and by [`main.rs`](../../wb-mcp/src/main.adoc) for the `mcp` subcommand.
+Both entry points are called by [`main.rs`](../../wb-tangle/src/main.md) for the `where`
+and `trace` subcommands, and by [`main.rs`](../../wb-mcp/src/main.md) for the `mcp` subcommand.
 
-See [lib.adoc](lib.adoc) for the module map.
+See [lib.adoc](lib.md) for the module map.
 
 ## Error type
 

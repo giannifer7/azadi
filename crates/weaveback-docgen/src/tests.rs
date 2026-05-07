@@ -59,7 +59,7 @@ fn run_xref_cmd_reads_valid_json_from_external_command() {
         fs::set_permissions(&script, perms).expect("chmod");
     }
 
-    let data = run_xref_cmd(script.to_str().expect("script path"), dir.path());
+    let data = run_xref_cmd(script.to_str().expect("script path"), dir.path()).expect("xref command");
     let entry = data.get("demo/mod").expect("xref entry");
     assert_eq!(entry.html, "demo.html");
     assert_eq!(entry.symbols, vec!["Demo".to_string()]);
@@ -77,11 +77,17 @@ fn parse_args_from_parses_repeatable_and_path_options() {
         "emit-xref".to_string(),
         "--out-dir".to_string(),
         "docs/html".to_string(),
+        "--md-root".to_string(),
+        "expanded-md".to_string(),
+        "--md-out-dir".to_string(),
+        "docs/html-md".to_string(),
         "--theme-dir".to_string(),
         "scripts/theme".to_string(),
         "--plantuml-jar".to_string(),
         "/tmp/plantuml.jar".to_string(),
         "--no-xref".to_string(),
+        "--no-md".to_string(),
+        "--no-adoc".to_string(),
         "--ai-xref".to_string(),
     ];
 
@@ -89,9 +95,13 @@ fn parse_args_from_parses_repeatable_and_path_options() {
     assert_eq!(args.specials, vec!['%', '^']);
     assert_eq!(args.xref_cmd.as_deref(), Some("emit-xref"));
     assert_eq!(args.out_dir.as_deref(), Some(Path::new("docs/html")));
+    assert_eq!(args.md_root.as_deref(), Some(Path::new("expanded-md")));
+    assert_eq!(args.md_out_dir.as_deref(), Some(Path::new("docs/html-md")));
     assert_eq!(args.theme_dir.as_deref(), Some(Path::new("scripts/theme")));
     assert_eq!(args.plantuml_jar.as_deref(), Some(Path::new("/tmp/plantuml.jar")));
     assert!(args.no_xref);
+    assert!(args.no_md);
+    assert!(args.no_adoc);
     assert!(args.ai_xref);
     assert_eq!(args.d2_theme, 200);
     assert_eq!(args.d2_layout, "elk");

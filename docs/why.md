@@ -489,12 +489,12 @@ way to keep the tool honest.
 
 ## Where to go from here
 
-* [architecture.adoc](architecture.adoc) — the *what*: pipeline stages,
+* [architecture.adoc](architecture.md) — the *what*: pipeline stages,
   data structures, CLI flags, source-map schema
-* [weaveback-macro](../crates/weaveback-macro/src/weaveback_macro.adoc) —
+* [weaveback-macro](../crates/weaveback-macro/src/weaveback_macro.md) —
   the macro expander in detail: lexer, parser, evaluator, scripting
-* [weaveback-tangle](../crates/weaveback-tangle/src/weaveback_tangle.adoc) —
+* [weaveback-tangle](../crates/weaveback-tangle/src/weaveback_tangle.md) —
   chunk extraction, safe writer, database schema
-* [apply-back](../crates/weaveback-api/src/apply_back.adoc) — how bidirectional
+* [apply-back](../crates/weaveback-api/src/apply_back.md) — how bidirectional
   propagation works in detail
-* [m4-comparison](../docs/m4-comparison.adoc) — why not m4, point by point
+* [m4-comparison](../docs/m4-comparison.md) — why not m4, point by point

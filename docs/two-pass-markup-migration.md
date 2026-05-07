@@ -14,7 +14,7 @@ ordinary AsciiDoc and Markdown documents that can both be inspected, rendered,
 and tangled.
 
 This migration is also the execution path for
-[complexity reduction](complexity-reduction-plan.adoc). A `.wvb` conversion
+[complexity reduction](complexity-reduction-plan.md). A `.wvb` conversion
 is not considered complete if it preserves a known bad structure unchanged.
 During conversion, review source ownership, generated-file size, test placement,
 and whether the document should remain canonical at all.
@@ -235,7 +235,7 @@ Status: in progress.
 Required before converting real modules:
 
 * Keep `prelude/asciidoc.wvb` and `prelude/markdown.wvb` small and parallel.
-* Keep [`docs/markup-prelude`](markup-prelude.adoc) as the reference for the macro surface.
+* Keep [`docs/markup-prelude`](markup-prelude.md) as the reference for the macro surface.
 * Keep a regression test proving that AsciiDoc and Markdown projections from
   the same `.wvb` source tangle to identical generated Rust.
 * Ensure imported prelude changes invalidate incremental tangle output.

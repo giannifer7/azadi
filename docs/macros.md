@@ -296,7 +296,7 @@ token. This allows tools like `wb-query trace` and the MCP server to pinpoint
 the exact macro definition or call-site argument that produced a given line of
 code.
 
-See [architecture.adoc](architecture.adoc#_semantic_language_server_integration_weaveback_lsp)
+See [architecture.adoc](architecture.md#_semantic_language_server_integration_weaveback_lsp)
 for more on how this integrates with language servers.
 
 Output:

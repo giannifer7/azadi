@@ -147,4 +147,17 @@ fn explicit_html_table_block_is_asciidoc_passthrough_block() {
     let out = normalize_expanded_document(Some("adoc"), input.as_bytes());
     assert_eq!(out.trim(), "++++\n<table><tr><td>A</td></tr></table>\n++++");
 }
+#[test]
+fn markdown_projection_rewrites_local_source_links_to_md() {
+    let input = concat!(
+        "[Architecture](../docs/architecture.adoc#pipeline)\n",
+        "[Raw](../crates/x/src/lib.wvb)\n",
+        "[External](https://example.test/file.adoc)\n",
+    );
+
+    let out = normalize_expanded_document(Some("md"), input.as_bytes());
+    assert!(out.contains("[Architecture](../docs/architecture.md#pipeline)"), "out: {out}");
+    assert!(out.contains("[Raw](../crates/x/src/lib.md)"), "out: {out}");
+    assert!(out.contains("[External](https://example.test/file.adoc)"), "out: {out}");
+}
 ¤])

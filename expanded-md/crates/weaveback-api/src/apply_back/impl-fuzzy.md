@@ -11,7 +11,7 @@ unrelated edit above it), a broader bounded search is used:
 * nearby-line exploration inside the same source file
 * macro-call fallback search when body-level attribution is too coarse
 
-See [weaveback.adoc](lib.adoc) for the module map.
+See [weaveback.adoc](lib.md) for the module map.
 
 ## Generated chunk
 

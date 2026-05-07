@@ -1782,8 +1782,15 @@ checksum = "f86ba2052aebccc42cbbb3ed234b8b13ce76f75c3551a303cb2bcffcff12bb14"
 dependencies = [
  "bitflags 2.11.0",
  "memchr",
+ "pulldown-cmark-escape",
  "unicase",
 ]
+
+[[package]]
+name = "pulldown-cmark-escape"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "007d8adb5ddab6f8e3f491ac63566a7d5002cc7ed73901f72057943fa71ae1ae"
 
 [[package]]
 name = "pyo3"
@@ -2906,6 +2913,8 @@ name = "wb-mcp"
 version = "0.13.4"
 dependencies = [
  "clap",
+ "miette",
+ "thiserror",
  "weaveback-api",
  "weaveback-macro",
 ]
@@ -2915,6 +2924,7 @@ name = "wb-query"
 version = "0.13.4"
 dependencies = [
  "clap",
+ "miette",
  "serde_json",
  "thiserror",
  "toml",
@@ -2929,6 +2939,8 @@ name = "wb-serve"
 version = "0.13.4"
 dependencies = [
  "clap",
+ "miette",
+ "thiserror",
  "weaveback-serve",
 ]
 
@@ -2992,6 +3004,8 @@ dependencies = [
  "acdc-converters-html",
  "acdc-parser",
  "blake3",
+ "miette",
+ "pulldown-cmark",
  "rayon",
  "regex",
  "serde",
@@ -3028,6 +3042,7 @@ dependencies = [
  "escargot",
  "lazy_static",
  "memchr",
+ "miette",
  "monty",
  "predicates",
  "pretty_assertions",
@@ -3082,6 +3097,7 @@ dependencies = [
  "lazy_static",
  "log",
  "memchr",
+ "miette",
  "predicates",
  "pulldown-cmark",
  "regex",

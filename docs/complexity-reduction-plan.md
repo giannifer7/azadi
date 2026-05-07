@@ -24,7 +24,7 @@ documentation and generation model:
 * smaller generated modules and smaller test units
 
 The practical migration mechanism is the two-pass `.wvb` authoring model
-described in [two-pass markup migration](two-pass-markup-migration.adoc).
+described in [two-pass markup migration](two-pass-markup-migration.md).
 Moving a document to `.wvb` should not be a mechanical syntax conversion.
 Each migration is also a review gate for source ownership, module boundaries,
 test placement, and generated-file size.

@@ -4,7 +4,16 @@
 mod cli_generated;
 use cli_generated::Cli;
 use clap::Parser;
-fn main() {
+use miette::Diagnostic;
+use thiserror::Error;
+#[derive(Debug, Error, Diagnostic)]
+enum Error {
+    #[error("serve failed: {message}")]
+    #[diagnostic(code(weaveback::serve))]
+    Serve { message: String },
+}
+
+fn main() -> miette::Result<()> {
     let cli = Cli::parse();
 
     let backend = match cli.ai_backend.as_str() {
@@ -25,8 +34,7 @@ fn main() {
         ai_endpoint:     cli.ai_endpoint,
     };
 
-    if let Err(e) = weaveback_serve::run_serve(cli.port, cli.html, tangle_cfg, cli.watch) {
-        eprintln!("wb-serve: {e}");
-        std::process::exit(1);
-    }
+    weaveback_serve::run_serve(cli.port, cli.html, tangle_cfg, cli.watch)
+        .map_err(|message| Error::Serve { message })?;
+    Ok(())
 }

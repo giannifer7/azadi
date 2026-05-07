@@ -1,10 +1,10 @@
 # Persistent Database
 
 `db.rs` owns the SQLite database that weaveback writes after every tangling
-run.  It is opened and written by [`SafeFileWriter`](safe_writer.adoc) (for
-baselines) and by [`Clip::write_files`](noweb.adoc) (for `noweb_map`
-entries).  See [weaveback_tangle.adoc](weaveback_tangle.adoc) for the
-module map and [architecture.adoc](../../../docs/architecture.adoc) for the
+run.  It is opened and written by [`SafeFileWriter`](safe_writer.md) (for
+baselines) and by [`Clip::write_files`](noweb.md) (for `noweb_map`
+entries).  See [weaveback_tangle.adoc](weaveback_tangle.md) for the
+module map and [architecture.adoc](../../../docs/architecture.md) for the
 full concurrency and apply-back context.
 
 The database stores nine kinds of data:

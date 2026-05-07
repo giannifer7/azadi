@@ -6,7 +6,7 @@ toc: left
 # Macro Language Critique Prep
 
 This note is meant to accompany
-[macro-language.adoc](macro-language.adoc) when asking for outside review.
+[macro-language.adoc](macro-language.md) when asking for outside review.
 It states what changed recently, what is already intentional, and what still
 deserves critique.
 

@@ -5,7 +5,7 @@ toc: left
 ---
 # Evaluator tests — control flow and file operations
 
-[← back to test index](tests.adoc)
+[← back to test index](tests.md)
 
 Test coverage for `%if`, `%include`, `%import`, `%export`, `%eval`,
 and `%here`.

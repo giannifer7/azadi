@@ -9,7 +9,7 @@ This is the handoff plan for continuing the complexity-reduction work after
 the first major cleanup passes.
 
 It is intentionally operational.  The broader rationale lives in
-[Complexity Reduction Plan](complexity-reduction-plan.adoc).  This file
+[Complexity Reduction Plan](complexity-reduction-plan.md).  This file
 answers the practical question: if work stops here, what should the next model
 or maintainer do, in what order, and how should success be checked?
 

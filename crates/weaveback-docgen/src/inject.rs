@@ -9,13 +9,13 @@ use std::sync::OnceLock;
 
 use crate::xref::{html_path_for_key, XrefEntry, XrefLink};
 
-fn adoc_href_re() -> &'static Regex {
+fn doc_href_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r#"(href="[^"]*?)\.adoc([^"]*?")"#).unwrap())
+    RE.get_or_init(|| Regex::new(r#"(href=")([^"]*?)\.(?:adoc|md|wvb)([^"]*?")"#).unwrap())
 }
 
-pub fn rewrite_adoc_links(out_dir: &Path) {
-    let re = adoc_href_re();
+pub fn rewrite_doc_links(out_dir: &Path) {
+    let re = doc_href_re();
     let html_files: Vec<_> = walkdir::WalkDir::new(out_dir)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -27,10 +27,22 @@ pub fn rewrite_adoc_links(out_dir: &Path) {
         let Ok(content) = std::fs::read_to_string(&html_file) else {
             continue;
         };
-        if !content.contains(".adoc") {
+        if !content.contains(".adoc") && !content.contains(".md") && !content.contains(".wvb") {
             continue;
         }
-        let patched = re.replace_all(&content, r#"$1.html$2"#);
+        let patched = re.replace_all(&content, |caps: &regex::Captures<'_>| {
+            let target = caps.get(2).map(|m| m.as_str()).unwrap_or_default();
+            if target.contains("://") || target.starts_with("mailto:") {
+                caps.get(0).map(|m| m.as_str()).unwrap_or_default().to_string()
+            } else {
+                format!(
+                    "{}{}.html{}",
+                    caps.get(1).map(|m| m.as_str()).unwrap_or_default(),
+                    target,
+                    caps.get(3).map(|m| m.as_str()).unwrap_or_default(),
+                )
+            }
+        });
         if patched != content {
             let _ = std::fs::write(&html_file, patched.as_ref());
         }

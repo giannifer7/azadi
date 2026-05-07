@@ -41,6 +41,12 @@ data linking modules by their import graph.
 Options:
   --out-dir   <path>   Output directory for rendered HTML
                        (default: <project-root>/docs/html)
+  --md-root   <path>   Directory containing generated Markdown projection files
+                       (default: <project-root>/expanded-md)
+  --md-out-dir <path>  Output directory for rendered Markdown HTML
+                       (default: <project-root>/docs/html-md)
+  --no-md              Skip Markdown HTML rendering.
+  --no-adoc            Skip AsciiDoc HTML rendering.
   --theme-dir <path>   Directory containing docinfo.html / docinfo-footer.html
                        (default: <project-root>/scripts/asciidoc-theme)
   --special   <char>   De-duplicate doubled occurrences of CHAR before
@@ -68,6 +74,10 @@ struct Args {
     no_xref: bool,
     ai_xref: bool,
     out_dir: Option<PathBuf>,
+    md_root: Option<PathBuf>,
+    md_out_dir: Option<PathBuf>,
+    no_md: bool,
+    no_adoc: bool,
     theme_dir: Option<PathBuf>,
     plantuml_jar: Option<PathBuf>,
     d2_theme: u32,
@@ -100,6 +110,10 @@ fn parse_args_from(raw: &[String]) -> Args {
     let mut no_xref = false;
     let mut ai_xref = false;
     let mut out_dir = None;
+    let mut md_root = None;
+    let mut md_out_dir = None;
+    let mut no_md = false;
+    let mut no_adoc = false;
     let mut theme_dir = None;
     let mut plantuml_jar = None;
     let mut i = 1;
@@ -133,6 +147,20 @@ fn parse_args_from(raw: &[String]) -> Args {
                     continue;
                 }
             }
+            "--md-root" => {
+                if let Some(p) = raw.get(i + 1) {
+                    md_root = Some(PathBuf::from(p));
+                    i += 2;
+                    continue;
+                }
+            }
+            "--md-out-dir" => {
+                if let Some(p) = raw.get(i + 1) {
+                    md_out_dir = Some(PathBuf::from(p));
+                    i += 2;
+                    continue;
+                }
+            }
             "--theme-dir" => {
                 if let Some(p) = raw.get(i + 1) {
                     theme_dir = Some(PathBuf::from(p));
@@ -150,6 +178,12 @@ fn parse_args_from(raw: &[String]) -> Args {
             "--no-xref" => {
                 no_xref = true;
             }
+            "--no-md" => {
+                no_md = true;
+            }
+            "--no-adoc" => {
+                no_adoc = true;
+            }
             "--ai-xref" => {
                 ai_xref = true;
             }
@@ -163,6 +197,10 @@ fn parse_args_from(raw: &[String]) -> Args {
         no_xref,
         ai_xref,
         out_dir,
+        md_root,
+        md_out_dir,
+        no_md,
+        no_adoc,
         theme_dir,
         plantuml_jar,
         d2_theme: 200,
@@ -174,25 +212,65 @@ fn parse_args() -> Args {
     let raw: Vec<String> = std::env::args().collect();
     parse_args_from(&raw)
 }
-fn run_xref_cmd(cmd: &str, project_root: &Path) -> HashMap<String, XrefEntry> {
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+enum Error {
+    #[error("documentation rendering failed")]
+    #[diagnostic(code(weaveback::docgen::render))]
+    Render {
+        #[from]
+        #[source]
+        source: render::RenderError,
+    },
+    #[error("failed to run xref command '{cmd}'")]
+    #[diagnostic(code(weaveback::docgen::xref_cmd_spawn))]
+    XrefCommandSpawn {
+        cmd: String,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("xref command '{cmd}' exited with status {code}")]
+    #[diagnostic(code(weaveback::docgen::xref_cmd_status))]
+    XrefCommandStatus { cmd: String, code: i32 },
+    #[error("failed to parse JSON from xref command '{cmd}'")]
+    #[diagnostic(code(weaveback::docgen::xref_cmd_json))]
+    XrefCommandJson {
+        cmd: String,
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("failed to serialise xref data")]
+    #[diagnostic(code(weaveback::docgen::xref_json))]
+    XrefJson {
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("failed to write xref data to {path}")]
+    #[diagnostic(code(weaveback::docgen::xref_write))]
+    XrefWrite {
+        path: String,
+        #[source]
+        source: std::io::Error,
+    },
+}
+fn run_xref_cmd(cmd: &str, project_root: &Path) -> Result<HashMap<String, XrefEntry>, Error> {
     let output = Command::new(cmd)
         .arg(project_root)
         .output()
-        .unwrap_or_else(|e| {
-            eprintln!("xref-cmd: failed to run '{cmd}': {e}");
-            std::process::exit(1);
+        .map_err(|source| Error::XrefCommandSpawn {
+            cmd: cmd.to_string(),
+            source,
         });
+    let output = output?;
     if !output.status.success() {
         let code = output.status.code().unwrap_or(1);
-        eprintln!("xref-cmd: '{cmd}' exited with status {code}");
-        std::process::exit(code);
+        return Err(Error::XrefCommandStatus { cmd: cmd.to_string(), code });
     }
-    serde_json::from_slice(&output.stdout).unwrap_or_else(|e| {
-        eprintln!("xref-cmd: failed to parse JSON from '{cmd}': {e}");
-        std::process::exit(1);
+    serde_json::from_slice(&output.stdout).map_err(|source| Error::XrefCommandJson {
+        cmd: cmd.to_string(),
+        source,
     })
 }
-fn main() {
+fn run() -> Result<(), Error> {
     let root = find_project_root();
     let config = read_config(&root);
     let docs_cfg = config.docs.unwrap_or_default();
@@ -206,20 +284,44 @@ fn main() {
     }
 
     let out_dir = args.out_dir.clone().unwrap_or_else(|| root.join("docs").join("html"));
+    let md_root = args.md_root.clone().unwrap_or_else(|| root.join("expanded-md"));
+    let md_out_dir = args.md_out_dir.clone().unwrap_or_else(|| root.join("docs").join("html-md"));
     let theme_dir = args.theme_dir.clone().unwrap_or_else(|| root.join("scripts").join("asciidoc-theme"));
 
-    let all_html = render::render_docs(
-        &root,
-        &theme_dir,
-        &out_dir,
-        &args.specials,
-        args.plantuml_jar.as_deref(),
-        args.d2_theme,
-        &args.d2_layout,
-    );
+    let all_html = if args.no_adoc {
+        Vec::new()
+    } else {
+        render::render_docs(
+            &root,
+            &theme_dir,
+            &out_dir,
+            &args.specials,
+            args.plantuml_jar.as_deref(),
+            args.d2_theme,
+            &args.d2_layout,
+        )?
+    };
     let existing_html: std::collections::HashSet<String> = all_html
         .iter()
         .filter_map(|p| p.strip_prefix(&out_dir).ok())
+        .map(|r| r.to_string_lossy().replace('\\', "/"))
+        .collect();
+
+    let md_html = if !args.no_md && md_root.exists() {
+        render::render_markdown_docs(
+            &md_root,
+            &theme_dir,
+            &md_out_dir,
+            args.plantuml_jar.as_deref(),
+            args.d2_theme,
+            &args.d2_layout,
+        )?
+    } else {
+        Vec::new()
+    };
+    let existing_md_html: std::collections::HashSet<String> = md_html
+        .iter()
+        .filter_map(|p| p.strip_prefix(&md_out_dir).ok())
         .map(|r| r.to_string_lossy().replace('\\', "/"))
         .collect();
 
@@ -229,7 +331,7 @@ fn main() {
         (HashMap::new(), HashMap::new())
     } else if let Some(ref cmd) = args.xref_cmd {
         println!("xref: running '{cmd}'...");
-        let data = run_xref_cmd(cmd, &root);
+        let data = run_xref_cmd(cmd, &root)?;
         println!("xref: {} entries", data.len());
         (data, HashMap::new())
     } else if crates_dir.exists() {
@@ -242,22 +344,35 @@ fn main() {
         (HashMap::new(), HashMap::new())
     };
 
-    let xref_json_path = out_dir.join("xref.json");
-    match serde_json::to_string_pretty(&xref_data) {
-        Ok(json) => {
-            if let Err(e) = std::fs::write(&xref_json_path, &json) {
-                eprintln!("xref: could not write {}: {}", xref_json_path.display(), e);
-            } else {
-                println!("xref: wrote {}", xref_json_path.display());
-            }
-        }
-        Err(e) => eprintln!("xref: serialisation error: {}", e),
-    }
+    let xref_json_base = if args.no_adoc { &md_out_dir } else { &out_dir };
+    let xref_json_path = xref_json_base.join("xref.json");
+    let json = serde_json::to_string_pretty(&xref_data)
+        .map_err(|source| Error::XrefJson { source })?;
+    std::fs::write(&xref_json_path, &json).map_err(|source| Error::XrefWrite {
+        path: xref_json_path.display().to_string(),
+        source,
+    })?;
+    println!("xref: wrote {}", xref_json_path.display());
 
-    inject::rewrite_adoc_links(&out_dir);
-    inject::inject_xref(&out_dir, &xref_data, &existing_html, &adoc_map);
-    literate_index::generate_and_inject_all(&out_dir);
-    inject::inject_chunk_ids(&out_dir);
+    if !args.no_adoc {
+        inject::rewrite_doc_links(&out_dir);
+        inject::inject_xref(&out_dir, &xref_data, &existing_html, &adoc_map);
+        literate_index::generate_and_inject_all(&out_dir);
+        inject::inject_chunk_ids(&out_dir);
+    }
+    if !md_html.is_empty() {
+        let empty_adoc_map = HashMap::new();
+        inject::rewrite_doc_links(&md_out_dir);
+        inject::inject_xref(&md_out_dir, &xref_data, &existing_md_html, &empty_adoc_map);
+        literate_index::generate_and_inject_all(&md_out_dir);
+        inject::inject_chunk_ids(&md_out_dir);
+    }
+    Ok(())
+}
+
+fn main() -> miette::Result<()> {
+    run()?;
+    Ok(())
 }
 #[cfg(test)]
 mod tests;

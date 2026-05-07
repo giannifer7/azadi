@@ -4,11 +4,24 @@
 mod cli_generated;
 use cli_generated::Cli;
 use clap::Parser;
+use miette::Diagnostic;
+use thiserror::Error;
+#[derive(Debug, Error, Diagnostic)]
+enum Error {
+    #[error("MCP server failed")]
+    #[diagnostic(code(weaveback::mcp))]
+    Mcp {
+        #[from]
+        #[source]
+        source: std::io::Error,
+    },
+}
+
 fn default_pathsep() -> String {
     if cfg!(windows) { ";".to_string() } else { ":".to_string() }
 }
 
-fn main() {
+fn main() -> miette::Result<()> {
     let cli = Cli::parse();
 
     let pathsep = default_pathsep();
@@ -25,8 +38,7 @@ fn main() {
     };
 
     let project_root = std::env::current_dir().unwrap_or_else(|_| ".".into());
-    if let Err(e) = weaveback_api::mcp::run_mcp(std::io::stdin().lock(), std::io::stdout(), cli.db, cli.gen_dir, project_root, eval_config) {
-        eprintln!("wb-mcp: {e}");
-        std::process::exit(1);
-    }
+    weaveback_api::mcp::run_mcp(std::io::stdin().lock(), std::io::stdout(), cli.db, cli.gen_dir, project_root, eval_config)
+        .map_err(Error::from)?;
+    Ok(())
 }

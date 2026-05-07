@@ -6,11 +6,11 @@ workspace Rust source files.  It uses `syn` to parse each `.rs` file, collects
 module keys, and produces a `HashMap<String, XrefEntry>` mapping each module
 key to its import edges and public symbols.
 
-The graph is consumed by [`inject_xref`](../src-wvb/inject.wvb) to embed
+The graph is consumed by [`inject_xref`](../src-wvb/inject.md) to embed
 `window.__xref` data in generated HTML pages, and serialised to `xref.json`
 for the JavaScript side panel.
 
-See [weaveback_docgen.wvb](weaveback_docgen.wvb) for the module map.
+See [weaveback_docgen.wvb](weaveback_docgen.md) for the module map.
 
 ## Module key scheme
 

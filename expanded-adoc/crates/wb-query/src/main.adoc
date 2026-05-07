@@ -24,28 +24,55 @@ use std::path::PathBuf;
 [source,rust]
 ----
 // <[wb-query-error]>=
+use miette::Diagnostic;
 use thiserror::Error;
 use weaveback_tangle::WeavebackError;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Diagnostic)]
 enum Error {
-    #[error("{0}")]
-    Noweb(#[from] WeavebackError),
-    #[error("{0}")]
-    Io(#[from] std::io::Error),
-    #[error("{0}")]
-    Api(#[from] weaveback_api::query::ApiError),
-    #[error("{0}")]
-    Lookup(#[from] weaveback_api::lookup::LookupError),
-    #[error("{0}")]
-    Lint(String),
-    #[error("{0}")]
-    Coverage(#[from] weaveback_api::coverage::CoverageApiError),
+    #[error("noweb database operation failed: {source}")]
+    #[diagnostic(code(weaveback::noweb))]
+    Noweb {
+        #[from]
+        #[source]
+        source: WeavebackError,
+    },
+    #[error("I/O operation failed: {source}")]
+    #[diagnostic(code(weaveback::io))]
+    Io {
+        #[from]
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("query operation failed")]
+    #[diagnostic(code(weaveback::query))]
+    Api {
+        #[from]
+        #[source]
+        source: weaveback_api::query::ApiError,
+    },
+    #[error("lookup operation failed")]
+    #[diagnostic(code(weaveback::lookup))]
+    Lookup {
+        #[from]
+        #[source]
+        source: weaveback_api::lookup::LookupError,
+    },
+    #[error("lint failed: {message}")]
+    #[diagnostic(code(weaveback::lint))]
+    Lint { message: String },
+    #[error("coverage operation failed")]
+    #[diagnostic(code(weaveback::coverage))]
+    Coverage {
+        #[from]
+        #[source]
+        source: weaveback_api::coverage::CoverageApiError,
+    },
 }
 
 impl From<weaveback_tangle::db::DbError> for Error {
     fn from(e: weaveback_tangle::db::DbError) -> Self {
-        Error::Noweb(WeavebackError::Db(e))
+        Error::Noweb { source: WeavebackError::Db(e) }
     }
 }
 // @
@@ -107,10 +134,12 @@ fn run_tag_only(
     };
 
     if !db_path.exists() {
-        return Err(Error::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            format!("Database not found at {}. Run wb-tangle first.", db_path.display()),
-        )));
+        return Err(Error::Io {
+            source: std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Database not found at {}. Run wb-tangle first.", db_path.display()),
+            ),
+        });
     }
 
     match weaveback_tangle::db::WeavebackDb::open(&db_path) {
@@ -120,7 +149,7 @@ fn run_tag_only(
                 eprintln!("warning: FTS index rebuild failed: {e}");
             }
         }
-        Err(e) => return Err(Error::Noweb(WeavebackError::Db(e))),
+        Err(e) => return Err(Error::Noweb { source: WeavebackError::Db(e) }),
     }
     Ok(())
 }
@@ -140,7 +169,7 @@ fn run_lsp(
             weaveback_api::lsp_runner::LspCmd::References { out_file, line, col },
     };
     weaveback_api::lsp_runner::run_lsp(api_cmd, db_path, gen_dir, eval_config, override_cmd, override_lang)
-        .map_err(Error::Io)
+        .map_err(|source| Error::Io { source })
 }
 
 fn run(cli: Cli) -> Result<(), Error> {
@@ -200,7 +229,7 @@ fn run(cli: Cli) -> Result<(), Error> {
 
         Commands::Lint { paths, strict, rule, json } => {
             weaveback_api::lint::run_lint(paths, strict, rule, json)
-                .map_err(Error::Lint)?;
+                .map_err(|message| Error::Lint { message })?;
         }
 
         Commands::Attribute { scan_stdin, summary, locations, sigil, include, allow_env } => {
@@ -236,12 +265,10 @@ fn run(cli: Cli) -> Result<(), Error> {
     Ok(())
 }
 
-fn main() {
+fn main() -> miette::Result<()> {
     let cli = Cli::parse();
-    if let Err(e) = run(cli) {
-        eprintln!("wb-query: {e}");
-        std::process::exit(1);
-    }
+    run(cli)?;
+    Ok(())
 }
 // @
 ----

@@ -174,8 +174,8 @@ jobs:
 == Pages workflow
 
 Builds and deploys the weaveback documentation site to GitHub Pages on every
-push to `main`.  Uses `weaveback-docgen` to render all `.adoc` files to HTML
-with PlantUML diagram support.
+push to `main`.  Uses `weaveback-docgen` to render both the AsciiDoc site and
+the generated Markdown projection to HTML with PlantUML diagram support.
 
 [source,yaml]
 ----
@@ -251,6 +251,8 @@ jobs:
         run: |
           mkdir -p docs/html/docs
           cp docs/ai-panel.png docs/html/docs/ai-panel.png
+          rm -rf docs/html/markdown
+          cp -a docs/html-md docs/html/markdown
 
       - name: Create root index
         run: cp docs/html/README.html docs/html/index.html

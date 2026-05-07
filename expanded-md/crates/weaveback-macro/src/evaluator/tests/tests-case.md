@@ -5,7 +5,7 @@ toc: left
 ---
 # Evaluator tests — case conversion
 
-[← back to test index](tests.adoc)
+[← back to test index](tests.md)
 
 Tests for the `case_conversion` module and the case-modifier builtins
 (`%capitalize`, `%decapitalize`, `%convert_case`, `%to_snake_case`,

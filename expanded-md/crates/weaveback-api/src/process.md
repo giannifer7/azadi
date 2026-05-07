@@ -109,6 +109,7 @@ pub(crate) use adoc_table::normalize_adoc_tables_for_markdown;
 
 use explicit_table::normalize_explicit_table_blocks;
 
+// <[process-markdown-links]>
 // <[process-normalize-expanded-document]>
 
 // @

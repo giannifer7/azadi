@@ -78,7 +78,7 @@ fn render_docs_renders_simple_page_and_copies_theme_assets() {
     fs::write(theme.join("docinfo.html"), "<meta name=\"x\" />").expect("docinfo");
     fs::write(theme.join("docinfo-footer.html"), "<footer>F</footer>").expect("footer");
 
-    let rendered = render_docs(&root, &theme, &out, &['%'], None, 200, "elk");
+    let rendered = render_docs(&root, &theme, &out, &['%'], None, 200, "elk").expect("render docs");
     assert_eq!(rendered, vec![out.join("docs/index.html")]);
 
     let html = fs::read_to_string(out.join("docs/index.html")).expect("html");
@@ -104,7 +104,89 @@ fn render_docs_skips_up_to_date_outputs() {
     fs::write(theme.join("wb-theme.js"), "console.log(1);").expect("js");
     fs::write(out.join("docs/index.html"), "<html>cached</html>").expect("html");
 
-    let rendered = render_docs(&root, &theme, &out, &[], None, 200, "elk");
+    let rendered = render_docs(&root, &theme, &out, &[], None, 200, "elk").expect("render docs");
     assert_eq!(rendered, vec![out.join("docs/index.html")]);
     assert_eq!(fs::read_to_string(out.join("docs/index.html")).expect("html"), "<html>cached</html>");
+}
+
+#[test]
+fn render_markdown_docs_renders_projection_with_theme_assets() {
+    let dir = tempdir().expect("tempdir");
+    let root = dir.path().join("expanded-md");
+    let theme = dir.path().join("theme");
+    let out = dir.path().join("html-md");
+    fs::create_dir_all(root.join("docs")).expect("docs dir");
+    fs::create_dir_all(&theme).expect("theme dir");
+    fs::write(
+        root.join("docs/index.md"),
+        "---\ntitle: Demo\n---\n# Hello\n\n[Guide](guide.md)\n",
+    ).expect("md");
+    fs::write(theme.join("wb-theme.css"), "body{}").expect("css");
+    fs::write(theme.join("wb-theme.js"), "console.log(1);").expect("js");
+    fs::write(theme.join("docinfo.html"), "<meta name=\"x\" />").expect("docinfo");
+    fs::write(theme.join("docinfo-footer.html"), "<footer>F</footer>").expect("footer");
+
+    let rendered = render_markdown_docs(&root, &theme, &out, None, 200, "elk")
+        .expect("render markdown docs");
+    assert_eq!(rendered, vec![out.join("docs/index.html")]);
+
+    let html = fs::read_to_string(out.join("docs/index.html")).expect("html");
+    assert!(html.contains("<h1>Hello</h1>"), "html: {html}");
+    assert!(html.contains("href=\"guide.md\""), "html: {html}");
+    assert!(!html.contains("title: Demo"), "html: {html}");
+    assert!(html.contains("<meta name=\"x\" />"), "html: {html}");
+    assert!(html.contains("<footer>F</footer>"), "html: {html}");
+    assert_eq!(fs::read_to_string(out.join("wb-theme.css")).expect("out css"), "body{}");
+    assert_eq!(fs::read_to_string(out.join("wb-theme.js")).expect("out js"), "console.log(1);");
+}
+
+#[test]
+fn collect_markdown_diagram_fences_finds_plantuml_and_d2() {
+    let source = "before\n<!-- graph: demo -->\n```plantuml\nA -> B\n```\n~~~d2\na -> b\n~~~\n";
+    let fences = collect_markdown_diagram_fences(source);
+    assert_eq!(fences.len(), 2);
+    assert_eq!(fences[0].kind, MarkdownDiagramKind::PlantUml);
+    assert_eq!(fences[0].body, "A -> B\n");
+    assert!(source[fences[0].start..].starts_with("<!-- graph: "));
+    assert_eq!(fences[1].kind, MarkdownDiagramKind::D2);
+    assert_eq!(fences[1].body, "a -> b\n");
+}
+
+#[test]
+fn preprocess_markdown_diagrams_renders_d2_to_markdown_image() {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempdir().expect("tempdir");
+        let bin_dir = dir.path().join("bin");
+        fs::create_dir_all(&bin_dir).expect("bin dir");
+        let d2_bin = bin_dir.join("d2");
+        fs::write(&d2_bin, "#!/bin/sh\nprintf '<svg>d2-md</svg>'\n").expect("d2 mock");
+        let mut perms = fs::metadata(&d2_bin).expect("metadata").permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&d2_bin, perms).expect("permissions");
+
+        unsafe { std::env::set_var("WEAVEBACK_D2_BIN", &d2_bin); }
+        let images = dir.path().join("images");
+        let cache = dir.path().join("cache");
+        let result = preprocess_markdown_diagrams(
+            "```d2\na -> b\n```\n",
+            &images,
+            &cache,
+            None,
+            200,
+            "elk",
+        ).expect("preprocess")
+            .expect("changed");
+        unsafe { std::env::remove_var("WEAVEBACK_D2_BIN"); }
+
+        assert!(result.starts_with("![D2 diagram](d2-"), "result: {result}");
+        assert!(result.ends_with(".svg)\n"), "result: {result}");
+        let svg_name = result
+            .trim()
+            .trim_start_matches("![D2 diagram](")
+            .trim_end_matches(')');
+        assert_eq!(fs::read_to_string(images.join(svg_name)).expect("svg"), "<svg>d2-md</svg>");
+    }
 }

@@ -5,7 +5,7 @@ toc: left
 ---
 # Evaluator tests — macro definitions
 
-[← back to test index](tests.adoc)
+[← back to test index](tests.md)
 
 Test helpers and tests for `%def` (basic calls, error paths, parameter binding),
 `%set`, and variable substitution.

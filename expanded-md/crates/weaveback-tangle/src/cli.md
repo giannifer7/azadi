@@ -2,12 +2,12 @@
 
 `main.rs` is the entry point for the `weaveback-tangle` binary.  It parses
 command-line arguments with `clap`, builds a
-[`Clip`](noweb.adoc), reads the input files, writes all `@file` chunks to
-disk via [`SafeFileWriter`](safe_writer.adoc), and merges the run's database
+[`Clip`](noweb.md), reads the input files, writes all `@file` chunks to
+disk via [`SafeFileWriter`](safe_writer.md), and merges the run's database
 into the path given by `--db` (default `weaveback.db`).
 
-See [weaveback_tangle.adoc](weaveback_tangle.adoc) for the module map and
-[architecture.adoc](../../../docs/architecture.adoc) for the pipeline
+See [weaveback_tangle.adoc](weaveback_tangle.md) for the module map and
+[architecture.adoc](../../../docs/architecture.md) for the pipeline
 overview.
 
 ## Arguments
@@ -36,10 +36,37 @@ overview.
 
 use weaveback_tangle::{WeavebackError, Clip, SafeFileWriter, SafeWriterConfig};
 use clap::Parser;
+use miette::Diagnostic;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Write};
 use std::path::PathBuf;
+use thiserror::Error;
+
+#[derive(Debug, Error, Diagnostic)]
+enum Error {
+    #[error("noweb tangling failed")]
+    #[diagnostic(code(weaveback::noweb))]
+    Noweb {
+        #[from]
+        #[source]
+        source: WeavebackError,
+    },
+    #[error("I/O operation failed")]
+    #[diagnostic(code(weaveback::io))]
+    Io {
+        #[from]
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("safe generated-file write failed")]
+    #[diagnostic(code(weaveback::safe_writer))]
+    SafeWriter {
+        #[from]
+        #[source]
+        source: weaveback_tangle::safe_writer::SafeWriterError,
+    },
+}
 
 #[derive(Parser)]
 #[command(
@@ -119,7 +146,7 @@ fn write_chunks<W: Write>(
     Ok(())
 }
 
-fn run(args: Args) -> Result<(), WeavebackError> {
+fn run(args: Args) -> Result<(), Error> {
     let comment_markers: Vec<String> = args
         .comment_markers
         .split(',')
@@ -181,14 +208,12 @@ fn run(args: Args) -> Result<(), WeavebackError> {
     Ok(())
 }
 
-fn main() {
+fn main() -> miette::Result<()> {
     env_logger::init();
     let args = Args::parse();
 
-    if let Err(e) = run(args) {
-        eprintln!("Error: {}", e);
-        std::process::exit(1);
-    }
+    run(args)?;
+    Ok(())
 }
 
 // @

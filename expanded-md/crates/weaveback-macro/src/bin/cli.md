@@ -6,7 +6,7 @@ toc: left
 # CLI binary — `weaveback-macro`
 
 `src/bin/weaveback-macro.rs` is the `weaveback-macro` command-line binary.
-It wraps the [macro_api](../macro_api.adoc) layer with a clap argument
+It wraps the [macro_api](../macro_api.md) layer with a clap argument
 parser, uses explicit dependency-discovery APIs for `--dir`, and exposes
 `--dump-ast` for debugging.
 
@@ -54,6 +54,7 @@ Skips evaluation entirely and serialises the parsed AST of each input file to
 // I'd Really Rather You Didn't edit this generated file.
 
 // <[cli preamble]>
+// <[cli error]>
 // <[cli default pathsep]>
 // <[cli helpers]>
 // <[cli find files]>
@@ -75,8 +76,28 @@ Skips evaluation entirely and serialises the parsed AST of each input file to
 use weaveback_macro::evaluator::{EvalConfig, EvalError, Evaluator};
 use weaveback_macro::macro_api::{discover_includes_in_file, process_files};
 use clap::{ArgGroup, Parser};
+use miette::Diagnostic;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
+// @
+```
+
+
+## Error Type
+
+```rust
+// <[cli error]>=
+#[derive(Debug, Error, Diagnostic)]
+enum Error {
+    #[error("macro evaluation failed")]
+    #[diagnostic(code(weaveback::macro_eval))]
+    Eval {
+        #[from]
+        #[source]
+        source: EvalError,
+    },
+}
 // @
 ```
 
@@ -300,15 +321,10 @@ fn run(args: Args) -> Result<(), EvalError> {
 
 ```rust
 // <[cli main]>=
-fn main() {
+fn main() -> miette::Result<()> {
     let args = Args::parse();
-    match run(args) {
-        Ok(()) => std::process::exit(0),
-        Err(e) => {
-            eprintln!("Error: {e}");
-            std::process::exit(1);
-        }
-    }
+    run(args).map_err(Error::from)?;
+    Ok(())
 }
 // @
 ```
@@ -859,7 +875,7 @@ fn test_undefined_variable_is_strict_by_default_cli() -> Result<(), Box<dyn std:
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Undefined variable: missing"),
+        stderr.contains("Undefined variable:") && stderr.contains("missing"),
         "expected undefined-variable error, got: {stderr}"
     );
 
@@ -889,7 +905,9 @@ fn test_unbound_params_are_strict_by_default_cli() -> Result<(), Box<dyn std::er
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Unbound parameter 'msg' in macro 'greet'"),
+        stderr.contains("Unbound parameter")
+            && stderr.contains("'msg'")
+            && stderr.contains("'greet'"),
         "expected unbound-parameter error, got: {stderr}"
     );
 

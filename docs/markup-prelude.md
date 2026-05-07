@@ -11,14 +11,14 @@ sigil used by `weaveback-macro` sources.
 
 The implementation is intentionally split by output markup:
 
-* [`prelude/asciidoc.wvb`](../prelude/asciidoc.wvb) emits AsciiDoc.
-* [`prelude/markdown.wvb`](../prelude/markdown.wvb) emits Markdown.
+* [`prelude/asciidoc.wvb`](../prelude/asciidoc.md) emits AsciiDoc.
+* [`prelude/markdown.wvb`](../prelude/markdown.md) emits Markdown.
 
 The `.wvb` files contain only macro definitions. They are meant to be injected
 before document sources by `weaveback.toml`, then the markup-prelude expansion produces
 ordinary `.adoc` or `.md` text that the same logical tangle pass consumes.
 
-See [two-pass markup migration](two-pass-markup-migration.adoc) for the
+See [two-pass markup migration](two-pass-markup-migration.md) for the
 project migration plan, parity requirements, and staged conversion policy.
 
 ## Config shape

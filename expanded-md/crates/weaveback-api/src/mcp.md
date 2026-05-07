@@ -18,12 +18,12 @@ clients:
 * `weaveback_search` — hybrid prose search over FTS, tags, and optional embeddings
 * `weaveback_list_tags` — list LLM-generated tags for prose blocks
 
-`run_mcp` is called by [`main.rs`](lib.adoc) for the `mcp` subcommand.
+`run_mcp` is called by [`main.rs`](lib.md) for the `mcp` subcommand.
 The `weaveback_apply_back` tool delegates to
-[`apply_back.rs`](apply_back.adoc), and `weaveback_trace` delegates to
-[`lookup.rs`](lookup.adoc).
+[`apply_back.rs`](apply_back.md), and `weaveback_trace` delegates to
+[`lookup.rs`](lookup.md).
 
-See [weaveback.adoc](lib.adoc) for the module map.
+See [weaveback.adoc](lib.md) for the module map.
 
 The implementation is split into focused literate files under
 `crates/weaveback-api/src-wvb/mcp/`:
