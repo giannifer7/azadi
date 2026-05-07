@@ -96,25 +96,21 @@ pub(in crate::process::markdown_normalize) fn parse_adoc_table(attr: Option<&str
                     rows.push(std::mem::take(&mut row));
                 }
             }
-        } else if let Some(last) = row.last_mut().or_else(|| rows.last_mut().and_then(|r| r.last_mut())) {
+        } else {
+            let last = row.last_mut().or_else(|| rows.last_mut().and_then(|r| r.last_mut()))?;
             if !last.is_empty() {
                 last.push('\n');
             }
             last.push_str(trimmed);
             complex = true;
-        } else {
-            return None;
         }
     }
 
     if !row.is_empty() {
-        if let Some(cols) = expected_cols {
-            row.resize(cols, String::new());
-            rows.push(row);
-            complex = true;
-        } else {
-            return None;
-        }
+        let cols = expected_cols?;
+        row.resize(cols, String::new());
+        rows.push(row);
+        complex = true;
     }
 
     let cols = expected_cols?;
