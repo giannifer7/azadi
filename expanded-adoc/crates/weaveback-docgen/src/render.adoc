@@ -1204,41 +1204,27 @@ fn collect_markdown_diagram_fences_finds_plantuml_and_d2() {
 
 #[test]
 fn preprocess_markdown_diagrams_renders_d2_to_markdown_image() {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
+    let dir = tempdir().expect("tempdir");
+    let images = dir.path().join("images");
+    let cache = dir.path().join("cache");
+    fs::create_dir_all(&cache).expect("cache dir");
 
-        let dir = tempdir().expect("tempdir");
-        let bin_dir = dir.path().join("bin");
-        fs::create_dir_all(&bin_dir).expect("bin dir");
-        let d2_bin = bin_dir.join("d2");
-        fs::write(&d2_bin, "#!/bin/sh\nprintf '<svg>d2-md</svg>'\n").expect("d2 mock");
-        let mut perms = fs::metadata(&d2_bin).expect("metadata").permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&d2_bin, perms).expect("permissions");
+    let diagram = "a -> b\n";
+    let svg_name = format!("d2-{}.svg", blake3::hash(diagram.as_bytes()).to_hex());
+    fs::write(cache.join(&svg_name), "<svg>d2-md</svg>").expect("cached svg");
 
-        unsafe { std::env::set_var("WEAVEBACK_D2_BIN", &d2_bin); }
-        let images = dir.path().join("images");
-        let cache = dir.path().join("cache");
-        let result = preprocess_markdown_diagrams(
-            "```d2\na -> b\n```\n",
-            &images,
-            &cache,
-            None,
-            200,
-            "elk",
-        ).expect("preprocess")
-            .expect("changed");
-        unsafe { std::env::remove_var("WEAVEBACK_D2_BIN"); }
+    let result = preprocess_markdown_diagrams(
+        "```d2\na -> b\n```\n",
+        &images,
+        &cache,
+        None,
+        200,
+        "elk",
+    ).expect("preprocess")
+        .expect("changed");
 
-        assert!(result.starts_with("![D2 diagram](d2-"), "result: {result}");
-        assert!(result.ends_with(".svg)\n"), "result: {result}");
-        let svg_name = result
-            .trim()
-            .trim_start_matches("![D2 diagram](")
-            .trim_end_matches(')');
-        assert_eq!(fs::read_to_string(images.join(svg_name)).expect("svg"), "<svg>d2-md</svg>");
-    }
+    assert_eq!(result, format!("![D2 diagram]({svg_name})\n"));
+    assert_eq!(fs::read_to_string(images.join(svg_name)).expect("svg"), "<svg>d2-md</svg>");
 }
 
 // @
