@@ -2933,7 +2933,7 @@ dependencies = [
 
 [[package]]
 name = "wb-mcp"
-version = "0.13.4"
+version = "0.13.5"
 dependencies = [
  "clap",
  "miette",
@@ -2944,7 +2944,7 @@ dependencies = [
 
 [[package]]
 name = "wb-query"
-version = "0.13.4"
+version = "0.13.5"
 dependencies = [
  "clap",
  "miette",
@@ -2959,7 +2959,7 @@ dependencies = [
 
 [[package]]
 name = "wb-serve"
-version = "0.13.4"
+version = "0.13.5"
 dependencies = [
  "clap",
  "miette",
@@ -2969,7 +2969,7 @@ dependencies = [
 
 [[package]]
 name = "wb-tangle"
-version = "0.13.4"
+version = "0.13.5"
 dependencies = [
  "clap",
  "miette",
@@ -2981,7 +2981,7 @@ dependencies = [
 
 [[package]]
 name = "weaveback-agent-core"
-version = "0.13.4"
+version = "0.13.5"
 dependencies = [
  "serde",
  "serde_json",
@@ -2995,7 +2995,7 @@ dependencies = [
 
 [[package]]
 name = "weaveback-api"
-version = "0.13.4"
+version = "0.13.5"
 dependencies = [
  "miette",
  "rayon",
@@ -3017,11 +3017,11 @@ dependencies = [
 
 [[package]]
 name = "weaveback-core"
-version = "0.13.4"
+version = "0.13.5"
 
 [[package]]
 name = "weaveback-docgen"
-version = "0.13.4"
+version = "0.13.5"
 dependencies = [
  "acdc-converters-core",
  "acdc-converters-html",
@@ -3044,7 +3044,7 @@ dependencies = [
 
 [[package]]
 name = "weaveback-lsp"
-version = "0.13.4"
+version = "0.13.5"
 dependencies = [
  "log",
  "lsp-types",
@@ -3058,7 +3058,7 @@ dependencies = [
 
 [[package]]
 name = "weaveback-macro"
-version = "0.13.4"
+version = "0.13.5"
 dependencies = [
  "assert_cmd",
  "chrono",
@@ -3081,7 +3081,7 @@ dependencies = [
 
 [[package]]
 name = "weaveback-py"
-version = "0.13.4"
+version = "0.13.5"
 dependencies = [
  "pyo3",
  "pythonize",
@@ -3094,7 +3094,7 @@ dependencies = [
 
 [[package]]
 name = "weaveback-serve"
-version = "0.13.4"
+version = "0.13.5"
 dependencies = [
  "notify",
  "serde",
@@ -3110,7 +3110,7 @@ dependencies = [
 
 [[package]]
 name = "weaveback-tangle"
-version = "0.13.4"
+version = "0.13.5"
 dependencies = [
  "acdc-parser",
  "assert_cmd",
