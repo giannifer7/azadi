@@ -431,29 +431,19 @@ This keeps the Markdown output neutral while still sharing the same SVG cache
 and renderers as the AsciiDoc path.
 
 ```rust
-// <[render-markdown]>=
+// <[render-markdown-diagrams]>=
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum MarkdownDiagramKind {
+pub(crate) enum MarkdownDiagramKind {
     PlantUml,
     D2,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct MarkdownDiagramFence {
-    start: usize,
-    end: usize,
-    body: String,
-    kind: MarkdownDiagramKind,
-}
-
-fn strip_yaml_front_matter(source: &str) -> &str {
-    let Some(rest) = source.strip_prefix("---\n") else {
-        return source;
-    };
-    let Some(end) = rest.find("\n---\n") else {
-        return source;
-    };
-    &rest[end + "\n---\n".len()..]
+pub(crate) struct MarkdownDiagramFence {
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) body: String,
+    pub(crate) kind: MarkdownDiagramKind,
 }
 
 fn markdown_fence_kind(info: &str) -> Option<MarkdownDiagramKind> {
@@ -502,7 +492,7 @@ fn markdown_graph_comment_start(source: &str, fence_start: usize) -> Option<usiz
     }
 }
 
-fn collect_markdown_diagram_fences(source: &str) -> Vec<MarkdownDiagramFence> {
+pub(crate) fn collect_markdown_diagram_fences(source: &str) -> Vec<MarkdownDiagramFence> {
     let mut fences = Vec::new();
     let mut offset = 0usize;
     let mut lines = source.split_inclusive('\n').peekable();
@@ -552,7 +542,7 @@ fn markdown_diagram_alt(kind: MarkdownDiagramKind) -> &'static str {
     }
 }
 
-fn preprocess_markdown_diagrams(
+pub(crate) fn preprocess_markdown_diagrams(
     source: &str,
     images_out_dir: &Path,
     svg_cache_dir: &Path,
@@ -634,6 +624,21 @@ fn preprocess_markdown_diagrams(
     }
 
     Ok(Some(result))
+}
+// @
+```
+
+
+```rust
+// <[render-markdown-page]>=
+fn strip_yaml_front_matter(source: &str) -> &str {
+    let Some(rest) = source.strip_prefix("---\n") else {
+        return source;
+    };
+    let Some(end) = rest.find("\n---\n") else {
+        return source;
+    };
+    &rest[end + "\n---\n".len()..]
 }
 
 fn html_escape_text(text: &str) -> String {
@@ -734,7 +739,7 @@ fn render_markdown_body(source: &str) -> String {
     body
 }
 
-fn render_markdown_page(source: &str, title: &str) -> String {
+pub(crate) fn render_markdown_page(source: &str, title: &str) -> String {
     let source = strip_yaml_front_matter(source);
     let body = render_markdown_body(source);
     let title = html_escape_text(title);
@@ -742,7 +747,12 @@ fn render_markdown_page(source: &str, title: &str) -> String {
         "<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>{title}</title>\n</head>\n<body>\n<div id=\"content\">\n{body}</div>\n</body>\n</html>\n"
     )
 }
+// @
+```
 
+
+```rust
+// <[render-markdown-entry]>=
 pub fn render_markdown_docs(
     markdown_root: &Path,
     theme_dir: &Path,
@@ -923,16 +933,85 @@ fn find_files_with_extension(root: &Path, extension: &str) -> Vec<PathBuf> {
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+mod adoc;
+mod markdown;
+
+pub use adoc::render_docs;
+pub use markdown::render_markdown_docs;
+
 // <[render-error]>
 // <[render-exclude]>
 // <[render-mtime]>
 // <[render-dedup]>
 // <[render-docinfo]>
-// <[render-entry]>
-// <[render-markdown]>
 // <[render-discover]>
+
+#[cfg(test)]
+pub(super) use markdown::{
+    collect_markdown_diagram_fences, preprocess_markdown_diagrams, render_markdown_page,
+    MarkdownDiagramKind,
+};
+
 #[cfg(test)]
 mod tests;
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-docgen/src/render/adoc.rs]>=
+// weaveback-docgen/src/render/adoc.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::*;
+
+// <[render-entry]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-docgen/src/render/markdown.rs]>=
+// weaveback-docgen/src/render/markdown.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::*;
+
+mod diagrams;
+mod page;
+
+pub(crate) use diagrams::{
+    collect_markdown_diagram_fences, preprocess_markdown_diagrams, MarkdownDiagramKind,
+};
+pub(crate) use page::render_markdown_page;
+
+// <[render-markdown-entry]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-docgen/src/render/markdown/diagrams.rs]>=
+// weaveback-docgen/src/render/markdown/diagrams.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::super::*;
+
+// <[render-markdown-diagrams]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-docgen/src/render/markdown/page.rs]>=
+// weaveback-docgen/src/render/markdown/page.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[render-markdown-page]>
 
 // @
 ```

@@ -113,9 +113,34 @@ use super::*;
 ¤])
 
 ¤rust_file(weaveback-api/src/apply_back/tests/runner.rs, ¤[
-use super::*;
+mod bulk;
+mod entry;
+mod oracle;
+mod success;
+¤])
 
-// <[applyback-tests-runner]>
+¤rust_file(weaveback-api/src/apply_back/tests/runner/entry.rs, ¤[
+use super::super::*;
+
+// <[applyback-tests-runner-entry]>
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/tests/runner/success.rs, ¤[
+use super::super::*;
+
+// <[applyback-tests-runner-success]>
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/tests/runner/oracle.rs, ¤[
+use super::super::*;
+
+// <[applyback-tests-runner-oracle]>
+¤])
+
+¤rust_file(weaveback-api/src/apply_back/tests/runner/bulk.rs, ¤[
+use super::super::*;
+
+// <[applyback-tests-runner-bulk]>
 ¤])
 
 ¤rust_file(weaveback-api/src/apply_back/tests/batch.rs, ¤[

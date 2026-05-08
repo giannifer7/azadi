@@ -344,6 +344,19 @@ use super::*;
 
 
 ```rust
+// <[@file weaveback-api/src/apply_back/run/helpers.rs]>=
+// weaveback-api/src/apply_back/run/helpers.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::super::*;
+
+// <[applyback-run-helpers]>
+
+// @
+```
+
+
+```rust
 // <[@file weaveback-api/src/apply_back.rs]>=
 // weaveback-api/src/apply_back.rs
 // I'd Really Rather You Didn't edit this generated file.

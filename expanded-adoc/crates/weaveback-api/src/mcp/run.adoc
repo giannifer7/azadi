@@ -8,7 +8,7 @@
 use crate::apply_back::{self, ApplyBackOptions};
 use crate::lookup;
 use weaveback_agent_core::{
-    ChangePlan, ChangeTarget, PlannedEdit, Workspace as AgentWorkspace,
+    ChangePlan, ChangeTarget, PlannedEdit, Session as AgentSession, Workspace as AgentWorkspace,
     WorkspaceConfig as AgentWorkspaceConfig,
 };
 use weaveback_agent_core::change_plan::OutputAnchor;
@@ -39,7 +39,7 @@ The loop exits cleanly on EOF or an I/O error.
 
 [source,rust]
 ----
-// <[mcp-run]>=
+// <[mcp-lsp-runtime]>=
 pub(crate) fn get_or_spawn_lsp<'a>(
     clients: &'a mut HashMap<String, LspClient>,
     ext: &str,
@@ -62,7 +62,513 @@ pub(crate) fn get_or_spawn_lsp<'a>(
     }
     Ok(clients.get_mut(&lsp_lang).unwrap())
 }
+// @
+----
 
+
+[source,rust]
+----
+// <[mcp-lsp-tool-handlers]>=
+fn lsp_position_args(input: &serde_json::Map<String, Value>) -> Result<(&str, u32, u32), &'static str> {
+    let out_file = input.get("out_file").and_then(|v| v.as_str()).unwrap_or("");
+    let line = input.get("line").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let col = input.get("col").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    if out_file.is_empty() || line == 0 || col == 0 {
+        Err("out_file, line, and col are required and must be > 0")
+    } else {
+        Ok((out_file, line, col))
+    }
+}
+
+fn lsp_client_for_file<'a, W: Write>(
+    writer: &mut W,
+    id: Option<Value>,
+    lsp_clients: &'a mut HashMap<String, LspClient>,
+    out_file: &str,
+) -> Option<&'a mut LspClient> {
+    let ext = std::path::Path::new(out_file)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("");
+    match get_or_spawn_lsp(lsp_clients, ext) {
+        Ok(client) => Some(client),
+        Err(e) => {
+            send_error(writer, id, &format!("LSP error: {e}"));
+            None
+        }
+    }
+}
+
+fn open_lsp_mapping_db<W: Write>(
+    writer: &mut W,
+    id: Option<Value>,
+    db_path: &std::path::Path,
+) -> Option<WeavebackDb> {
+    if !db_path.exists() {
+        send_error(writer, id, "Database not found");
+        return None;
+    }
+    match WeavebackDb::open_read_only(db_path) {
+        Ok(db) => Some(db),
+        Err(e) => {
+            send_error(writer, id, &format!("Database error: {e:?}"));
+            None
+        }
+    }
+}
+
+pub(super) fn handle_lsp_definition<W: Write>(
+    writer: &mut W,
+    id: Option<Value>,
+    input: Option<&serde_json::Map<String, Value>>,
+    lsp_clients: &mut HashMap<String, LspClient>,
+    db_path: &std::path::Path,
+    resolver: &PathResolver,
+    eval_config: &EvalConfig,
+) {
+    let Some(input) = input else {
+        send_error(writer, id, "Missing arguments");
+        return;
+    };
+    let (out_file, line, col) = match lsp_position_args(input) {
+        Ok(args) => args,
+        Err(msg) => {
+            send_error(writer, id, msg);
+            return;
+        }
+    };
+    let Some(client) = lsp_client_for_file(writer, id.clone(), lsp_clients, out_file) else {
+        return;
+    };
+
+    match client.goto_definition(std::path::Path::new(out_file), line - 1, col - 1) {
+        Ok(Some(loc)) => {
+            if let Ok(target_path) = loc.uri.to_file_path() {
+                let Some(db) = open_lsp_mapping_db(writer, id.clone(), db_path) else {
+                    return;
+                };
+                match lookup::perform_trace(
+                    target_path.to_string_lossy().as_ref(),
+                    loc.range.start.line + 1,
+                    loc.range.start.character + 1,
+                    &db,
+                    resolver,
+                    eval_config.clone(),
+                ) {
+                    Ok(Some(res)) => {
+                        send_text(writer, id, &serde_json::to_string_pretty(&res).unwrap())
+                    }
+                    Ok(None) => send_text(
+                        writer,
+                        id,
+                        &serde_json::to_string_pretty(&json!({
+                            "out_file": target_path.to_string_lossy(),
+                            "out_line": loc.range.start.line + 1,
+                            "out_col":  loc.range.start.character + 1,
+                            "note": "LSP result could not be mapped to source"
+                        }))
+                        .unwrap(),
+                    ),
+                    Err(e) => send_error(writer, id, &format!("Mapping error: {e:?}")),
+                }
+            } else {
+                send_error(writer, id, "LSP returned non-file URI");
+            }
+        }
+        Ok(None) => send_text(writer, id, "No definition found."),
+        Err(e) => send_error(writer, id, &format!("LSP call failed: {e}")),
+    }
+}
+
+pub(super) fn handle_lsp_references<W: Write>(
+    writer: &mut W,
+    id: Option<Value>,
+    input: Option<&serde_json::Map<String, Value>>,
+    lsp_clients: &mut HashMap<String, LspClient>,
+    db_path: &std::path::Path,
+    resolver: &PathResolver,
+    eval_config: &EvalConfig,
+) {
+    let Some(input) = input else {
+        send_error(writer, id, "Missing arguments");
+        return;
+    };
+    let (out_file, line, col) = match lsp_position_args(input) {
+        Ok(args) => args,
+        Err(msg) => {
+            send_error(writer, id, msg);
+            return;
+        }
+    };
+    let Some(client) = lsp_client_for_file(writer, id.clone(), lsp_clients, out_file) else {
+        return;
+    };
+
+    match client.find_references(std::path::Path::new(out_file), line - 1, col - 1) {
+        Ok(locs) => {
+            let Some(db) = open_lsp_mapping_db(writer, id.clone(), db_path) else {
+                return;
+            };
+            let mut results = Vec::new();
+            for loc in locs {
+                if let Ok(target_path) = loc.uri.to_file_path() {
+                    match lookup::perform_trace(
+                        target_path.to_string_lossy().as_ref(),
+                        loc.range.start.line + 1,
+                        loc.range.start.character + 1,
+                        &db,
+                        resolver,
+                        eval_config.clone(),
+                    ) {
+                        Ok(Some(res)) => results.push(res),
+                        _ => results.push(json!({
+                            "out_file": target_path.to_string_lossy(),
+                            "out_line": loc.range.start.line + 1,
+                            "out_col":  loc.range.start.character + 1,
+                            "note": "LSP result could not be mapped to source"
+                        })),
+                    }
+                }
+            }
+            send_text(writer, id, &serde_json::to_string_pretty(&results).unwrap());
+        }
+        Err(e) => send_error(writer, id, &format!("LSP call failed: {e}")),
+    }
+}
+
+pub(super) fn handle_lsp_hover<W: Write>(
+    writer: &mut W,
+    id: Option<Value>,
+    input: Option<&serde_json::Map<String, Value>>,
+    lsp_clients: &mut HashMap<String, LspClient>,
+    db_path: &std::path::Path,
+    resolver: &PathResolver,
+    eval_config: &EvalConfig,
+) {
+    let Some(input) = input else {
+        send_error(writer, id, "Missing arguments");
+        return;
+    };
+    let (out_file, line, col) = match lsp_position_args(input) {
+        Ok(args) => args,
+        Err(msg) => {
+            send_error(writer, id, msg);
+            return;
+        }
+    };
+    let Some(client) = lsp_client_for_file(writer, id.clone(), lsp_clients, out_file) else {
+        return;
+    };
+
+    match client.hover(std::path::Path::new(out_file), line - 1, col - 1) {
+        Ok(Some(hover)) => {
+            let Some(db) = open_lsp_mapping_db(writer, id.clone(), db_path) else {
+                return;
+            };
+            let trace = lookup::perform_trace(out_file, line, col, &db, resolver, eval_config.clone())
+                .ok()
+                .flatten();
+
+            let mut res = json!({ "hover": hover });
+            if let Some(t) = trace {
+                res.as_object_mut().unwrap().insert("source".into(), t);
+            }
+            send_text(writer, id, &serde_json::to_string_pretty(&res).unwrap());
+        }
+        Ok(None) => send_text(writer, id, "No hover info found."),
+        Err(e) => send_error(writer, id, &format!("LSP call failed: {e}")),
+    }
+}
+
+pub(super) fn handle_lsp_diagnostics<W: Write>(
+    writer: &mut W,
+    id: Option<Value>,
+    input: Option<&serde_json::Map<String, Value>>,
+    lsp_clients: &mut HashMap<String, LspClient>,
+    db_path: &std::path::Path,
+    resolver: &PathResolver,
+    eval_config: &EvalConfig,
+) {
+    let Some(input) = input else {
+        send_error(writer, id, "Missing arguments");
+        return;
+    };
+    let out_file = input.get("out_file").and_then(|v| v.as_str()).unwrap_or("");
+    if out_file.is_empty() {
+        send_error(writer, id, "out_file is required");
+        return;
+    }
+    let Some(client) = lsp_client_for_file(writer, id.clone(), lsp_clients, out_file) else {
+        return;
+    };
+
+    let diags = client.get_diagnostics(std::path::Path::new(out_file));
+    let Some(db) = open_lsp_mapping_db(writer, id.clone(), db_path) else {
+        return;
+    };
+    let mut mapped = Vec::new();
+    for d in diags {
+        let line = d.range.start.line + 1;
+        let col = d.range.start.character + 1;
+        let trace = lookup::perform_trace(out_file, line, col, &db, resolver, eval_config.clone())
+            .ok()
+            .flatten();
+        mapped.push(json!({
+            "diagnostic": d,
+            "source": trace,
+        }));
+    }
+    send_text(writer, id, &serde_json::to_string_pretty(&mapped).unwrap());
+}
+
+pub(super) fn handle_lsp_symbols<W: Write>(
+    writer: &mut W,
+    id: Option<Value>,
+    input: Option<&serde_json::Map<String, Value>>,
+    lsp_clients: &mut HashMap<String, LspClient>,
+) {
+    let Some(input) = input else {
+        send_error(writer, id, "Missing arguments");
+        return;
+    };
+    let out_file = input.get("out_file").and_then(|v| v.as_str()).unwrap_or("");
+    if out_file.is_empty() {
+        send_error(writer, id, "out_file is required");
+        return;
+    }
+    let Some(client) = lsp_client_for_file(writer, id.clone(), lsp_clients, out_file) else {
+        return;
+    };
+
+    match client.document_symbols(std::path::Path::new(out_file)) {
+        Ok(symbols) => send_text(writer, id, &serde_json::to_string_pretty(&symbols).unwrap()),
+        Err(e) => send_error(writer, id, &format!("LSP call failed: {e}")),
+    }
+}
+// @
+----
+
+
+[source,rust]
+----
+// <[mcp-data-tool-handlers]>=
+pub(super) fn handle_chunk_context<W: Write>(
+    writer: &mut W,
+    id: Option<Value>,
+    input: Option<&serde_json::Map<String, Value>>,
+    agent_session: &AgentSession,
+) {
+    let Some(input) = input else {
+        send_error(writer, id, "Missing arguments");
+        return;
+    };
+    let file = input.get("file").and_then(|v| v.as_str()).unwrap_or("");
+    let name = input.get("name").and_then(|v| v.as_str()).unwrap_or("");
+    let nth = input.get("nth").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    if file.is_empty() || name.is_empty() {
+        send_error(writer, id, "file and name are required");
+        return;
+    }
+    match agent_session.chunk_context(file, name, nth) {
+        Ok(ctx) => {
+            let obj = json!({
+                "file": ctx.file,
+                "name": ctx.name,
+                "nth": ctx.nth,
+                "body": ctx.body,
+                "section_title_chain": ctx.section_breadcrumb,
+                "section_prose": ctx.prose,
+                "dependencies": ctx.direct_dependencies,
+                "output_files": ctx.outputs,
+            });
+            send_text(writer, id, &serde_json::to_string_pretty(&obj).unwrap());
+        }
+        Err(_) => send_error(writer, id, &format!("Chunk not found: {}#{}[{}]", file, name, nth)),
+    }
+}
+
+pub(super) fn handle_list_chunks<W: Write>(
+    writer: &mut W,
+    id: Option<Value>,
+    input: Option<&serde_json::Map<String, Value>>,
+    db_path: &std::path::Path,
+) {
+    let file_filter = input
+        .and_then(|i| i.get("file"))
+        .and_then(|v| v.as_str());
+    if !db_path.exists() {
+        send_error(writer, id, "Database not found. Run weaveback on your source files first.");
+        return;
+    }
+    match WeavebackDb::open_read_only(db_path) {
+        Err(e) => send_error(writer, id, &format!("Database error: {e:?}")),
+        Ok(db) => match db.list_chunk_defs(file_filter) {
+            Err(e) => send_error(writer, id, &format!("Query error: {e:?}")),
+            Ok(defs) => {
+                let arr: Vec<Value> = defs.iter().map(|d| json!({
+                    "file":      d.src_file,
+                    "name":      d.chunk_name,
+                    "nth":       d.nth,
+                    "def_start": d.def_start,
+                    "def_end":   d.def_end,
+                })).collect();
+                send_text(writer, id, &serde_json::to_string_pretty(&arr).unwrap());
+            }
+        },
+    }
+}
+
+pub(super) fn handle_find_chunk<W: Write>(
+    writer: &mut W,
+    id: Option<Value>,
+    input: Option<&serde_json::Map<String, Value>>,
+    db_path: &std::path::Path,
+) {
+    let Some(input) = input else {
+        send_error(writer, id, "Missing arguments");
+        return;
+    };
+    let name = input.get("name").and_then(|v| v.as_str()).unwrap_or("");
+    if name.is_empty() {
+        send_error(writer, id, "name is required");
+        return;
+    }
+    if !db_path.exists() {
+        send_error(writer, id, "Database not found. Run weaveback on your source files first.");
+        return;
+    }
+    match WeavebackDb::open_read_only(db_path) {
+        Err(e) => send_error(writer, id, &format!("Database error: {e:?}")),
+        Ok(db) => match db.find_chunk_defs_by_name(name) {
+            Err(e) => send_error(writer, id, &format!("Query error: {e:?}")),
+            Ok(defs) => {
+                let arr: Vec<Value> = defs.iter().map(|d| json!({
+                    "file":      d.src_file,
+                    "nth":       d.nth,
+                    "def_start": d.def_start,
+                    "def_end":   d.def_end,
+                })).collect();
+                send_text(writer, id, &serde_json::to_string_pretty(&arr).unwrap());
+            }
+        },
+    }
+}
+
+pub(super) fn handle_search<W: Write>(
+    writer: &mut W,
+    id: Option<Value>,
+    input: Option<&serde_json::Map<String, Value>>,
+    db_path: &std::path::Path,
+    agent_session: &AgentSession,
+) {
+    let query = input
+        .and_then(|v| v.get("query"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    if query.is_empty() {
+        send_error(writer, id, "query is required");
+        return;
+    }
+    let limit = input
+        .and_then(|v| v.get("limit"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(10) as usize;
+    if !db_path.exists() {
+        send_error(writer, id, "Database not found. Run weaveback on your source files first.");
+        return;
+    }
+    match agent_session.search(query, limit) {
+        Err(e) => send_error(writer, id, &format!("Search error: {e}")),
+        Ok(results) => {
+            let arr: Vec<Value> = results.iter().map(|r| {
+                let mut obj = json!({
+                    "src_file":   r.src_file,
+                    "block_type": r.block_type,
+                    "line_start": r.line_start,
+                    "line_end":   r.line_end,
+                    "snippet":    r.snippet,
+                    "score":      r.score,
+                    "channels":   r.channels,
+                });
+                if !r.tags.is_empty() {
+                    obj["tags"] = json!(r.tags);
+                }
+                obj
+            }).collect();
+            send_text(writer, id, &serde_json::to_string_pretty(&arr).unwrap());
+        }
+    }
+}
+
+pub(super) fn handle_list_tags<W: Write>(
+    writer: &mut W,
+    id: Option<Value>,
+    input: Option<&serde_json::Map<String, Value>>,
+    db_path: &std::path::Path,
+) {
+    let file_filter = input
+        .and_then(|v| v.get("file"))
+        .and_then(|v| v.as_str());
+    if !db_path.exists() {
+        send_error(writer, id, "Database not found. Run weaveback on your source files first.");
+        return;
+    }
+    match WeavebackDb::open_read_only(db_path) {
+        Err(e) => send_error(writer, id, &format!("Database error: {e:?}")),
+        Ok(db) => match db.list_block_tags(file_filter) {
+            Err(e) => send_error(writer, id, &format!("Tag list error: {e:?}")),
+            Ok(blocks) => {
+                let arr: Vec<Value> = blocks.iter().map(|b| json!({
+                    "src_file":    b.src_file,
+                    "block_index": b.block_index,
+                    "block_type":  b.block_type,
+                    "line_start":  b.line_start,
+                    "tags":        b.tags,
+                })).collect();
+                send_text(writer, id, &serde_json::to_string_pretty(&arr).unwrap());
+            }
+        },
+    }
+}
+
+pub(super) fn handle_coverage<W: Write>(
+    writer: &mut W,
+    id: Option<Value>,
+    input: Option<&serde_json::Map<String, Value>>,
+    db_path: &std::path::Path,
+    resolver: &PathResolver,
+) {
+    let lcov_path = input
+        .and_then(|v| v.get("lcov_path"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("lcov.info");
+    let path = std::path::Path::new(lcov_path);
+    if !path.exists() {
+        send_error(writer, id, &format!("lcov file not found at {}", path.display()));
+        return;
+    }
+    if !db_path.exists() {
+        send_error(writer, id, "Database not found. Run weaveback on your source files first.");
+        return;
+    }
+    match (std::fs::read_to_string(path), WeavebackDb::open_read_only(db_path)) {
+        (Ok(lcov_text), Ok(db)) => {
+            let records = crate::coverage::parse_lcov_records(&lcov_text);
+            let prj_root = std::env::current_dir().unwrap_or_default();
+            let summary = crate::coverage::build_coverage_summary(&records, &db, &prj_root, resolver);
+            send_text(writer, id, &serde_json::to_string_pretty(&summary).unwrap());
+        }
+        (Err(e), _) => send_error(writer, id, &format!("Error reading {lcov_path}: {e}")),
+        (_, Err(e)) => send_error(writer, id, &format!("Database error: {e:?}")),
+    }
+}
+// @
+----
+
+
+[source,rust]
+----
+// <[mcp-run]>=
 pub fn run_mcp<R: BufRead, W: Write>(
     reader: R,
     mut writer: W,
@@ -237,386 +743,79 @@ pub fn run_mcp<R: BufRead, W: Write>(
                     }
 
                     Some("weaveback_chunk_context") => {
-                        let Some(input) = input else {
-                            send_error(&mut writer, id, "Missing arguments");
-                            continue;
-                        };
-                        let file = input.get("file").and_then(|v| v.as_str()).unwrap_or("");
-                        let name = input.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                        let nth  = input.get("nth").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-                        if file.is_empty() || name.is_empty() {
-                            send_error(&mut writer, id, "file and name are required");
-                            continue;
-                        }
-                        match agent_session.chunk_context(file, name, nth) {
-                            Ok(ctx) => {
-                                let obj = json!({
-                                    "file": ctx.file,
-                                    "name": ctx.name,
-                                    "nth": ctx.nth,
-                                    "body": ctx.body,
-                                    "section_title_chain": ctx.section_breadcrumb,
-                                    "section_prose": ctx.prose,
-                                    "dependencies": ctx.direct_dependencies,
-                                    "output_files": ctx.outputs,
-                                });
-                                send_text(&mut writer, id, &serde_json::to_string_pretty(&obj).unwrap());
-                            }
-                            Err(_) => send_error(&mut writer, id, &format!("Chunk not found: {}#{}[{}]", file, name, nth)),
-                        }
+                        handle_chunk_context(&mut writer, id, input, &agent_session);
                     }
 
                     Some("weaveback_list_chunks") => {
-                        let file_filter = input
-                            .and_then(|i| i.get("file"))
-                            .and_then(|v| v.as_str());
-                        if !db_path.exists() {
-                            send_error(&mut writer, id, "Database not found. Run weaveback on your source files first.");
-                            continue;
-                        }
-                        match WeavebackDb::open_read_only(&db_path) {
-                            Err(e) => send_error(&mut writer, id, &format!("Database error: {e:?}")),
-                            Ok(db) => match db.list_chunk_defs(file_filter) {
-                                Err(e) => send_error(&mut writer, id, &format!("Query error: {e:?}")),
-                                Ok(defs) => {
-                                    let arr: Vec<Value> = defs.iter().map(|d| json!({
-                                        "file":      d.src_file,
-                                        "name":      d.chunk_name,
-                                        "nth":       d.nth,
-                                        "def_start": d.def_start,
-                                        "def_end":   d.def_end,
-                                    })).collect();
-                                    send_text(&mut writer, id, &serde_json::to_string_pretty(&arr).unwrap());
-                                }
-                            },
-                        }
+                        handle_list_chunks(&mut writer, id, input, &db_path);
                     }
 
                     Some("weaveback_find_chunk") => {
-                        let Some(input) = input else {
-                            send_error(&mut writer, id, "Missing arguments");
-                            continue;
-                        };
-                        let name = input.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                        if name.is_empty() {
-                            send_error(&mut writer, id, "name is required");
-                            continue;
-                        }
-                        if !db_path.exists() {
-                            send_error(&mut writer, id, "Database not found. Run weaveback on your source files first.");
-                            continue;
-                        }
-                        match WeavebackDb::open_read_only(&db_path) {
-                            Err(e) => send_error(&mut writer, id, &format!("Database error: {e:?}")),
-                            Ok(db) => match db.find_chunk_defs_by_name(name) {
-                                Err(e) => send_error(&mut writer, id, &format!("Query error: {e:?}")),
-                                Ok(defs) => {
-                                    let arr: Vec<Value> = defs.iter().map(|d| json!({
-                                        "file":      d.src_file,
-                                        "nth":       d.nth,
-                                        "def_start": d.def_start,
-                                        "def_end":   d.def_end,
-                                    })).collect();
-                                    send_text(&mut writer, id, &serde_json::to_string_pretty(&arr).unwrap());
-                                }
-                            },
-                        }
+                        handle_find_chunk(&mut writer, id, input, &db_path);
                     }
 
                     Some("weaveback_lsp_definition") => {
-                        let Some(input) = input else {
-                            send_error(&mut writer, id, "Missing arguments");
-                            continue;
-                        };
-                        let out_file = input.get("out_file").and_then(|v| v.as_str()).unwrap_or("");
-                        let line     = input.get("line").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-                        let col      = input.get("col").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-
-                        if out_file.is_empty() || line == 0 || col == 0 {
-                            send_error(&mut writer, id, "out_file, line, and col are required and must be > 0");
-                            continue;
-                        }
-
-                        let ext = std::path::Path::new(out_file).extension().and_then(|e| e.to_str()).unwrap_or("");
-                        let client = match get_or_spawn_lsp(&mut lsp_clients, ext) {
-                            Ok(c) => c,
-                            Err(e) => { send_error(&mut writer, id, &format!("LSP error: {e}")); continue; }
-                        };
-
-                        match client.goto_definition(std::path::Path::new(out_file), line - 1, col - 1) {
-                            Ok(Some(loc)) => {
-                                if let Ok(target_path) = loc.uri.to_file_path() {
-                                    let db = if db_path.exists() { WeavebackDb::open_read_only(&db_path).ok() } else { None };
-                                    let db = match db { Some(d) => d, None => { send_error(&mut writer, id, "Database not found"); continue; } };
-                                    
-                                    match lookup::perform_trace(
-                                        target_path.to_string_lossy().as_ref(),
-                                        loc.range.start.line + 1,
-                                        loc.range.start.character + 1,
-                                        &db,
-                                        &resolver,
-                                        eval_config.clone(),
-                                    ) {
-                                        Ok(Some(res)) => send_text(&mut writer, id, &serde_json::to_string_pretty(&res).unwrap()),
-                                        Ok(None) => send_text(&mut writer, id, &serde_json::to_string_pretty(&json!({
-                                            "out_file": target_path.to_string_lossy(),
-                                            "out_line": loc.range.start.line + 1,
-                                            "out_col":  loc.range.start.character + 1,
-                                            "note": "LSP result could not be mapped to source"
-                                        })).unwrap()),
-                                        Err(e) => send_error(&mut writer, id, &format!("Mapping error: {e:?}")),
-                                    }
-                                } else {
-                                    send_error(&mut writer, id, "LSP returned non-file URI");
-                                }
-                            }
-                            Ok(None) => send_text(&mut writer, id, "No definition found."),
-                            Err(e) => send_error(&mut writer, id, &format!("LSP call failed: {e}")),
-                        }
+                        handle_lsp_definition(
+                            &mut writer,
+                            id,
+                            input,
+                            &mut lsp_clients,
+                            &db_path,
+                            &resolver,
+                            &eval_config,
+                        );
                     }
 
                     Some("weaveback_lsp_references") => {
-                        let Some(input) = input else {
-                            send_error(&mut writer, id, "Missing arguments");
-                            continue;
-                        };
-                        let out_file = input.get("out_file").and_then(|v| v.as_str()).unwrap_or("");
-                        let line     = input.get("line").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-                        let col      = input.get("col").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-
-                        if out_file.is_empty() || line == 0 || col == 0 {
-                            send_error(&mut writer, id, "out_file, line, and col are required and must be > 0");
-                            continue;
-                        }
-
-                        let ext = std::path::Path::new(out_file).extension().and_then(|e| e.to_str()).unwrap_or("");
-                        let client = match get_or_spawn_lsp(&mut lsp_clients, ext) {
-                            Ok(c) => c,
-                            Err(e) => { send_error(&mut writer, id, &format!("LSP error: {e}")); continue; }
-                        };
-
-                        match client.find_references(std::path::Path::new(out_file), line - 1, col - 1) {
-                            Ok(locs) => {
-                                let mut results = Vec::new();
-                                let db = if db_path.exists() { WeavebackDb::open_read_only(&db_path).ok() } else { None };
-                                let db = match db { Some(d) => d, None => { send_error(&mut writer, id, "Database not found"); continue; } };
-
-                                for loc in locs {
-                                    if let Ok(target_path) = loc.uri.to_file_path() {
-                                        match lookup::perform_trace(
-                                            target_path.to_string_lossy().as_ref(),
-                                            loc.range.start.line + 1,
-                                            loc.range.start.character + 1,
-                                            &db,
-                                            &resolver,
-                                            eval_config.clone(),
-                                        ) {
-                                            Ok(Some(res)) => results.push(res),
-                                            _ => results.push(json!({
-                                                "out_file": target_path.to_string_lossy(),
-                                                "out_line": loc.range.start.line + 1,
-                                                "out_col":  loc.range.start.character + 1,
-                                                "note": "LSP result could not be mapped to source"
-                                            })),
-                                        }
-                                    }
-                                }
-                                send_text(&mut writer, id, &serde_json::to_string_pretty(&results).unwrap());
-                            }
-                            Err(e) => send_error(&mut writer, id, &format!("LSP call failed: {e}")),
-                        }
+                        handle_lsp_references(
+                            &mut writer,
+                            id,
+                            input,
+                            &mut lsp_clients,
+                            &db_path,
+                            &resolver,
+                            &eval_config,
+                        );
                     }
 
                     Some("weaveback_lsp_hover") => {
-                        let Some(input) = input else {
-                            send_error(&mut writer, id, "Missing arguments");
-                            continue;
-                        };
-                        let out_file = input.get("out_file").and_then(|v| v.as_str()).unwrap_or("");
-                        let line     = input.get("line").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-                        let col      = input.get("col").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-
-                        if out_file.is_empty() || line == 0 || col == 0 {
-                            send_error(&mut writer, id, "out_file, line, and col are required and must be > 0");
-                            continue;
-                        }
-
-                        let ext = std::path::Path::new(out_file).extension().and_then(|e| e.to_str()).unwrap_or("");
-                        let client = match get_or_spawn_lsp(&mut lsp_clients, ext) {
-                            Ok(c) => c,
-                            Err(e) => { send_error(&mut writer, id, &format!("LSP error: {e}")); continue; }
-                        };
-
-                        match client.hover(std::path::Path::new(out_file), line - 1, col - 1) {
-                            Ok(Some(hover)) => {
-                                let db = if db_path.exists() { WeavebackDb::open_read_only(&db_path).ok() } else { None };
-                                let db = match db { Some(d) => d, None => { send_error(&mut writer, id, "Database not found"); continue; } };
-                                
-                                // Also trace the current point to show which chunk we are in
-                                let trace = lookup::perform_trace(out_file, line, col, &db, &resolver, eval_config.clone()).ok().flatten();
-                                
-                                let mut res = json!({
-                                    "hover": hover,
-                                });
-                                if let Some(t) = trace {
-                                    res.as_object_mut().unwrap().insert("source".into(), t);
-                                }
-                                send_text(&mut writer, id, &serde_json::to_string_pretty(&res).unwrap());
-                            }
-                            Ok(None) => send_text(&mut writer, id, "No hover info found."),
-                            Err(e) => send_error(&mut writer, id, &format!("LSP call failed: {e}")),
-                        }
+                        handle_lsp_hover(
+                            &mut writer,
+                            id,
+                            input,
+                            &mut lsp_clients,
+                            &db_path,
+                            &resolver,
+                            &eval_config,
+                        );
                     }
 
                     Some("weaveback_lsp_diagnostics") => {
-                        let Some(input) = input else {
-                            send_error(&mut writer, id, "Missing arguments");
-                            continue;
-                        };
-                        let out_file = input.get("out_file").and_then(|v| v.as_str()).unwrap_or("");
-                        if out_file.is_empty() {
-                            send_error(&mut writer, id, "out_file is required");
-                            continue;
-                        }
-
-                        let ext = std::path::Path::new(out_file).extension().and_then(|e| e.to_str()).unwrap_or("");
-                        let client = match get_or_spawn_lsp(&mut lsp_clients, ext) {
-                            Ok(c) => c,
-                            Err(e) => { send_error(&mut writer, id, &format!("LSP error: {e}")); continue; }
-                        };
-
-                        let diags = client.get_diagnostics(std::path::Path::new(out_file));
-                        let db = if db_path.exists() { WeavebackDb::open_read_only(&db_path).ok() } else { None };
-                        let db = match db { Some(d) => d, None => { send_error(&mut writer, id, "Database not found"); continue; } };
-
-                        let mut mapped = Vec::new();
-                        for d in diags {
-                            let line = d.range.start.line + 1;
-                            let col = d.range.start.character + 1;
-                            let trace = lookup::perform_trace(out_file, line, col, &db, &resolver, eval_config.clone()).ok().flatten();
-                            mapped.push(json!({
-                                "diagnostic": d,
-                                "source": trace,
-                            }));
-                        }
-                        send_text(&mut writer, id, &serde_json::to_string_pretty(&mapped).unwrap());
+                        handle_lsp_diagnostics(
+                            &mut writer,
+                            id,
+                            input,
+                            &mut lsp_clients,
+                            &db_path,
+                            &resolver,
+                            &eval_config,
+                        );
                     }
 
                     Some("weaveback_lsp_symbols") => {
-                        let Some(input) = input else {
-                            send_error(&mut writer, id, "Missing arguments");
-                            continue;
-                        };
-                        let out_file = input.get("out_file").and_then(|v| v.as_str()).unwrap_or("");
-                        if out_file.is_empty() {
-                            send_error(&mut writer, id, "out_file is required");
-                            continue;
-                        }
-
-                        let ext = std::path::Path::new(out_file).extension().and_then(|e| e.to_str()).unwrap_or("");
-                        let client = match get_or_spawn_lsp(&mut lsp_clients, ext) {
-                            Ok(c) => c,
-                            Err(e) => { send_error(&mut writer, id, &format!("LSP error: {e}")); continue; }
-                        };
-
-                        match client.document_symbols(std::path::Path::new(out_file)) {
-                            Ok(symbols) => {
-                                send_text(&mut writer, id, &serde_json::to_string_pretty(&symbols).unwrap());
-                            }
-                            Err(e) => send_error(&mut writer, id, &format!("LSP call failed: {e}")),
-                        }
+                        handle_lsp_symbols(&mut writer, id, input, &mut lsp_clients);
                     }
 
                     Some("weaveback_search") => {
-                        let query = input.as_ref()
-                            .and_then(|v| v.get("query"))
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("");
-                        if query.is_empty() {
-                            send_error(&mut writer, id, "query is required");
-                            continue;
-                        }
-                        let limit = input.as_ref()
-                            .and_then(|v| v.get("limit"))
-                            .and_then(|v| v.as_u64())
-                            .unwrap_or(10) as usize;
-                        if !db_path.exists() {
-                            send_error(&mut writer, id, "Database not found. Run weaveback on your source files first.");
-                            continue;
-                        }
-                        match agent_session.search(query, limit) {
-                            Err(e) => send_error(&mut writer, id, &format!("Search error: {e}")),
-                            Ok(results) => {
-                                let arr: Vec<Value> = results.iter().map(|r| {
-                                    let mut obj = json!({
-                                        "src_file":   r.src_file,
-                                        "block_type": r.block_type,
-                                        "line_start": r.line_start,
-                                        "line_end":   r.line_end,
-                                        "snippet":    r.snippet,
-                                        "score":      r.score,
-                                        "channels":   r.channels,
-                                    });
-                                    if !r.tags.is_empty() {
-                                        obj["tags"] = json!(r.tags);
-                                    }
-                                    obj
-                                }).collect();
-                                send_text(&mut writer, id, &serde_json::to_string_pretty(&arr).unwrap());
-                            }
-                        }
+                        handle_search(&mut writer, id, input, &db_path, &agent_session);
                     }
 
                     Some("weaveback_list_tags") => {
-                        let file_filter = input.as_ref()
-                            .and_then(|v| v.get("file"))
-                            .and_then(|v| v.as_str());
-                        if !db_path.exists() {
-                            send_error(&mut writer, id, "Database not found. Run weaveback on your source files first.");
-                            continue;
-                        }
-                        match WeavebackDb::open_read_only(&db_path) {
-                            Err(e) => send_error(&mut writer, id, &format!("Database error: {e:?}")),
-                            Ok(db) => match db.list_block_tags(file_filter) {
-                                Err(e) => send_error(&mut writer, id, &format!("Tag list error: {e:?}")),
-                                Ok(blocks) => {
-                                    let arr: Vec<Value> = blocks.iter().map(|b| json!({
-                                        "src_file":    b.src_file,
-                                        "block_index": b.block_index,
-                                        "block_type":  b.block_type,
-                                        "line_start":  b.line_start,
-                                        "tags":        b.tags,
-                                    })).collect();
-                                    send_text(&mut writer, id, &serde_json::to_string_pretty(&arr).unwrap());
-                                }
-                            },
-                        }
+                        handle_list_tags(&mut writer, id, input, &db_path);
                     }
 
                     Some("weaveback_coverage") => {
-                        let lcov_path = input.as_ref()
-                            .and_then(|v| v.get("lcov_path"))
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("lcov.info");
-                        let path = std::path::Path::new(lcov_path);
-                        if !path.exists() {
-                            send_error(&mut writer, id, &format!("lcov file not found at {}", path.display()));
-                            continue;
-                        }
-                        if !db_path.exists() {
-                            send_error(&mut writer, id, "Database not found. Run weaveback on your source files first.");
-                            continue;
-                        }
-                        match (std::fs::read_to_string(path), WeavebackDb::open_read_only(&db_path)) {
-                            (Ok(lcov_text), Ok(db)) => {
-                                let records = crate::coverage::parse_lcov_records(&lcov_text);
-                                let prj_root = std::env::current_dir().unwrap_or_default();
-                                let summary = crate::coverage::build_coverage_summary(&records, &db, &prj_root, &resolver);
-                                send_text(&mut writer, id, &serde_json::to_string_pretty(&summary).unwrap());
-                            }
-                            (Err(e), _) => send_error(&mut writer, id, &format!("Error reading {lcov_path}: {e}")),
-                            (_, Err(e)) => send_error(&mut writer, id, &format!("Database error: {e:?}")),
-                        }
+                        handle_coverage(&mut writer, id, input, &db_path, &resolver);
                     }
 
                     other => send_error(&mut writer, id, &format!("Unknown tool: {:?}", other)),

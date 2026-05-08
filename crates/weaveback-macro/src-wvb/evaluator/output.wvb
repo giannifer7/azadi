@@ -101,14 +101,43 @@ EvalOutput <|.. PreciseTracingOutput
 ¤h2(¤[File structure¤])
 
 ¤rust_file(weaveback-macro/src/evaluator/output.rs, ¤[
+mod plain;
+mod precise;
+mod tracing;
+mod types;
+
+pub use plain::PlainOutput;
+pub use precise::PreciseTracingOutput;
+pub use tracing::TracingOutput;
+pub use types::{EvalOutput, MacroMapEntry, SourceSpan, SpanKind, SpanRange};
+¤])
+
+¤rust_file(weaveback-macro/src/evaluator/output/types.rs, ¤[
 // <[output span kind]>
 // <[output source span]>
 // <[output eval output trait]>
-// <[output plain output]>
-// <[output tracing output]>
 // <[output macro map entry]>
-// <[output tracing into macro map]>
 // <[output span range]>
+¤])
+
+¤rust_file(weaveback-macro/src/evaluator/output/plain.rs, ¤[
+use super::types::{EvalOutput, SourceSpan};
+
+// <[output plain output]>
+¤])
+
+¤rust_file(weaveback-macro/src/evaluator/output/tracing.rs, ¤[
+use super::types::{EvalOutput, MacroMapEntry, SourceSpan};
+use crate::evaluator::state::SourceManager;
+use crate::line_index::LineIndex;
+
+// <[output tracing output]>
+// <[output tracing into macro map]>
+¤])
+
+¤rust_file(weaveback-macro/src/evaluator/output/precise.rs, ¤[
+use super::types::{EvalOutput, SourceSpan, SpanRange};
+
 // <[output precise tracing output]>
 ¤])
 
@@ -388,9 +417,6 @@ open line (if the output does not end with `\n`) is included via a chained
 iterator.  Lines with no tracked span are silently skipped.
 
 ¤rust_chunk(output tracing into macro map, ¤[
-use crate::evaluator::state::SourceManager;
-use crate::line_index::LineIndex;
-
 impl TracingOutput {
     /// Convert the per-line span records into `MacroMapEntry`s suitable for
     /// storage in the `macro_map` database table.

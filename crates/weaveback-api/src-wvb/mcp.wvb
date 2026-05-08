@@ -45,7 +45,7 @@ mod tools;
 pub use run::run_mcp;
 
 #[cfg(test)]
-pub(crate) use run::get_or_spawn_lsp;
+pub(crate) use run::lsp::get_or_spawn_lsp;
 
 #[cfg(test)]
 mod tests;
@@ -54,10 +54,34 @@ mod tests;
 ¤rust_file(weaveback-api/src/mcp/run.rs, ¤[
 // <[mcp-types]>
 
+mod data;
+pub(crate) mod lsp;
+
 use super::helpers::{send_error, send_response, send_text};
 use super::tools::tools_list_result;
+use data::{
+    handle_chunk_context, handle_coverage, handle_find_chunk, handle_list_chunks,
+    handle_list_tags, handle_search,
+};
+use lsp::{
+    handle_lsp_definition, handle_lsp_diagnostics, handle_lsp_hover, handle_lsp_references,
+    handle_lsp_symbols,
+};
 
 // <[mcp-run]>
+¤])
+
+¤rust_file(weaveback-api/src/mcp/run/data.rs, ¤[
+use super::*;
+
+// <[mcp-data-tool-handlers]>
+¤])
+
+¤rust_file(weaveback-api/src/mcp/run/lsp.rs, ¤[
+use super::*;
+
+// <[mcp-lsp-runtime]>
+// <[mcp-lsp-tool-handlers]>
 ¤])
 
 ¤rust_file(weaveback-api/src/mcp/helpers.rs, ¤[

@@ -1,8 +1,11 @@
 // weaveback-docgen/src/tests.rs
 // I'd Really Rather You Didn't edit this generated file.
 
+use crate::args::parse_args_from;
+
 use super::*;
 use std::fs;
+use std::path::Path;
 use tempfile::tempdir;
 
 #[test]

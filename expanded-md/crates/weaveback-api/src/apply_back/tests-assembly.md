@@ -208,9 +208,62 @@ use super::*;
 // weaveback-api/src/apply_back/tests/runner.rs
 // I'd Really Rather You Didn't edit this generated file.
 
-use super::*;
+mod bulk;
+mod entry;
+mod oracle;
+mod success;
 
-// <[applyback-tests-runner]>
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/tests/runner/entry.rs]>=
+// weaveback-api/src/apply_back/tests/runner/entry.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::super::*;
+
+// <[applyback-tests-runner-entry]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/tests/runner/success.rs]>=
+// weaveback-api/src/apply_back/tests/runner/success.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::super::*;
+
+// <[applyback-tests-runner-success]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/tests/runner/oracle.rs]>=
+// weaveback-api/src/apply_back/tests/runner/oracle.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::super::*;
+
+// <[applyback-tests-runner-oracle]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-api/src/apply_back/tests/runner/bulk.rs]>=
+// weaveback-api/src/apply_back/tests/runner/bulk.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::super::*;
+
+// <[applyback-tests-runner-bulk]>
 
 // @
 ```

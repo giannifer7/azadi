@@ -3,7 +3,7 @@
 `run_apply_back` entry-point behavior and patch-source selection.
 
 ```rust
-// <[applyback-tests-runner]>=
+// <[applyback-tests-runner-entry]>=
 // ── run_apply_back entry point edge cases ──────────────────────────────
 
 #[test]
@@ -79,6 +79,13 @@ fn run_apply_back_diff_delete_is_detected() {
     // It uses DiffOp::Delete logic.
     assert!(s.contains("Processing out.rs"));
 }
+// @
+```
+
+
+```rust
+// <[applyback-tests-runner-success]>=
+// ── successful reconciliation paths ────────────────────────────────────
 
 #[test]
 fn test_run_apply_back_success_literal() {
@@ -174,6 +181,13 @@ fn test_run_apply_back_macro_edit() {
     let updated_driver = std::fs::read_to_string(ws.root.join(driver_rel)).unwrap();
     assert!(updated_driver.contains("<<the-macro>>"), "driver source should not be updated: {updated_driver}");
 }
+// @
+```
+
+
+```rust
+// <[applyback-tests-runner-oracle]>=
+// ── oracle rejection paths ──────────────────────────────────────────────
 
 #[test]
 fn test_apply_back_oracle_rejection_on_mismatch() {
@@ -243,6 +257,13 @@ fn test_apply_back_oracle_rejection_on_mismatch() {
     assert!(msg.contains("manual") || msg.contains("rejected"), "expected rejection in: {msg}");
     assert_eq!(skipped, 1);
 }
+// @
+```
+
+
+```rust
+// <[applyback-tests-runner-bulk]>=
+// ── multi-file and direct apply edge cases ──────────────────────────────
 
 #[test]
 fn run_apply_back_bulk_reconciliation() {

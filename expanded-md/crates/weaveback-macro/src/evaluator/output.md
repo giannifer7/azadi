@@ -114,14 +114,71 @@ EvalOutput <|.. PreciseTracingOutput
 // weaveback-macro/src/evaluator/output.rs
 // I'd Really Rather You Didn't edit this generated file.
 
+mod plain;
+mod precise;
+mod tracing;
+mod types;
+
+pub use plain::PlainOutput;
+pub use precise::PreciseTracingOutput;
+pub use tracing::TracingOutput;
+pub use types::{EvalOutput, MacroMapEntry, SourceSpan, SpanKind, SpanRange};
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-macro/src/evaluator/output/types.rs]>=
+// weaveback-macro/src/evaluator/output/types.rs
+// I'd Really Rather You Didn't edit this generated file.
+
 // <[output span kind]>
 // <[output source span]>
 // <[output eval output trait]>
-// <[output plain output]>
-// <[output tracing output]>
 // <[output macro map entry]>
-// <[output tracing into macro map]>
 // <[output span range]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-macro/src/evaluator/output/plain.rs]>=
+// weaveback-macro/src/evaluator/output/plain.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::types::{EvalOutput, SourceSpan};
+
+// <[output plain output]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-macro/src/evaluator/output/tracing.rs]>=
+// weaveback-macro/src/evaluator/output/tracing.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::types::{EvalOutput, MacroMapEntry, SourceSpan};
+use crate::evaluator::state::SourceManager;
+use crate::line_index::LineIndex;
+
+// <[output tracing output]>
+// <[output tracing into macro map]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-macro/src/evaluator/output/precise.rs]>=
+// weaveback-macro/src/evaluator/output/precise.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::types::{EvalOutput, SourceSpan, SpanRange};
+
 // <[output precise tracing output]>
 
 // @
@@ -423,9 +480,6 @@ iterator.  Lines with no tracked span are silently skipped.
 
 ```rust
 // <[output tracing into macro map]>=
-use crate::evaluator::state::SourceManager;
-use crate::line_index::LineIndex;
-
 impl TracingOutput {
     /// Convert the per-line span records into `MacroMapEntry`s suitable for
     /// storage in the `macro_map` database table.

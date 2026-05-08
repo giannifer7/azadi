@@ -10,7 +10,166 @@ diffs each against the current `gen/` file, resolves patches, and calls
 `apply_patches_to_file` for each source file touched.
 
 ```rust
+// <[applyback-run-helpers]>=
+pub(super) struct FileEvalSettings {
+    pub(super) eval_config: Option<EvalConfig>,
+    pub(super) sigil: char,
+}
+
+pub(super) struct ContiguousNowebHunk {
+    pub(super) first: NowebMapEntry,
+}
+
+pub(super) fn resolve_gen_dir(opts: &ApplyBackOptions, db: &WeavebackDb) -> Result<PathBuf, ApplyBackError> {
+    let default_gen = PathBuf::from("gen");
+    if opts.gen_dir == default_gen && !default_gen.exists() {
+        Ok(db
+            .get_run_config("gen_dir")?
+            .map(PathBuf::from)
+            .unwrap_or_else(|| opts.gen_dir.clone()))
+    } else {
+        Ok(opts.gen_dir.clone())
+    }
+}
+
+pub(super) fn project_root_from_db_path(db_path: &std::path::Path) -> PathBuf {
+    db_path
+        .canonicalize()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default())
+}
+
+pub(super) fn selected_baselines(
+    db: &WeavebackDb,
+    files: &[String],
+) -> Result<Vec<(String, Vec<u8>)>, ApplyBackError> {
+    if files.is_empty() {
+        return db.list_baselines().map_err(ApplyBackError::from);
+    }
+
+    Ok(files
+        .iter()
+        .filter_map(|f| db.get_baseline(f).ok().flatten().map(|b| (f.clone(), b)))
+        .collect())
+}
+
+pub(super) fn file_eval_settings(
+    db: &WeavebackDb,
+    src_file: &str,
+    base_eval_config: Option<EvalConfig>,
+    default_sigil: char,
+) -> FileEvalSettings {
+    let mut eval_config = base_eval_config;
+    let mut sigil = default_sigil;
+    if let Ok(Some(cfg)) = weaveback_tangle::lookup::find_best_source_config(db, src_file) {
+        if eval_config.is_none() {
+            eval_config = Some(EvalConfig::default());
+        }
+        if let Some(ec) = &mut eval_config {
+            ec.sigil = cfg.sigil;
+        }
+        sigil = cfg.sigil;
+    }
+
+    FileEvalSettings { eval_config, sigil }
+}
+
+pub(super) fn resolve_contiguous_noweb_hunk(
+    db: &WeavebackDb,
+    rel_path: &str,
+    old_index: usize,
+    old_len: usize,
+    resolver: &PathResolver,
+) -> Result<Option<ContiguousNowebHunk>, ApplyBackError> {
+    let mut hunk_entries = Vec::new();
+    for i in 0..old_len {
+        hunk_entries.push(resolve_noweb_entry(db, rel_path, (old_index + i) as u32, resolver)?);
+    }
+
+    if !hunk_entries.iter().all(|e| e.is_some()) {
+        return Ok(None);
+    }
+
+    let entries: Vec<_> = hunk_entries.into_iter().flatten().collect();
+    let first = entries[0].clone();
+    let is_contiguous = entries
+        .iter()
+        .all(|e| e.src_file == first.src_file && e.indent == first.indent)
+        && entries.windows(2).all(|w| w[1].src_line == w[0].src_line + 1);
+
+    if is_contiguous {
+        Ok(Some(ContiguousNowebHunk { first }))
+    } else {
+        Ok(None)
+    }
+}
+
+pub(super) struct ApplyCollectedPatchesCtx<'a> {
+    pub(super) db: &'a WeavebackDb,
+    pub(super) src_patches: &'a HashMap<String, Vec<Patch>>,
+    pub(super) snapshot_cache: &'a mut HashMap<String, Option<Vec<u8>>>,
+    pub(super) project_root: &'a std::path::Path,
+    pub(super) dry_run: bool,
+    pub(super) base_eval_config: Option<EvalConfig>,
+    pub(super) default_sigil: char,
+}
+
+pub(super) fn apply_collected_patches(
+    ctx: ApplyCollectedPatchesCtx<'_>,
+    skipped: &mut usize,
+    out: &mut dyn Write,
+) -> Result<(), ApplyBackError> {
+    for (src_file, patches) in ctx.src_patches {
+        let snap = ctx
+            .snapshot_cache
+            .entry(src_file.clone())
+            .or_insert_with(|| ctx.db.get_src_snapshot(src_file).ok().flatten())
+            .as_deref();
+
+        let settings = file_eval_settings(
+            ctx.db,
+            src_file,
+            ctx.base_eval_config.clone(),
+            ctx.default_sigil,
+        );
+
+        apply_patches_to_file(
+            FilePatchContext {
+                db: ctx.db,
+                src_file,
+                src_root: ctx.project_root,
+                patches,
+                dry_run: ctx.dry_run,
+                eval_config: settings.eval_config,
+                snapshot: snap,
+                sigil: settings.sigil,
+            },
+            skipped,
+            out,
+        )?;
+    }
+
+    Ok(())
+}
+// @
+```
+
+
+```rust
 // <[applyback-run]>=
+mod helpers;
+
+use helpers::{
+    file_eval_settings,
+    apply_collected_patches,
+    ApplyCollectedPatchesCtx,
+    project_root_from_db_path,
+    resolve_contiguous_noweb_hunk,
+    resolve_gen_dir,
+    selected_baselines,
+};
+
 pub fn run_apply_back(opts: ApplyBackOptions, out: &mut dyn Write) -> Result<(), ApplyBackError> {
     if !opts.db_path.exists() {
         let _ = writeln!(out,
@@ -22,35 +181,11 @@ pub fn run_apply_back(opts: ApplyBackOptions, out: &mut dyn Write) -> Result<(),
 
     let db = WeavebackDb::open(&opts.db_path)?;
 
-    // If gen_dir is the default "gen" and that directory doesn't exist, fall back
-    // to the gen_dir stored in the database from the last tangle run.
-    let gen_dir = {
-        let default_gen = std::path::PathBuf::from("gen");
-        if opts.gen_dir == default_gen && !default_gen.exists() {
-            db.get_run_config("gen_dir")?
-                .map(std::path::PathBuf::from)
-                .unwrap_or(opts.gen_dir)
-        } else {
-            opts.gen_dir
-        }
-    };
-
-    let project_root = opts.db_path
-        .canonicalize()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    let gen_dir = resolve_gen_dir(&opts, &db)?;
+    let project_root = project_root_from_db_path(&opts.db_path);
     let resolver = PathResolver::new(project_root.clone(), gen_dir.clone());
 
-    let baselines: Vec<(String, Vec<u8>)> = if opts.files.is_empty() {
-        db.list_baselines()?
-    } else {
-        opts.files
-            .iter()
-            .filter_map(|f| db.get_baseline(f).ok().flatten().map(|b| (f.clone(), b)))
-            .collect()
-    };
-
+    let baselines = selected_baselines(&db, &opts.files)?;
     let sigil = opts.eval_config.as_ref().map_or('%', |ec| ec.sigil);
 
     // Snapshot cache: driver path → bytes.  Populated lazily.
@@ -113,20 +248,14 @@ pub fn run_apply_back(opts: ApplyBackOptions, out: &mut dyn Write) -> Result<(),
                                     })
                                     .as_deref();
 
-                                // Retrieve the config used for this source file to get the correct sigil.
-                                let mut file_eval_config = opts.eval_config.clone();
-                                let mut file_special_char = sigil;
-                                if let Ok(Some(cfg)) = weaveback_tangle::lookup::find_best_source_config(&db, &entry.src_file) {
-                                    if file_eval_config.is_none() {
-                                        file_eval_config = Some(EvalConfig::default());
-                                    }
-                                    if let Some(ec) = &mut file_eval_config {
-                                        ec.sigil = cfg.sigil;
-                                    }
-                                    file_special_char = cfg.sigil;
-                                }
+                                let settings = file_eval_settings(
+                                    &db,
+                                    &entry.src_file,
+                                    opts.eval_config.clone(),
+                                    sigil,
+                                );
 
-                                let source = if let Some(ec) = &file_eval_config {
+                                let source = if let Some(ec) = &settings.eval_config {
                                     let lsp_hint = lsp_definition_hint(
                                         rel_path,
                                         out_line_0,
@@ -144,7 +273,7 @@ pub fn run_apply_back(opts: ApplyBackOptions, out: &mut dyn Write) -> Result<(),
                                         entry.indent.chars().count() as u32,
                                         &db, &resolver, ec,
                                         &entry.src_file, entry.src_line,
-                                        snap, file_special_char, 1,
+                                        snap, settings.sigil, 1,
                                         lsp_hint.as_ref(),
                                     )?
                                 } else {
@@ -172,17 +301,14 @@ pub fn run_apply_back(opts: ApplyBackOptions, out: &mut dyn Write) -> Result<(),
 
                     // For multi-line or size-changing Replace, we only support Noweb-level patching for now.
                     // Check if the entire hunk maps to a continuous region in one source file.
-                    let mut hunk_entries = Vec::new();
-                    for i in 0..*old_len {
-                        hunk_entries.push(resolve_noweb_entry(&db, rel_path, (*old_index + i) as u32, &resolver)?);
-                    }
-
-                    if hunk_entries.iter().all(|e| e.is_some()) {
-                        let entries: Vec<_> = hunk_entries.into_iter().flatten().collect();
-                        let first = &entries[0];
-                        if entries.iter().all(|e| e.src_file == first.src_file && e.indent == first.indent)
-                            && entries.windows(2).all(|w| w[1].src_line == w[0].src_line + 1)
-                        {
+                    if let Some(hunk) = resolve_contiguous_noweb_hunk(
+                        &db,
+                        rel_path,
+                        *old_index,
+                        *old_len,
+                        &resolver,
+                    )? {
+                            let first = &hunk.first;
                             let old_text = old_lines.iter().map(|l| strip_indent(l, &first.indent)).collect::<Vec<_>>().join("\n");
                             let new_text = new_lines.iter().map(|l| strip_indent(l, &first.indent)).collect::<Vec<_>>().join("\n");
 
@@ -198,9 +324,8 @@ pub fn run_apply_back(opts: ApplyBackOptions, out: &mut dyn Write) -> Result<(),
                                     old_text,
                                     new_text,
                                     expanded_line: first.src_line,
-                                });
+                            });
                             continue;
-                        }
                     }
 
                     let _ = writeln!(out,
@@ -211,17 +336,14 @@ pub fn run_apply_back(opts: ApplyBackOptions, out: &mut dyn Write) -> Result<(),
                 }
 
                 similar::DiffOp::Delete { old_index, old_len, .. } => {
-                    let mut hunk_entries = Vec::new();
-                    for i in 0..*old_len {
-                        hunk_entries.push(resolve_noweb_entry(&db, rel_path, (*old_index + i) as u32, &resolver)?);
-                    }
-
-                    if hunk_entries.iter().all(|e| e.is_some()) {
-                        let entries: Vec<_> = hunk_entries.into_iter().flatten().collect();
-                        let first = &entries[0];
-                        if entries.iter().all(|e| e.src_file == first.src_file && e.indent == first.indent)
-                            && entries.windows(2).all(|w| w[1].src_line == w[0].src_line + 1)
-                        {
+                    if let Some(hunk) = resolve_contiguous_noweb_hunk(
+                        &db,
+                        rel_path,
+                        *old_index,
+                        *old_len,
+                        &resolver,
+                    )? {
+                            let first = &hunk.first;
                             let old_text = baseline_lines[*old_index..*old_index + *old_len]
                                 .iter().map(|l| strip_indent(l, &first.indent)).collect::<Vec<_>>().join("\n");
 
@@ -237,9 +359,8 @@ pub fn run_apply_back(opts: ApplyBackOptions, out: &mut dyn Write) -> Result<(),
                                     old_text,
                                     new_text: "".to_string(),
                                     expanded_line: first.src_line,
-                                });
+                            });
                             continue;
-                        }
                     }
 
                     let _ = writeln!(out,
@@ -288,43 +409,19 @@ pub fn run_apply_back(opts: ApplyBackOptions, out: &mut dyn Write) -> Result<(),
             }
         }
 
-        // Apply collected patches to each source file.
-        for (src_file, patches) in &src_patches {
-            let snap = snapshot_cache
-                .entry(src_file.clone())
-                .or_insert_with(|| {
-                    db.get_src_snapshot(src_file).ok().flatten()
-                })
-                .as_deref();
-            
-            // Retrieve the config used for this source file to get the correct sigil.
-            let mut file_eval_config = opts.eval_config.clone();
-            let mut file_special_char = sigil;
-            if let Ok(Some(cfg)) = weaveback_tangle::lookup::find_best_source_config(&db, src_file) {
-                if file_eval_config.is_none() {
-                    file_eval_config = Some(EvalConfig::default());
-                }
-                if let Some(ec) = &mut file_eval_config {
-                    ec.sigil = cfg.sigil;
-                }
-                file_special_char = cfg.sigil;
-            }
-
-            apply_patches_to_file(
-                FilePatchContext {
-                    db: &db,
-                    src_file,
-                    src_root: &project_root,
-                    patches,
-                    dry_run: opts.dry_run,
-                    eval_config: file_eval_config,
-                    snapshot: snap,
-                    sigil: file_special_char,
-                },
-                &mut skipped,
-                out,
-            )?;
-        }
+        apply_collected_patches(
+            ApplyCollectedPatchesCtx {
+                db: &db,
+                src_patches: &src_patches,
+                snapshot_cache: &mut snapshot_cache,
+                project_root: &project_root,
+                dry_run: opts.dry_run,
+                base_eval_config: opts.eval_config.clone(),
+                default_sigil: sigil,
+            },
+            &mut skipped,
+            out,
+        )?;
 
         if opts.dry_run {
             let _ = writeln!(out, "  [dry-run] would update baseline for {}", rel_path);

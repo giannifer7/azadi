@@ -201,34 +201,41 @@ use with `std::env::args()`.
 [source,rust]
 ----
 // <[docgen-args]>=
-struct Args {
-    specials: Vec<char>,
-    xref_cmd: Option<String>,
-    no_xref: bool,
-    ai_xref: bool,
-    out_dir: Option<PathBuf>,
-    md_root: Option<PathBuf>,
-    md_out_dir: Option<PathBuf>,
-    no_md: bool,
-    no_adoc: bool,
-    theme_dir: Option<PathBuf>,
-    plantuml_jar: Option<PathBuf>,
-    d2_theme: u32,
-    d2_layout: String,
+pub(super) struct Args {
+    pub(super) specials: Vec<char>,
+    pub(super) xref_cmd: Option<String>,
+    pub(super) no_xref: bool,
+    pub(super) ai_xref: bool,
+    pub(super) out_dir: Option<PathBuf>,
+    pub(super) md_root: Option<PathBuf>,
+    pub(super) md_out_dir: Option<PathBuf>,
+    pub(super) no_md: bool,
+    pub(super) no_adoc: bool,
+    pub(super) theme_dir: Option<PathBuf>,
+    pub(super) plantuml_jar: Option<PathBuf>,
+    pub(super) d2_theme: u32,
+    pub(super) d2_layout: String,
+}
+// @
+----
+
+
+[source,rust]
+----
+// <[docgen-config]>=
+
+#[derive(serde::Deserialize, Default)]
+pub(super) struct DocsConfig {
+    pub(super) d2_theme: Option<u32>,
+    pub(super) d2_layout: Option<String>,
 }
 
 #[derive(serde::Deserialize, Default)]
-struct DocsConfig {
-    d2_theme: Option<u32>,
-    d2_layout: Option<String>,
+pub(super) struct WeavebackConfig {
+    pub(super) docs: Option<DocsConfig>,
 }
 
-#[derive(serde::Deserialize, Default)]
-struct WeavebackConfig {
-    docs: Option<DocsConfig>,
-}
-
-fn read_config(root: &Path) -> WeavebackConfig {
+pub(super) fn read_config(root: &Path) -> WeavebackConfig {
     let path = root.join("weaveback.toml");
     if let Ok(content) = std::fs::read_to_string(&path) {
         toml::from_str(&content).unwrap_or_default()
@@ -236,8 +243,14 @@ fn read_config(root: &Path) -> WeavebackConfig {
         WeavebackConfig::default()
     }
 }
+// @
+----
 
-fn parse_args_from(raw: &[String]) -> Args {
+
+[source,rust]
+----
+// <[docgen-arg-parser]>=
+pub(super) fn parse_args_from(raw: &[String]) -> Args {
     let mut specials = Vec::new();
     let mut xref_cmd = None;
     let mut no_xref = false;
@@ -341,7 +354,7 @@ fn parse_args_from(raw: &[String]) -> Args {
     }
 }
 
-fn parse_args() -> Args {
+pub(super) fn parse_args() -> Args {
     let raw: Vec<String> = std::env::args().collect();
     parse_args_from(&raw)
 }
@@ -355,7 +368,7 @@ fn parse_args() -> Args {
 ----
 // <[docgen-error]>=
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
-enum Error {
+pub(super) enum Error {
     #[error("documentation rendering failed")]
     #[diagnostic(code(weaveback::docgen::render))]
     Render {
@@ -408,7 +421,7 @@ compatible scanner.
 [source,rust]
 ----
 // <[docgen-xref-cmd]>=
-fn run_xref_cmd(cmd: &str, project_root: &Path) -> Result<HashMap<String, XrefEntry>, Error> {
+pub(super) fn run_xref_cmd(cmd: &str, project_root: &Path) -> Result<HashMap<String, XrefEntry>, Error> {
     let output = Command::new(cmd)
         .arg(project_root)
         .output()
@@ -555,27 +568,92 @@ fn main() -> miette::Result<()> {
 // I'd Really Rather You Didn't edit this generated file.
 
 mod adoc_scan;
+mod args;
+mod config;
 mod d2;
+mod error;
 mod inject;
 mod literate_index;
 mod plantuml;
 mod render;
 mod xref;
+mod xref_cmd;
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::path::PathBuf;
 
-use xref::XrefEntry;
+use args::parse_args;
+use config::read_config;
+use error::Error;
+use xref_cmd::run_xref_cmd;
 
 // <[docgen-root]>
-// <[docgen-help]>
-// <[docgen-args]>
-// <[docgen-error]>
-// <[docgen-xref-cmd]>
 // <[docgen-main]>
 #[cfg(test)]
 mod tests;
+
+// @
+----
+
+
+[source,rust]
+----
+// <[@file weaveback-docgen/src/args.rs]>=
+// weaveback-docgen/src/args.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use std::path::PathBuf;
+
+// <[docgen-help]>
+// <[docgen-args]>
+// <[docgen-arg-parser]>
+
+// @
+----
+
+
+[source,rust]
+----
+// <[@file weaveback-docgen/src/config.rs]>=
+// weaveback-docgen/src/config.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use std::path::Path;
+
+// <[docgen-config]>
+
+// @
+----
+
+
+[source,rust]
+----
+// <[@file weaveback-docgen/src/error.rs]>=
+// weaveback-docgen/src/error.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::render;
+
+// <[docgen-error]>
+
+// @
+----
+
+
+[source,rust]
+----
+// <[@file weaveback-docgen/src/xref_cmd.rs]>=
+// weaveback-docgen/src/xref_cmd.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use std::collections::HashMap;
+use std::path::Path;
+use std::process::Command;
+
+use super::error::Error;
+use super::xref::XrefEntry;
+
+// <[docgen-xref-cmd]>
 
 // @
 ----
@@ -596,8 +674,11 @@ The test body is generated as `tests.rs` and linked from
 // weaveback-docgen/src/tests.rs
 // I'd Really Rather You Didn't edit this generated file.
 
+use crate::args::parse_args_from;
+
 use super::*;
 use std::fs;
+use std::path::Path;
 use tempfile::tempdir;
 
 #[test]

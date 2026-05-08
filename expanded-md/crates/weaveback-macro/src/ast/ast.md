@@ -124,11 +124,47 @@ Three files are generated from this document.
 
 // <[ast error]>
 
+pub use build::build_ast;
+pub use strip::strip_space_before_comments;
+
+#[cfg(test)]
+pub(crate) use build::analyze_param;
+#[cfg(test)]
+pub(crate) use crate::types::ASTNode;
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-macro/src/ast/build.rs]>=
+// weaveback-macro/src/ast/build.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::ASTError;
+use crate::parser::Parser;
+use crate::types::{ASTNode, NodeKind, Token};
+
+// <[ast build preamble]>
+
 // <[ast build]>
 
 // <[ast analyze param]>
 
 // <[ast clean node]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-macro/src/ast/strip.rs]>=
+// weaveback-macro/src/ast/strip.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use super::ASTError;
+use crate::parser::Parser;
+use crate::types::NodeKind;
 
 // <[ast strip spaces]>
 
@@ -168,13 +204,20 @@ The test module is generated from focused files under
 
 ```rust
 // <[ast preamble]>=
-use crate::parser::Parser;
-use crate::types::{ASTNode, NodeKind, Token};
 use thiserror::Error;
+mod build;
+mod strip;
 pub mod serialization;
 
 pub use serialization::{dump_macro_ast, serialize_ast_nodes};
+#[cfg(test)]
+mod tests;
+// @
+```
 
+
+```rust
+// <[ast build preamble]>=
 /// Three-state DFA used by `analyze_param` to classify a parameter node.
 #[derive(Debug)]
 enum ParamState {
@@ -185,9 +228,6 @@ enum ParamState {
     /// Saw `Ident =`; waiting for the first non-skip value token.
     SeenEqual { name: Token },
 }
-
-#[cfg(test)]
-mod tests;
 
 /// Returns `true` for node kinds that are transparent in both parameter
 /// scanning (`analyze_param`) and whitespace stripping
@@ -285,7 +325,7 @@ processed by `clean_node` in the second pass.
 ```rust
 // <[ast analyze param]>=
 /// Analyse a parameter node: classify as positional or named and collect parts.
-fn analyze_param(parser: &Parser, node_idx: usize) -> Result<Option<ASTNode>, ASTError> {
+pub(crate) fn analyze_param(parser: &Parser, node_idx: usize) -> Result<Option<ASTNode>, ASTError> {
     let node = parser
         .get_node(node_idx)
         .ok_or(ASTError::NodeNotFound(node_idx))?;
@@ -913,4 +953,3 @@ The test suite covers parameter classification, DFA edge cases, wire-format
 stability, serialization ordering, comment stripping, and full lex/parse/AST
 pipeline invariants.  See `src-wvb/ast/tests-assembly.wvb` and the child files
 under `src-wvb/ast/tests/` for the canonical test sources.
-

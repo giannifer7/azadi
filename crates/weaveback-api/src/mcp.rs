@@ -8,7 +8,7 @@ mod tools;
 pub use run::run_mcp;
 
 #[cfg(test)]
-pub(crate) use run::get_or_spawn_lsp;
+pub(crate) use run::lsp::get_or_spawn_lsp;
 
 #[cfg(test)]
 mod tests;

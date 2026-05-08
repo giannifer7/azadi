@@ -89,7 +89,7 @@ focused `.wvb` files:
 
 mod server {
 use std::collections::HashMap;
-use std::io::{BufRead, Read};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -363,9 +363,72 @@ use super::*;
 // weaveback-serve/src/server/ai/backends.rs
 // I'd Really Rather You Didn't edit this generated file.
 
-use super::*;
+mod anthropic;
+mod claude;
+mod gemini;
+mod ollama;
+mod openai;
 
-// <[serve-ai-backends]>
+pub(in crate::server::ai) use anthropic::call_anthropic_api;
+pub(in crate::server::ai) use claude::call_claude_cli;
+pub(in crate::server::ai) use gemini::call_gemini_api;
+pub(in crate::server::ai) use ollama::call_ollama_api;
+pub(in crate::server::ai) use openai::call_openai_api;
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-serve/src/server/ai/backends/anthropic.rs]>=
+// weaveback-serve/src/server/ai/backends/anthropic.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[serve-ai-anthropic-backend]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-serve/src/server/ai/backends/claude.rs]>=
+// weaveback-serve/src/server/ai/backends/claude.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[serve-ai-claude-backend]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-serve/src/server/ai/backends/gemini.rs]>=
+// weaveback-serve/src/server/ai/backends/gemini.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[serve-ai-gemini-backend]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-serve/src/server/ai/backends/ollama.rs]>=
+// weaveback-serve/src/server/ai/backends/ollama.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[serve-ai-ollama-backend]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-serve/src/server/ai/backends/openai.rs]>=
+// weaveback-serve/src/server/ai/backends/openai.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[serve-ai-openai-backend]>
 
 // @
 ```

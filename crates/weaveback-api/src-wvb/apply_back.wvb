@@ -252,6 +252,12 @@ use super::*;
 // <[applyback-run]>
 ¤])
 
+¤rust_file(weaveback-api/src/apply_back/run/helpers.rs, ¤[
+use super::super::*;
+
+// <[applyback-run-helpers]>
+¤])
+
 ¤rust_file(weaveback-api/src/apply_back.rs, ¤[
 use weaveback_core::PathResolver;
 use weaveback_lsp::LspClient;

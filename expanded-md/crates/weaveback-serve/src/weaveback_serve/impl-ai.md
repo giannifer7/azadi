@@ -305,7 +305,8 @@ pub(crate) fn sse_headers() -> Vec<Header> {
 
 
 ```rust
-// <[serve-ai-backends]>=
+// <[serve-ai-claude-backend]>=
+use std::io::BufRead;
 use std::process::Stdio;
 
 /// Call `claude -p --output-format stream-json --verbose` as a subprocess.
@@ -383,6 +384,13 @@ pub(in crate::server::ai) fn call_claude_cli(
     let _ = child.wait();
     let _ = tx.send("event: done\ndata:\n\n".to_string());
 }
+// @
+```
+
+
+```rust
+// <[serve-ai-anthropic-backend]>=
+use std::io::BufRead;
 
 /// Call the Anthropic Messages API directly.
 ///
@@ -441,6 +449,13 @@ pub(in crate::server::ai) fn call_anthropic_api(
     }
     let _ = tx.send("event: done\ndata:\n\n".to_string());
 }
+// @
+```
+
+
+```rust
+// <[serve-ai-gemini-backend]>=
+use std::io::BufRead;
 
 /// Call the Google Gemini API directly via HTTP.
 ///
@@ -516,6 +531,13 @@ pub(in crate::server::ai) fn call_gemini_api(
     }
     let _ = tx.send("event: done\ndata:\n\n".to_string());
 }
+// @
+```
+
+
+```rust
+// <[serve-ai-ollama-backend]>=
+use std::io::BufRead;
 
 /// Call a local Ollama API via HTTP.
 ///
@@ -582,6 +604,13 @@ pub(in crate::server::ai) fn call_ollama_api(
     }
     let _ = tx.send("event: done\ndata:\n\n".to_string());
 }
+// @
+```
+
+
+```rust
+// <[serve-ai-openai-backend]>=
+use std::io::BufRead;
 
 /// Call an OpenAI-compatible API directly via HTTP.
 ///

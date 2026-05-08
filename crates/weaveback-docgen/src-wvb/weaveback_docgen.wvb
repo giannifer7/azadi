@@ -195,34 +195,37 @@ strings (enabling unit tests), while `parse_args` wraps it for production
 use with `std::env::args()`.
 
 ¤rust_chunk(docgen-args, ¤[
-struct Args {
-    specials: Vec<char>,
-    xref_cmd: Option<String>,
-    no_xref: bool,
-    ai_xref: bool,
-    out_dir: Option<PathBuf>,
-    md_root: Option<PathBuf>,
-    md_out_dir: Option<PathBuf>,
-    no_md: bool,
-    no_adoc: bool,
-    theme_dir: Option<PathBuf>,
-    plantuml_jar: Option<PathBuf>,
-    d2_theme: u32,
-    d2_layout: String,
+pub(super) struct Args {
+    pub(super) specials: Vec<char>,
+    pub(super) xref_cmd: Option<String>,
+    pub(super) no_xref: bool,
+    pub(super) ai_xref: bool,
+    pub(super) out_dir: Option<PathBuf>,
+    pub(super) md_root: Option<PathBuf>,
+    pub(super) md_out_dir: Option<PathBuf>,
+    pub(super) no_md: bool,
+    pub(super) no_adoc: bool,
+    pub(super) theme_dir: Option<PathBuf>,
+    pub(super) plantuml_jar: Option<PathBuf>,
+    pub(super) d2_theme: u32,
+    pub(super) d2_layout: String,
+}
+¤])
+
+¤rust_chunk(docgen-config, ¤[
+
+#[derive(serde::Deserialize, Default)]
+pub(super) struct DocsConfig {
+    pub(super) d2_theme: Option<u32>,
+    pub(super) d2_layout: Option<String>,
 }
 
 #[derive(serde::Deserialize, Default)]
-struct DocsConfig {
-    d2_theme: Option<u32>,
-    d2_layout: Option<String>,
+pub(super) struct WeavebackConfig {
+    pub(super) docs: Option<DocsConfig>,
 }
 
-#[derive(serde::Deserialize, Default)]
-struct WeavebackConfig {
-    docs: Option<DocsConfig>,
-}
-
-fn read_config(root: &Path) -> WeavebackConfig {
+pub(super) fn read_config(root: &Path) -> WeavebackConfig {
     let path = root.join("weaveback.toml");
     if let Ok(content) = std::fs::read_to_string(&path) {
         toml::from_str(&content).unwrap_or_default()
@@ -230,8 +233,10 @@ fn read_config(root: &Path) -> WeavebackConfig {
         WeavebackConfig::default()
     }
 }
+¤])
 
-fn parse_args_from(raw: &[String]) -> Args {
+¤rust_chunk(docgen-arg-parser, ¤[
+pub(super) fn parse_args_from(raw: &[String]) -> Args {
     let mut specials = Vec::new();
     let mut xref_cmd = None;
     let mut no_xref = false;
@@ -335,7 +340,7 @@ fn parse_args_from(raw: &[String]) -> Args {
     }
 }
 
-fn parse_args() -> Args {
+pub(super) fn parse_args() -> Args {
     let raw: Vec<String> = std::env::args().collect();
     parse_args_from(&raw)
 }
@@ -345,7 +350,7 @@ fn parse_args() -> Args {
 
 ¤rust_chunk(docgen-error, ¤[
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
-enum Error {
+pub(super) enum Error {
     #[error("documentation rendering failed")]
     #[diagnostic(code(weaveback::docgen::render))]
     Render {
@@ -394,7 +399,7 @@ schema matches `XrefEntry` in `xref.rs` — any language can implement a
 compatible scanner.
 
 ¤rust_chunk(docgen-xref-cmd, ¤[
-fn run_xref_cmd(cmd: &str, project_root: &Path) -> Result<HashMap<String, XrefEntry>, Error> {
+pub(super) fn run_xref_cmd(cmd: &str, project_root: &Path) -> Result<HashMap<String, XrefEntry>, Error> {
     let output = Command::new(cmd)
         .arg(project_root)
         .output()
@@ -530,27 +535,60 @@ fn main() -> miette::Result<()> {
 
 ¤rust_file(weaveback-docgen/src/main.rs, ¤[
 mod adoc_scan;
+mod args;
+mod config;
 mod d2;
+mod error;
 mod inject;
 mod literate_index;
 mod plantuml;
 mod render;
 mod xref;
+mod xref_cmd;
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::path::PathBuf;
 
-use xref::XrefEntry;
+use args::parse_args;
+use config::read_config;
+use error::Error;
+use xref_cmd::run_xref_cmd;
 
 // <[docgen-root]>
-// <[docgen-help]>
-// <[docgen-args]>
-// <[docgen-error]>
-// <[docgen-xref-cmd]>
 // <[docgen-main]>
 #[cfg(test)]
 mod tests;
+¤])
+
+¤rust_file(weaveback-docgen/src/args.rs, ¤[
+use std::path::PathBuf;
+
+// <[docgen-help]>
+// <[docgen-args]>
+// <[docgen-arg-parser]>
+¤])
+
+¤rust_file(weaveback-docgen/src/config.rs, ¤[
+use std::path::Path;
+
+// <[docgen-config]>
+¤])
+
+¤rust_file(weaveback-docgen/src/error.rs, ¤[
+use super::render;
+
+// <[docgen-error]>
+¤])
+
+¤rust_file(weaveback-docgen/src/xref_cmd.rs, ¤[
+use std::collections::HashMap;
+use std::path::Path;
+use std::process::Command;
+
+use super::error::Error;
+use super::xref::XrefEntry;
+
+// <[docgen-xref-cmd]>
 ¤])
 
 ¤h2(¤[Tests¤])
@@ -563,8 +601,11 @@ The test body is generated as `tests.rs` and linked from
 `main.rs` with `#[cfg(test)] mod tests;`.
 
 ¤rust_file(weaveback-docgen/src/tests.rs, ¤[
+use crate::args::parse_args_from;
+
 use super::*;
 use std::fs;
+use std::path::Path;
 use tempfile::tempdir;
 
 #[test]
