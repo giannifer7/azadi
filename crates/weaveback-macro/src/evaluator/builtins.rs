@@ -7,6 +7,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use regex::Regex;
+
 use super::case_conversion::convert_case_str;
 use super::core::Evaluator;
 use super::errors::{EvalError, EvalResult};
@@ -21,7 +23,7 @@ mod stores;
 mod strings;
 mod util;
 
-use control::builtin_if;
+use control::{builtin_if, builtin_match};
 use definition::{builtin_def, builtin_pydef, builtin_redef};
 use include::{builtin_import, builtin_include};
 use predicates::{builtin_eq, builtin_neq, builtin_not};
@@ -51,6 +53,7 @@ pub fn default_builtins() -> HashMap<String, BuiltinFn> {
     map.insert("include".to_string(), builtin_include as BuiltinFn);
     map.insert("import".to_string(), builtin_import as BuiltinFn);
     map.insert("if".to_string(), builtin_if as BuiltinFn);
+    map.insert("match".to_string(), builtin_match as BuiltinFn);
     map.insert("set".to_string(), builtin_set as BuiltinFn);
     map.insert("alias".to_string(), builtin_alias as BuiltinFn);
     map.insert("export".to_string(), builtin_export as BuiltinFn);

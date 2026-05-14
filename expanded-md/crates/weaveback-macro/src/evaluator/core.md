@@ -122,7 +122,7 @@ use super::builtins::{default_builtins, BuiltinFn};
 use super::errors::{EvalError, EvalResult};
 use super::monty_eval::MontyEvaluator;
 use super::output::{EvalOutput, PreciseTracingOutput, SourceSpan, SpanKind, SpanRange};
-use super::state::{EvalConfig, EvaluatorState, MacroDefinition, ScriptKind};
+use super::state::{EvalConfig, EvaluatorState, MacroDefinition, ScriptKind, TrackedValue};
 use crate::types::{ASTNode, NodeKind, Token, TokenKind};
 
 mod accessors;
@@ -397,6 +397,51 @@ impl Evaluator {
 
     pub fn set_variable(&mut self, name: &str, value: &str) {
         self.state.set_variable(name, value);
+    }
+
+    pub fn evaluate_with_temporary_variables(
+        &mut self,
+        bindings: &[(String, String)],
+        node: &ASTNode,
+    ) -> EvalResult<String> {
+        let mut seen = HashSet::new();
+        let mut saved = Vec::new();
+        {
+            let frame = self.state.current_scope_mut();
+            for (name, value) in bindings {
+                if !seen.insert(name.clone()) {
+                    frame.variables.insert(
+                        name.clone(),
+                        TrackedValue {
+                            value: value.clone(),
+                            spans: vec![],
+                        },
+                    );
+                    continue;
+                }
+                saved.push((name.clone(), frame.variables.get(name).cloned()));
+                frame.variables.insert(
+                    name.clone(),
+                    TrackedValue {
+                        value: value.clone(),
+                        spans: vec![],
+                    },
+                );
+            }
+        }
+
+        let result = self.evaluate(node);
+
+        let frame = self.state.current_scope_mut();
+        for (name, old_value) in saved.into_iter().rev() {
+            if let Some(old_value) = old_value {
+                frame.variables.insert(name, old_value);
+            } else {
+                frame.variables.remove(&name);
+            }
+        }
+
+        result
     }
 
     pub fn record_var_def(&mut self, var_name: String, src: u32, pos: u32, length: u32) {

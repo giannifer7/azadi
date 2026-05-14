@@ -3,8 +3,7 @@ title: |-
   CLI reference
 ---
 # CLI reference
-The old combined `weaveback` binary is gone. The public CLI is now split into
-four focused tools.
+The public CLI is composed of four focused tools.
 
 ## Command map
 
@@ -18,29 +17,6 @@ semantic `lsp` lookups and `tag` metadata generation.</td></tr>
   <tr><td>`wb-serve`</td><td>Local docs server with live reload, inline editing, and AI-assisted views.</td></tr>
   <tr><td>`wb-mcp`</td><td>MCP server for editor and agent integrations.</td></tr>
 </table>
-
-## Migration from the old combined CLI
-
-| Old command | New command |
-| --- | --- |
-| `weaveback file.adoc --gen gen` | `wb-tangle file.adoc --gen gen` |
-| `weaveback --dir src --gen gen` | `wb-tangle --dir src --gen gen` |
-| `weaveback tangle` | `wb-tangle` |
-| `weaveback apply-back` | `wb-tangle apply-back` |
-| `weaveback where ...` | `wb-query where ...` |
-| `weaveback trace ...` | `wb-query trace ...` |
-| `weaveback attribute ...` | `wb-query attribute ...` |
-| `weaveback cargo ...` | `wb-query cargo ...` |
-| `weaveback coverage ...` | `wb-query coverage ...` |
-| `weaveback graph ...` | `wb-query graph ...` |
-| `weaveback impact ...` | `wb-query impact ...` |
-| `weaveback search ...` | `wb-query search ...` |
-| `weaveback lint ...` | `wb-query lint ...` |
-| `weaveback tag ...` | `wb-query tag ...` |
-| `weaveback tags ...` | `wb-query tags ...` |
-| `weaveback lsp ...` | `wb-query lsp ...` |
-| `weaveback serve ...` | `wb-serve ...` |
-| `weaveback mcp` | `wb-mcp` |
 
 ## Common workflows
 

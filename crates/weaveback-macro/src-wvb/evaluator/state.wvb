@@ -452,7 +452,7 @@ impl EvaluatorState {
         self.scope_stack.last_mut().unwrap()
     }
 
-    /// Set a variable with no origin tracking (legacy/computed path).
+    /// Set a variable with no origin tracking for computed values.
     pub fn set_variable(&mut self, name: &str, value: &str) {
         self.current_scope_mut().variables.insert(
             name.into(),

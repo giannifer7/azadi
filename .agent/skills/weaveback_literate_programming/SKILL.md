@@ -5,56 +5,65 @@ description: Guidelines and patterns for working in codebases that use the weave
 
 # Weaveback Literate Programming
 
-Weaveback is a literate programming toolchain. Source files are written as
-annotated documents (Markdown, AsciiDoc, etc.) containing macro calls and
-named code chunks. The `weaveback` command processes them and writes the final
-source files.
+Weaveback is a literate programming toolchain. The source of truth is a set of
+annotated documents (`.wvb`, `.md`, `.adoc`, etc.) containing prose, macro calls,
+and named noweb chunks. Generated Rust/Python/TOML/etc. files are products of
+the literate sources, not the primary edit target unless you intentionally use
+apply-back.
 
-## Typical invocation
+## CLI
+
+Use the focused tools:
 
 ```bash
-weaveback source.md --gen src
-weaveback --dir docs --ext adoc --include . --gen src
+wb-tangle                     # run the project configuration from weaveback.toml
+wb-tangle path/to/file.md     # tangle a specific driver
+wb-tangle --dir src --ext md --gen gen
+wb-query trace gen/out.rs 42 1
+wb-query cargo clippy --all-targets -- -D warnings
+wb-tangle apply-back --dry-run
+wb-serve --watch
+wb-mcp
 ```
 
-The `--dir` mode recursively discovers driver files (those not `%include`d
-by another file) and processes each one. No command-line changes are needed
-when new files are added.
+Responsibilities:
 
-## Two passes, one command
+| Tool | Responsibility |
+| --- | --- |
+| `wb-tangle` | Build-side operations: macro expansion, tangling, source-map DB writes, and `apply-back`. |
+| `wb-query` | Read/query-side operations: trace, where, attribute, cargo annotation, search, graph, coverage, lint, tags, LSP. |
+| `wb-serve` | Local docs server. |
+| `wb-mcp` | MCP server for editor/agent integrations. |
+| `weaveback-macro` | Advanced standalone macro-expansion/debugging tool. Not the normal project entrypoint. |
 
-`weaveback` runs two passes in sequence, in-process:
+## Two-Pass Documents
 
-1. **weaveback-macro** — expands `%macro(...)` calls into an intermediate
-   noweb document
-2. **weaveback-tangle** — extracts `<[chunk]>` references and writes output files
+Newer sources may use `.wvb` plus markup prelude macros. The first pass expands
+markup-neutral `¤...` macros into concrete `.md` and/or `.adoc` documents. The
+second pass tangles the expanded document into generated source files.
 
-The separate `weaveback-macro` and `weaveback-tangle` binaries exist for advanced
-pipeline use but are not needed for normal work.
+Do not edit expanded output just because it exists. Prefer editing the `.wvb`
+canonical source when present, then run `wb-tangle`.
 
-## Chunk syntax (defaults)
+## Chunk Syntax
 
-The comment marker before a delimiter matches the language of the chunk's
-content. Use `//` for Rust, C, and similar; use `#` for Python, shell, TOML,
-etc. For weaveback source or plain text there is no host language, so omit the
-comment marker entirely.
+The standard delimiters are `<[`, `]>`, and `@`.
 
-**Rust** (`//` comment marker):
+Use the host-language comment marker before delimiters when the chunk body is
+source code. Use `//` for Rust/C-like languages, `#` for Python/shell/TOML, and
+no marker for plain weaveback text.
 
 ```rust
 // <[@file src/lib.rs]>=
-pub mod utils;
-// <[utils-module]>
+// <[module declarations]>
 // @
 
-// <[utils-module]>=
-pub fn helper() {}
+// <[module declarations]>=
+pub mod utils;
 // @
 ```
 
-**Weaveback / plain text** (no comment marker):
-
-```weaveback
+```text
 <[@file config/default.toml]>=
 [server]
 port = <[server-port]>
@@ -65,243 +74,219 @@ port = <[server-port]>
 @
 ```
 
-- `<[@file path]>=` — declares a file output chunk; path may start with `~/`
-- `<[name]>=` — declares a named chunk
-- `<[name]>` inside a chunk body — expands that chunk inline, preserving indentation
-- `// @` / `# @` / `@` — ends the current chunk (marker must match what precedes delimiters)
-- Comment markers before delimiters are stripped automatically; defaults are
-  `#` and `//` but any set can be configured via `--comment-markers`
-  (e.g. `--comment-markers "--,;;"` for Lua/Scheme)
+Rules:
 
-Delimiters are configurable: `--open-delim`, `--close-delim`, `--chunk-end`.
+| Form | Meaning |
+| --- | --- |
+| `<[@file path]>=` | Declares an output file chunk. |
+| `<[name]>=` | Declares a named chunk. |
+| `<[name]>` | Expands a named chunk inline, preserving indentation. |
+| `// @`, `# @`, `@` | Ends the current chunk. The comment marker must match the opener style. |
 
-## Macro syntax
+When adding a generated file, declare one `@file` chunk and compose it from
+small named chunks. Keep chunk names semantic, not mechanical.
 
-```
-%def(name, param1, ..., body)   — define a macro
-%(varname)                      — interpolate a variable
-%set(name, value)               — set a variable
-%if(cond, then, else)           — conditional
-%include(path)                  — include another file
-%import(path)                   — include but discard output (load definitions)
-%rhaidef(name, params..., body) — Rhai-scripted macro (logic, arithmetic)
-%pydef(name, params..., body)   — Python-scripted macro (via monty)
-```
+## Macro Language
 
-Always wrap macro bodies in `%{ ... %}` — required when they contain commas
-or parentheses, and good style otherwise. Wrap non-trivial arguments too.
-Leading whitespace inside `%{` is preserved, but leading whitespace on bare
-arguments is stripped — which makes multi-line calls with comments readable:
+The macro language is strict, eager, string-valued, and intentionally small.
+The default sigil is `%`; a run may choose any single UTF-8 scalar as sigil
+with `--sigil`.
 
-```
-%def(tag, name, value, %{<%(name)>%(value)</%(name)>%})
+Core forms:
 
-%tag( div,         %# element name — leading space stripped
-      Hello world) %# value        — leading space stripped
-```
-Output: `<div>Hello world</div>`
-
-To keep a leading space, use `%{`:
-```
-%tag(%{ div%}, %{ Hello world%})
-```
-Output: `< div> Hello world</ div>`
-
-These calling conventions apply to all macro kinds (`%def`, `%rhaidef`, `%pydef`):
-named parameters are matched **by name** (any order), positional args must come
-before named args (Python-style), an unknown name is an error (catches typos),
-extra positional args beyond the declared count are ignored, missing params
-default to empty string. Combined with multi-line style and comments
-they serve as self-documenting call sites:
-
-```
-%def(http_endpoint, method, path, handler, %{
-%(method) %(path) → %(handler)
-%})
-
-%http_endpoint(
-    method  = GET,          %# HTTP verb
-    path    = /api/users,   %# route pattern
-    handler = list_users)   %# function name
-```
-Output: `GET /api/users → list_users`
-
-Named and positional arguments can be mixed, but positional args must come
-first (same rule as Python). Named args following them bind by name;
-a positional after a named arg is an error, as is providing the same param
-both positionally and by name.
-
-## Build system integration
-
-`--depfile` writes a Makefile-format depfile after each run; `--stamp`
-touches a file on success. Together they let a single build rule cover an
-entire directory tree:
-
-```meson
-custom_target('gen',
-  output  : ['gen.stamp'],
-  depfile : 'gen.d',
-  command : [weaveback,
-             '--dir',    meson.current_source_dir() / 'src',
-             '--ext',    'adoc',
-             '--include', meson.current_source_dir(),
-             '--gen',    meson.current_source_dir() / 'src',
-             '--stamp',  '@OUTPUT0@',
-             '--depfile', '@DEPFILE@'],
-)
+```text
+%def(name, params..., body)     constant macro binding in the current frame
+%redef(name, params..., body)   rebindable macro binding in the current frame
+%(name)                         variable reference in the current frame
+%set(name, value)               set variable in the current frame
+%env(NAME)                      read environment, only when enabled
+%if(cond, then, else)           conditional; only the selected branch expands
+%match(v, default, r, x...)     regex dispatch; only the selected branch expands
+%include(path)                  include and emit another file
+%import(path)                   include another file for definitions, discard output
+%pydef(name, params..., body)   Python/monty escape hatch
 ```
 
-> List only the stamp in `output`, never the `.d` file — Ninja consumes
-> depfiles into its internal database and will rerun forever if the `.d`
-> file is also declared as an output.
+### Definitions
 
-## Source tracing
+`%def` creates a constant binding in the current frame. It errors if the name
+already exists in that frame as either constant or rebindable, or if the name
+is a builtin.
 
-`weaveback` records a source map on every run. Given a line (and optionally a
-column) in a generated file, `weaveback trace` returns the exact literate source
-location — essential when a compiler error points at generated code.
+`%redef` creates or replaces a rebindable binding in the current frame. It may
+replace an existing rebindable binding, but it may not replace a `%def`
+constant or a builtin.
+
+Use `%redef` for deliberate X-macro or multi-pass rebinding patterns. Use
+`%def` everywhere else.
+
+### Blocks
+
+Use quoted argument blocks for macro-active bodies:
+
+```text
+%def(greet, name, %{Hello, %(name)!%})
+```
+
+Use verbatim blocks for literal bodies:
+
+```text
+%pydef(greet, name, %[ "hello " + name %])
+```
+
+Block forms:
+
+| Form | Meaning |
+| --- | --- |
+| `%{ ... %}` / `%tag{ ... %tag}` | One argument, still macro-active, nestable. |
+| `%[ ... %]` / `%tag[ ... %tag]` | Opaque verbatim block, no macro parsing inside, nestable. |
+| `%/* ... %*/` | Block comment, nestable. |
+
+Both quoted and verbatim blocks preserve initial whitespace. A bare blank
+argument between commas is an empty argument; `%{%}` is the explicit empty
+argument form.
+
+For `%match`, wrap non-trivial regexes in verbatim blocks and wrap branches
+that read captures in quoted blocks:
+
+```text
+%match(issue-42, unknown,
+       %[^(?P<prefix>[a-z]+)-(\d+)$%],
+       %{kind=%(prefix), number=%(match_2)%})
+```
+
+Capture variables are branch-local: `%(match_0)` is the whole match,
+`%(match_1)` etc. are numbered captures, and named captures are available by
+their capture name.
+
+### Strict Evaluation
+
+Arguments are fully expanded in the caller scope before the callee frame is
+pushed. Values do not become lazy expressions.
+
+Important invariants:
+
+| Rule | Consequence |
+| --- | --- |
+| Missing variables are errors. | Typos do not silently become empty strings. |
+| Missing parameters are errors. | Calls must pass required values explicitly. |
+| Extra positional arguments are errors. | Arity mistakes are caught. |
+| Unknown named arguments are errors. | Misspelled parameter names are caught. |
+| `%set(...)` is forbidden in argument position. | Arguments are values, not assignment sites. |
+| `%if` and `%match` are lazy in their branches. | Non-selected branches can contain otherwise-invalid calls without firing. |
+| Variables are looked up only in the current top frame. | Outer `%set` bindings do not leak into macro bodies. Pass values as parameters. |
+| Macro lookup walks outward through frames. | Inner macro definitions shadow outer ones. |
+
+`%set` belongs to the variable namespace. `%def`, `%redef`, `%alias`, and
+`%pydef` belong to the macro namespace. Variables and macros are distinct.
+
+## Markup Prelude Macros
+
+Project-local markup prelude macros use `¤` by convention. They are intended to
+hide Markdown/AsciiDoc differences and emit standard file/chunk structure.
+
+Prefer prelude macros for common shapes when they exist, for example:
+
+```text
+¤rust_file(path/to/file.rs, ¤[
+// <[module prelude]>
+// <[module body]>
+¤])
+
+¤rust_chunk(module body, ¤[
+pub fn helper() {}
+¤])
+```
+
+Do not hand-normalize generated `.md`/`.adoc` if the `.wvb` source can express
+the intent once through prelude macros.
+
+## Source Tracing
+
+`wb-tangle` records source maps in `weaveback.db`. Use `wb-query trace` to map
+generated code back to the literate source.
 
 ```bash
-# Trace line 42 of a generated file
-weaveback trace src/foo.rs 42
-
-# Pinpoint a specific token on that line (column is 0-indexed)
-weaveback trace src/foo.rs 42 --col 10
+wb-query trace gen/out.rs 42
+wb-query trace gen/out.rs 42 10
 ```
 
-Reads `weaveback.db` from the current directory. Pass `--db` and `--gen` for
-non-default paths.
+Line and column numbers are 1-indexed character positions.
 
-**Output fields:**
+Important trace fields:
 
 | Field | Meaning |
-|-------|---------|
-| `src_file` | Literate source file to edit |
-| `src_line` | 1-indexed line in that file |
-| `kind` | `Literal`, `MacroBody`, `MacroArg`, `VarBinding`, or `Computed` |
-| `macro_name` | Macro name (when `kind` is `MacroBody` or `MacroArg`) |
-| `param_name` | Parameter name (when `kind` is `MacroArg`) |
-| `var_name` | Variable name (when `kind` is `VarBinding`) |
-| `def_locations` | `{file, line}` for every `%def`/`%rhaidef`/`%pydef` that defined this macro (when `kind` is `MacroBody`) |
-| `set_locations` | `{file, line}` for every `%set` that set this variable (when `kind` is `VarBinding`) |
-| `chunk` | Noweb chunk containing this line |
+| --- | --- |
+| `src_file` | Literate source file to edit. |
+| `src_line` | 1-indexed source line. |
+| `src_col` | 1-indexed source column when available. |
+| `kind` | `Literal`, `MacroBody`, `MacroArg`, `VarBinding`, or `Computed`. |
+| `macro_name` | Macro responsible for `MacroBody`/`MacroArg`. |
+| `param_name` | Parameter responsible for `MacroArg`. |
+| `var_name` | Variable responsible for `VarBinding`. |
+| `def_locations` | `%def`/`%redef`/`%pydef` definition locations. |
+| `set_locations` | `%set` assignment locations. |
+| `chunk` | Noweb chunk containing the generated line. |
 
-**Reading the result:**
+Reading traces:
 
-- `Literal`: edit `src_file` at `src_line` directly.
-- `MacroBody`: the text is a literal fragment of the macro body. Edit the
-  macro definition — `def_locations` says where it was defined.
-- `MacroArg`: the text came from an argument at the call site.
-  `src_file:src_line` is that call site; `param_name` names the parameter.
-- `VarBinding`: the text came from a `%set` call. `set_locations` lists all
-  assignment sites; `var_name` names the variable.
+| Kind | Edit target |
+| --- | --- |
+| `Literal` | Edit `src_file` at `src_line`. |
+| `MacroBody` | Edit the macro definition reported in `def_locations`. |
+| `MacroArg` | Edit the argument at the call site. |
+| `VarBinding` | Edit the `%set` assignment if the mapping is unambiguous. |
+| `Computed` | Inspect manually; generated by nontrivial computation. |
 
-When a line contains tokens from different sources, use `--col` to target the
-specific token you want to change. Span attribution follows arguments through
-nested macro calls — `src_file:src_line` always points to the original literal
-text, not to an intermediate call site.
+## Apply-Back
 
-## Apply-back
-
-`weaveback apply-back` is a **first-class editing workflow**: make changes directly
-in the generated files — using your IDE, language-aware tools, or just your
-editor — then run apply-back to propagate every change back to the literate
-source automatically. This is often faster than locating the right spot in the
-literate document first, especially for mechanical edits (renaming, constant
-updates, formatting changes) across many files.
+`wb-tangle apply-back` is a reconciliation workflow for changes already made in
+generated files. It diffs generated outputs against the stored baseline,
+traces changed lines back to literate source, patches candidates, and
+oracle-verifies the resulting output before writing.
 
 ```bash
-# Propagate all gen/ edits back to their literate sources
-weaveback apply-back
-
-# Dry run: show what would change without writing
-weaveback apply-back --dry-run
+wb-tangle apply-back
+wb-tangle apply-back --dry-run
 ```
 
-**How it works (two levels):**
+Use apply-back when generated files were edited directly by an IDE, language
+tool, or manual intervention. In a normal agent workflow, prefer tracing to the
+literate source first and editing the source directly.
 
-1. **Noweb level**: diffs each gen/ file against the stored baseline (from the last run).
-   For each changed line, `noweb_map` identifies the literate source file and line.
+## MCP Agent Workflow
 
-2. **Macro level**: for each changed source line, re-evaluates the driver in tracing
-   mode to pinpoint the exact token that produced the output:
-   - `Literal` / `MacroBodyLiteral`: patched in place automatically
-   - `MacroArg`: replaces the argument value at the call site; oracle-verified
-   - `MacroBodyWithVars`: attempts structural patch; oracle-verified
-   - `VarBinding` / `Computed`: reported but not auto-patched (ambiguous)
+Start the server with:
 
-**Oracle verification:** for `MacroArg` and `MacroBodyWithVars`, the patched source is
-re-evaluated and the relevant output line is checked before writing. A wrong candidate
-is rejected — the source is never corrupted by a failed heuristic.
+```bash
+wb-mcp
+```
 
-**Fuzzy line matching:** if the expected source line is not at the exact index (e.g. due
-to reformatting), a ±15-line window search using a whitespace-normalised regex finds it.
+Recommended order for agents:
 
-## MCP server
+1. Use `weaveback_chunk_context` when you know the chunk name and need prose,
+   dependencies, reverse dependencies, and recent git history.
+2. Use `weaveback_trace` when a generated-file line is the starting point.
+3. Read the surrounding literate source before editing; prose is part of the
+   source of truth.
+4. Use `weaveback_apply_fix` for targeted oracle-verified source edits when
+   available.
+5. Use `weaveback_apply_back` only when generated files have already been
+   edited and must be reconciled.
+6. Retangle and run the relevant tests/lints.
 
-`weaveback mcp` starts an MCP server (stdio transport) exposing three tools for
-IDE/agent integration:
+## Agent Rules
 
-| Tool | Description |
-|------|-------------|
-| `weaveback_trace` | Trace a generated file line to its literate source. Returns `src_file`, `src_line`, `src_col`, `kind`, and (depending on kind) `macro_name`, `param_name`, `var_name`, `def_locations`, `set_locations`. |
-| `weaveback_apply_back` | Propagate all gen/ edits back to the literate source. Returns a report of what was patched, skipped, or needs manual attention. |
-| `weaveback_apply_fix` | Apply a single targeted source edit and verify it produces the expected output line (oracle-verified). |
-
-**Recommended agent workflow (use this order):**
-
-1. Call `weaveback_trace` with the generated file and line number to get the
-   exact `src_file`/`src_line`. No grep required — works across multi-file
-   chunks and macro expansions.
-2. Read a few lines around `src_line` in the literate source to understand
-   the chunk structure and surrounding prose.
-3. Call `weaveback_apply_fix` with the replacement text and the exact output
-   line you expect. The macro expander re-runs as an oracle; the file is
-   written only if the output matches. No full build needed.
-4. Re-read the prose section surrounding `src_line` in the literate source.
-   Verify it still accurately describes the changed code.
-   **This step is not optional.** The literate document is both code and
-   documentation; a fix that leaves stale prose is incomplete.
-5. Use a plain `Edit` if the surrounding prose is stale. No oracle needed
-   for prose that doesn't affect generated output.
-6. Run the project build. Only linking and type-checking remain;
-   correctness was already oracle-verified in step 3.
-
-**`weaveback_apply_back` is the escape hatch, not the normal path.**
-Use it only when gen/ files have already been edited directly (by hand,
-by a language tool, or by an IDE) and need to be synced back. In a normal
-agent workflow where no gen/ files were edited directly, use trace →
-apply_fix instead.
-
-## Gotchas
-
-**Line number drift:** `weaveback_apply_fix` uses source line numbers from
-the current state of the literate file. If the file was edited directly before
-calling the tool, line numbers reported by `trace` may have shifted. Always
-re-read the target line before calling `apply_fix` to confirm it still contains
-the expected content.
-
-**Formatter interaction:** when `--formatter` is configured (e.g. `rs=rustfmt`),
-the baseline in `weaveback.db` is the _formatted_ output. The oracle also
-produces formatted output. Pass the formatted line as `expected_output`, not
-the raw macro expansion.
-
-## Guidelines for agents
-
-- The literate document is the **source of truth**, but editing gen/ files
-  directly is a **supported workflow** — not just a debugging shortcut.
-  Make changes in the generated files using whatever tools work best, then
-  run `weaveback apply-back` to sync them back. The next `weaveback` run will
-  overwrite gen/ from the updated literate source, closing the loop.
-- Use the Markdown/AsciiDoc structure to explain *why* the code is
-  structured as it is. Chunk names should read as intent, not mechanics.
-- When adding a new output file, declare it as a `<[@file ...]>=` chunk
-  in the appropriate literate source, then reference named sub-chunks to
-  keep each chunk short and focused.
-- `weaveback` writes output files only when content changes (content-based
-  diffing). Rebuilds that produce identical output leave files untouched,
-  keeping build system timestamps stable.
-- Use `--formatter rs=rustfmt` (or the equivalent for the target language)
-  to keep generated code formatted without manual intervention.
-- `--dump-expanded` (stderr) shows the macro-expanded intermediate text —
-  the first thing to check when a chunk is missing or expands unexpectedly.
+* Edit canonical literate sources (`.wvb`, `.md`, `.adoc`) whenever possible.
+* If a generated file says not to edit it, find the chunk or source document
+  that generated it.
+* After changing literate source, run `wb-tangle` or the project recipe that
+  wraps it before testing generated code.
+* Do not use `include!` as a shortcut for splitting Rust code. It destroys the
+  provenance boundaries Weaveback is designed to preserve.
+* Keep chunks small enough to review locally, but do not fragment files into
+  meaningless one-line chunks.
+* Update prose together with code. A correct generated file with stale
+  literate explanation is incomplete.
+* Run `git diff --check` before handoff; whitespace drift in literate sources
+  propagates into expanded documents.

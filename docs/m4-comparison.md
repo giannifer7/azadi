@@ -189,9 +189,8 @@ site in the message corresponds to the site a human sees in the source.
 Recursion depth is tracked and capped at a configurable limit, 100 by
 default, so infinite-recursion mistakes produce a clear error rather
 than a stack overflow. There is no interactive debugger, but the
-`--dump-expanded` flag on the combined `weaveback` binary prints the
-fully expanded text to stderr before the tangle pass, which is usually
-sufficient for diagnosis.
+standalone `weaveback-macro` tool can print the fully expanded text before
+the tangle pass, which is usually sufficient for diagnosis.
 
 ## Speed and scaling
 

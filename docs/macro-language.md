@@ -397,8 +397,7 @@ Note:
 Evaluates `cond`. If the result is non-empty, evaluates and returns `then`;
 otherwise evaluates and returns `else` (or empty if `else` is omitted).
 
-The **non-selected branch is not evaluated** — `%if` is the one builtin that
-is genuinely lazy in its branch arguments.
+The **non-selected branch is not evaluated**.
 
 `%if()` with no arguments is a non-fatal warning (the call always returns
 empty and is almost certainly a mistake).
@@ -440,6 +439,57 @@ empty if the argument is non-empty.
 %if(%not(%(feature_flag)), disabled, enabled)
 ```
 
+
+### `%match(value, default, regex0, val0, …)` — Regex dispatch
+
+Evaluates `value`, then evaluates regex patterns from left to right until one
+matches.  The selected value branch is evaluated and returned. If no regex
+matches, the default branch is evaluated and returned.
+
+The default and value branches are lazy: only the selected branch is evaluated.
+Regex patterns after the first match are not evaluated either.
+
+During the selected regex branch, captures are available as variables:
+
+* `%(match_0)` is the whole match
+* `%(match_1)`, `%(match_2)`, … are numbered capture groups
+* `%(name)` is a named capture
+
+Capture variables are restored after the selected branch finishes, so they do
+not leak into the caller's frame.
+
+Use verbatim blocks for regexes that contain macro syntax characters such as
+parentheses, commas, square brackets, or `%`. Use quoted blocks for branch
+bodies that read capture variables.
+
+```text
+%match(issue-42, unknown,
+       %[^(?P<prefix>[a-z]+)-(\d+)$%],
+       %{kind=%(prefix), number=%(match_2)%})
+```
+
+
+Regex patterns are still macro-active unless wrapped in a verbatim block. This
+is useful when a pattern is generated from smaller values:
+
+```text
+%def(kind_pattern, kind, %{^%(kind)-\d+$%})
+
+%match(warn-12, unknown,
+       %kind_pattern(warn), warning,
+       %kind_pattern(error), error)
+```
+
+
+The default branch is lazy too:
+
+```text
+%match(error-404, %undefined_default(),
+       ^error-\d+$, matched)
+```
+
+
+This expands to `matched`; `%undefined_default()` is never evaluated.
 
 ### `%eval(name, args…)` — Dynamic dispatch
 
@@ -672,6 +722,7 @@ resolved path is recorded and the target file is not evaluated.
 | `%include(path)` | Include and evaluate file | 1 | file content |
 | `%import(path)` | Include without output | 1 | empty |
 | `%if(c, t [, e])` | Conditional (lazy branches) | 1–3 | branch or empty |
+| `%match(v, d, r, x…)` | Regex dispatch (lazy branches) | 2+ even | selected branch/default |
 | `%eq(a, b)` | Equality predicate | 2 | `1` or empty |
 | `%neq(a, b)` | Inequality predicate | 2 | `1` or empty |
 | `%not([x])` | Logical negation | 0–1 | `1` or empty |

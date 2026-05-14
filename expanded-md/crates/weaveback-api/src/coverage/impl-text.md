@@ -3,7 +3,7 @@
 Text-location attribution and query/tag/trace command wrappers.
 
 ```rust
-// <[coverage-text-query]>=
+// <[coverage-text-attribution]>=
 pub fn collect_text_attributions(
     text: &str,
     db: Option<&weaveback_tangle::db::WeavebackDb>,
@@ -65,7 +65,12 @@ pub fn emit_text_attribution_message(
     writeln!(out)?;
     Ok(())
 }
+// @
+```
 
+
+```rust
+// <[coverage-text-cargo-run]>=
 pub fn run_cargo_annotated(
     cargo_args: Vec<String>,
     diagnostics_only: bool,
@@ -212,7 +217,12 @@ pub fn run_cargo_annotated_to_writer(
         ))))
     }
 }
+// @
+```
 
+
+```rust
+// <[coverage-query-commands]>=
 pub fn run_impact(chunk: String, db_path: PathBuf) -> Result<(), CoverageApiError> {
     let json = crate::query::impact_analysis(&chunk, &db_path)?;
     println!("{}", serde_json::to_string_pretty(&json).unwrap());

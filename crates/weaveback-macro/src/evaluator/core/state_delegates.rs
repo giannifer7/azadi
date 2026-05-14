@@ -24,6 +24,51 @@ impl Evaluator {
         self.state.set_variable(name, value);
     }
 
+    pub fn evaluate_with_temporary_variables(
+        &mut self,
+        bindings: &[(String, String)],
+        node: &ASTNode,
+    ) -> EvalResult<String> {
+        let mut seen = HashSet::new();
+        let mut saved = Vec::new();
+        {
+            let frame = self.state.current_scope_mut();
+            for (name, value) in bindings {
+                if !seen.insert(name.clone()) {
+                    frame.variables.insert(
+                        name.clone(),
+                        TrackedValue {
+                            value: value.clone(),
+                            spans: vec![],
+                        },
+                    );
+                    continue;
+                }
+                saved.push((name.clone(), frame.variables.get(name).cloned()));
+                frame.variables.insert(
+                    name.clone(),
+                    TrackedValue {
+                        value: value.clone(),
+                        spans: vec![],
+                    },
+                );
+            }
+        }
+
+        let result = self.evaluate(node);
+
+        let frame = self.state.current_scope_mut();
+        for (name, old_value) in saved.into_iter().rev() {
+            if let Some(old_value) = old_value {
+                frame.variables.insert(name, old_value);
+            } else {
+                frame.variables.remove(&name);
+            }
+        }
+
+        result
+    }
+
     pub fn record_var_def(&mut self, var_name: String, src: u32, pos: u32, length: u32) {
         self.state.var_defs.push(crate::evaluator::state::VarDefRaw { var_name, src, pos, length });
     }

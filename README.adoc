@@ -250,7 +250,7 @@ Not production-ready. The focus is on the design, not completeness.
 | Document | Contents
 
 | link:docs/cli.adoc[CLI reference]
-| Split command map and migration from the old combined CLI
+| Focused command map and common workflows
 
 | link:docs/macros.adoc[Macro language]
 | `%def`, `%redef`, `%if`, `%pydef`, verbatim blocks

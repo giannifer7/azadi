@@ -94,7 +94,7 @@ inspect or override the command before running it.
 // <[tangle-cmd]>=
 /// Build a `std::process::Command` for one tangle pass.
 ///
-/// `exe` is the path to the weaveback binary to invoke.
+/// `exe` is the path to the tangle executable to invoke.
 pub fn build_pass_cmd(
     exe: &std::path::Path,
     pass: &TanglePassCfg,

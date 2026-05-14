@@ -384,10 +384,31 @@ msg2 = read_msg()
 
 ¤h2(¤[Assembly¤])
 
-¤rust_file(weaveback-lsp/src/lib.rs, ¤[
+¤rust_file(weaveback-lsp/src/client.rs, ¤[
 // <[lsp-client]>
+¤])
+
+¤rust_file(weaveback-lsp/src/nav.rs, ¤[
+use crate::client::{LspClient, LspError};
+use lsp_types::*;
+use std::path::Path;
+use url::Url;
+
 // <[lsp-nav]>
+¤])
+
+¤rust_file(weaveback-lsp/src/registry.rs, ¤[
 // <[lsp-registry]>
+¤])
+
+¤rust_file(weaveback-lsp/src/lib.rs, ¤[
+mod client;
+mod nav;
+mod registry;
+
+pub use client::{LspClient, LspError};
+pub use registry::get_lsp_config;
+
 #[cfg(test)]
 mod tests;
 ¤])

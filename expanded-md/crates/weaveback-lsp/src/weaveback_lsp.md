@@ -401,13 +401,55 @@ msg2 = read_msg()
 ## Assembly
 
 ```rust
+// <[@file weaveback-lsp/src/client.rs]>=
+// weaveback-lsp/src/client.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[lsp-client]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-lsp/src/nav.rs]>=
+// weaveback-lsp/src/nav.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+use crate::client::{LspClient, LspError};
+use lsp_types::*;
+use std::path::Path;
+use url::Url;
+
+// <[lsp-nav]>
+
+// @
+```
+
+
+```rust
+// <[@file weaveback-lsp/src/registry.rs]>=
+// weaveback-lsp/src/registry.rs
+// I'd Really Rather You Didn't edit this generated file.
+
+// <[lsp-registry]>
+
+// @
+```
+
+
+```rust
 // <[@file weaveback-lsp/src/lib.rs]>=
 // weaveback-lsp/src/lib.rs
 // I'd Really Rather You Didn't edit this generated file.
 
-// <[lsp-client]>
-// <[lsp-nav]>
-// <[lsp-registry]>
+mod client;
+mod nav;
+mod registry;
+
+pub use client::{LspClient, LspError};
+pub use registry::get_lsp_config;
+
 #[cfg(test)]
 mod tests;
 

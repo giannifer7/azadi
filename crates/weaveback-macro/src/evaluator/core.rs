@@ -9,7 +9,7 @@ use super::builtins::{default_builtins, BuiltinFn};
 use super::errors::{EvalError, EvalResult};
 use super::monty_eval::MontyEvaluator;
 use super::output::{EvalOutput, PreciseTracingOutput, SourceSpan, SpanKind, SpanRange};
-use super::state::{EvalConfig, EvaluatorState, MacroDefinition, ScriptKind};
+use super::state::{EvalConfig, EvaluatorState, MacroDefinition, ScriptKind, TrackedValue};
 use crate::types::{ASTNode, NodeKind, Token, TokenKind};
 
 mod accessors;

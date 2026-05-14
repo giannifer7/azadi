@@ -119,6 +119,7 @@ about chunk composition rather than macro evaluation.
 | `%include(path)` | Evaluate the named file and splice its output inline. |
 | `%import(path)` | Evaluate the named file for its side effects (macro/variable definitions) only; output is discarded. |
 | `%if(cond, then[, else])` | If `cond` is non-empty (after trim), expand `then`; otherwise expand `else` (if provided). |
+| `%match(value, default, regex0, val0, …)` | Match `value` against regex patterns in order.  Only the selected value/default branch expands. |
 | `%eval(name, args…)` | Look up `name` at evaluation time and call the macro with `args`.  Used for dynamic dispatch. |
 | `%here(name, args…)` | Expand the macro and splice the result into the current source file (one-shot source patching). |
 | *String transforms* |  |
@@ -189,6 +190,7 @@ use super::*;
 use super::*;
 
 // <[builtins if]>
+// <[builtins match]>
 
 // @
 ```
@@ -278,6 +280,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use regex::Regex;
+
 use super::case_conversion::convert_case_str;
 use super::core::Evaluator;
 use super::errors::{EvalError, EvalResult};
@@ -298,7 +302,7 @@ mod stores;
 mod strings;
 mod util;
 
-use control::builtin_if;
+use control::{builtin_if, builtin_match};
 use definition::{builtin_def, builtin_pydef, builtin_redef};
 use include::{builtin_import, builtin_include};
 use predicates::{builtin_eq, builtin_neq, builtin_not};
@@ -336,6 +340,7 @@ pub fn default_builtins() -> HashMap<String, BuiltinFn> {
     map.insert("include".to_string(), builtin_include as BuiltinFn);
     map.insert("import".to_string(), builtin_import as BuiltinFn);
     map.insert("if".to_string(), builtin_if as BuiltinFn);
+    map.insert("match".to_string(), builtin_match as BuiltinFn);
     map.insert("set".to_string(), builtin_set as BuiltinFn);
     map.insert("alias".to_string(), builtin_alias as BuiltinFn);
     map.insert("export".to_string(), builtin_export as BuiltinFn);
@@ -649,6 +654,67 @@ pub(in crate::evaluator::builtins) fn builtin_if(eval: &mut Evaluator, node: &AS
             Ok("".into())
         }
     }
+}
+// @
+```
+
+
+## `%match`
+
+`%match(value, default, regex0, val0, ..., regexN, valN)` evaluates `value`,
+then tests each regex in order.  The first matching regex selects its value
+branch.  If no regex matches, the default branch is selected.
+
+The selected branch is lazy: unselected branch bodies are not evaluated.
+During the selected regex branch, captures are available as variables:
+
+* `%(match_0)` — whole match
+* `%(match_1)`, `%(match_2)`, … — numbered capture groups
+* `%(name)` — named captures
+
+Capture variables are restored after the selected branch finishes, so they do
+not leak into the caller's frame.
+
+```rust
+// <[builtins match]>=
+pub(in crate::evaluator::builtins) fn builtin_match(eval: &mut Evaluator, node: &ASTNode) -> EvalResult<String> {
+    let parts = &node.parts;
+    if parts.len() < 2 {
+        return Err(EvalError::InvalidUsage(
+            "match: expected at least (value, default)".into(),
+        ));
+    }
+    if !(parts.len() - 2).is_multiple_of(2) {
+        return Err(EvalError::InvalidUsage(
+            "match: regex/value arguments must come in pairs".into(),
+        ));
+    }
+
+    let value = eval.evaluate(&parts[0])?;
+    for pair in parts[2..].chunks_exact(2) {
+        let pattern = eval.evaluate(&pair[0])?;
+        let regex = Regex::new(&pattern).map_err(|e| {
+            EvalError::BuiltinError(format!("match: invalid regex {pattern:?}: {e}"))
+        })?;
+        let Some(captures) = regex.captures(&value) else {
+            continue;
+        };
+
+        let mut bindings = Vec::new();
+        for idx in 0..captures.len() {
+            if let Some(capture) = captures.get(idx) {
+                bindings.push((format!("match_{idx}"), capture.as_str().to_string()));
+            }
+        }
+        for name in regex.capture_names().flatten() {
+            if let Some(capture) = captures.name(name) {
+                bindings.push((name.to_string(), capture.as_str().to_string()));
+            }
+        }
+        return eval.evaluate_with_temporary_variables(&bindings, &pair[1]);
+    }
+
+    eval.evaluate(&parts[1])
 }
 // @
 ```

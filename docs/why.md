@@ -187,8 +187,9 @@ decision follows from this.
 ## Why two passes?
 
 The pipeline has two independent tools: `weaveback-macro` (macro expander) and
-`weaveback-tangle` (chunk extractor). They can be used in sequence, or fused
-into a single pass by the `weaveback` binary.
+`weaveback-tangle` (chunk extractor). `wb-tangle` orchestrates the normal
+project pass while the lower-level tools remain available for debugging and
+experiments.
 
 The split exists for three reasons.
 
@@ -216,9 +217,9 @@ string substitution. The tangle pass deals with chunk assembly, indentation
 preservation, file writing, and the source-map database. Bugs in one do not
 contaminate the other.
 
-In practice the combined `weaveback` binary is what you run. The split is
-invisible to most users. It matters when something breaks: you can determine
-in seconds whether the fault is in macro expansion or in chunk assembly.
+In normal use `wb-tangle` orchestrates both passes. The split matters when
+something breaks: you can determine in seconds whether the fault is in macro
+expansion or in chunk assembly.
 
 ## Why a custom macro language?
 
@@ -287,7 +288,7 @@ escape hatch.
 The project now keeps a single escape hatch. Python-familiar teams reach for
 `%pydef`, backed by
 [monty](https://github.com/pydantic/monty) — a pure-Rust Python interpreter that
-is compiled into the weaveback binary. There is no CPython dependency, no
+is compiled into the macro evaluator. There is no CPython dependency, no
 virtualenv, no installed Python packages required.
 
 It is sandboxed: no filesystem I/O, no network, no subprocess spawning.

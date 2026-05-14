@@ -5,8 +5,8 @@ toc: left
 ---
 # Public macro API
 
-`macro_api.rs` is the byte-oriented public interface used by the combined
-`weaveback` binary and external callers.  It wraps the string-based
+`macro_api.rs` is the byte-oriented public interface used by CLI tools and
+external callers.  It wraps the string-based
 [eval_api](evaluator/eval_api.md) layer but returns `Vec<u8>` and offers
 a streaming `dyn Write` variant.
 
@@ -15,16 +15,16 @@ a streaming `dyn Write` variant.
 ### `Vec<u8>` output, not `String`
 
 `eval_api.rs` returns `String`; `macro_api.rs` converts to `Vec<u8>`.  The
-combined binary writes bytes directly to a file or stdout without an extra
-UTF-8 round-trip, and weaveback-tangle's safe writer compares byte content for
-change detection.
+CLI path writes bytes directly to a file or stdout without an extra UTF-8
+round-trip, and weaveback-tangle's safe writer compares byte content for change
+detection.
 
 ### Tracing variants
 
 `process_string_tracing` runs the evaluator through `TracingOutput` and
 returns both the expanded bytes and a `Vec<(u32, MacroMapEntry)>` ready for
-insertion into the redb `macro_map` table.  This is the code path taken when
-the combined binary builds a source map alongside the expanded output.
+insertion into the redb `macro_map` table.  This is the code path used when a
+caller builds a source map alongside the expanded output.
 
 `process_string_precise` uses `PreciseTracingOutput` for per-byte attribution —
 used by the backpropagation tool when it needs to trace individual characters

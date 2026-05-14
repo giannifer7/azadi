@@ -3,7 +3,7 @@
 `wb-mcp` exposes the weaveback MCP (Model Context Protocol) server as a
 standalone binary.  It reads JSON-RPC requests from stdin and writes
 responses to stdout, making it usable directly in MCP client configurations
-without requiring the full `weaveback` binary.
+without routing through another CLI.
 
 == CLI
 
