@@ -1,278 +1,122 @@
 = Weaveback
 
-link:https://giannifer7.github.io/weaveback/docs/index.html[Documentation]
-| link:https://giannifer7.github.io/weaveback/crates/weaveback-tangle/src/weaveback_tangle.html[weaveback-tangle source]
-| link:https://giannifer7.github.io/weaveback/crates/weaveback-macro/src/weaveback_macro.html#literate-sources[weaveback-macro source]
+*Status: archived failed experiment.*
 
-Weaveback is a bidirectional literate programming toolchain.
+Weaveback was an experiment in bidirectional literate programming for the age
+of coding agents.  It tried to make annotated source documents the source of
+truth while still allowing generated files to be traced, queried, edited, and
+patched back into the literate source.
 
-Write your source code inside AsciiDoc (or any text file), assemble named
-chunks, and let the tool write the real files — then trace any generated
-line back to its origin, or propagate edits back to the source.
+The experiment produced useful components, especially the strict macro
+language and the forward noweb-style tangling pipeline.  But the complete
+system became too complex for the value it provided.
 
-[source,sh]
+The simplified continuation is:
+
+link:https://github.com/giannifer7/reweave[giannifer7/reweave]
+
+Reweave keeps the useful forward path:
+
+[source,text]
 ----
-wb-tangle source.adoc --gen src
-----
-
----
-
-== Why this exists now
-
-Coding agents made code generation cheap.  They did not make judgment cheap.
-
-That changes the value proposition of literate programming.  The hard part is
-no longer typing boilerplate; it is preserving *intent*, keeping distant but
-related fragments in sync, and making generated or agent-modified code
-reviewable by a human.
-
-Weaveback is useful only if it helps with that higher-level problem:
-
-- keeping related code fragments synchronized across distance
-- tracing generated code back to the rationale that produced it
-- propagating edits without losing the source of truth
-- giving humans enough context to validate agent-produced changes
-
-As code templates, many classic "design patterns" are cheaper than ever for an
-agent to emit.  As a vocabulary for *why* a structure exists, they still
-matter.
-
-If the tool does not reduce cognitive load and improve auditability, it is just
-cleverness.  If it carries the why together with the code strongly enough that
-people can still reason about large systems, it earns its keep.
-
----
-
-== What makes Weaveback different
-
-Traditional literate programming is one-way: source → generated code.
-Edits to generated files must be propagated back manually, and over time
-the two representations drift.
-
-Weaveback closes the loop.
-Every generated line knows where it came from and can be traced precisely.
-Edits can propagate back to the source.
-
-- *Trace* any generated line back to its source: `wb-query where`
-- *Propagate* edits from generated files back to the document: `wb-tangle apply-back`
-
-The source remains the single source of truth — without becoming a dead end.
-
----
-
-== A simple example
-
-Start from generated code:
-
-[source,rust]
-----
-// src/events.rs — generated
-pub enum PluginEvent {
-    PluginLoad,
-    PluginUnload,
-}
+Markdown input
+  -> optional macro expansion
+  -> chunk expansion
+  -> direct file writes
 ----
 
-Trace a line back to its origin:
+and removes the systems that made Weaveback hard to reason about:
 
-[source,sh]
+* the SQLite provenance database;
+* source-map query tooling as a core requirement;
+* `apply-back` and reverse editing;
+* generated-file reconciliation;
+* dogfooding the implementation through literate sources;
+* documentation rendering and distribution machinery.
+
+== Why Weaveback Is Considered A Failure
+
+The core hypothesis was reasonable: coding agents make code generation cheap,
+so the scarce resource becomes intent, traceability, and reviewability.
+Weaveback attempted to preserve that intent by connecting generated code back
+to prose and chunks.
+
+The problem is that the reverse path dominated the project.
+
+Forward generation is understandable:
+
+[source,text]
 ----
-wb-query where src/events.rs 2
-----
-
-→ opens the exact chunk in the literate source.
-
----
-
-Or edit the generated file directly:
-
-[source,rust]
-----
-// src/events.rs — after your edit
-pub enum PluginEvent {
-    PluginLoaded,
-    PluginUnloaded,
-}
-----
-
-Propagate the change back:
-
-[source,sh]
-----
-wb-tangle apply-back
+source document -> macro expansion -> chunk assembly -> generated files
 ----
 
-→ the literate source is updated, preserving consistency.
+Reverse editing is not:
 
----
-
-== Language-agnostic fan-out
-
-A single document can define data once and fan it out to multiple files in
-multiple languages simultaneously.
-
-Add one entry; every target stays in sync.
-
-The example below defines plugin events in AsciiDoc and generates
-a C header, a Rust module, and a SQL seed file from the same source definition.
-
-[source,adoc]
+[source,text]
 ----
-%def(event, id, ns, name, description, %{
-// <[c enum arms]>=
-EVT_%to_screaming_case(%(ns))_%to_screaming_case(%(name)) = %(id),
-// @
-// <[rust enum arms]>=
-%to_pascal_case(%(ns))%to_pascal_case(%(name)),
-// @
-// <[sql rows]>=
-INSERT INTO audit_event_types (id, name, description)
-    VALUES (%(id), '%(ns).%(name)', '%(description)')
-    ON CONFLICT (name) DO NOTHING;
-// @
-%})
-
-%event(0, plugin, load,   "Plugin loaded into host")
-%event(1, plugin, unload, "Plugin removed from host")
+generated edit
+  -> provenance lookup
+  -> source-map interpretation
+  -> macro/chunk reconstruction
+  -> source patch synthesis
+  -> retangle verification
 ----
 
-All outputs remain consistent because they originate from the same structured source.
+That second pipeline required persistent state, path normalization rules,
+database locking behavior, source maps, generated-file guards, apply-back
+heuristics, and specialized agent workflows.  It made simple work expensive.
 
----
+The result violated a useful engineering rule:
 
-== Macro language
+[quote]
+If the implementation is hard to explain, it is probably the wrong design.
 
-The macro system is intentionally simple.
+Weaveback also suffered from dogfooding pressure.  Deciding what should be
+literate and what should remain ordinary source became an extra design problem
+on top of every real task.  Large literate files and generated Rust drift made
+the implementation harder, not easier, for humans and agents to maintain.
 
-Built-ins — case conversion, `%if`, `%eq`, `%neq`, `%not` — cover common patterns
-while keeping expansions predictable and traceable.
+In short:
 
-Macros enable:
-- parameterized code generation
-- structured reuse
-- multi-language fan-out
+* the forward macro+tangle model was useful;
+* the bidirectional/provenance/apply-back model was too fragile;
+* the workflow was too unfamiliar;
+* the self-documentation did not compensate for the added complexity.
 
-without introducing a full programming language.
+That is why Weaveback is archived as a failed experiment rather than presented
+as an unfinished product.
 
----
+== What Survived
 
-== Escape hatches
+The lessons and reusable ideas were carried into Reweave:
 
-When the built-in macros are not enough, one scripted extension is available.
+* strict `%def` / `%redef` macro bindings;
+* explicit verbatim blocks;
+* strict variable and parameter behavior;
+* Markdown as the authoring format;
+* ordinary Rust source instead of dogfooded literate implementation;
+* forward-only noweb-style chunk expansion;
+* high test coverage as a guardrail.
 
-- *`%pydef`* — macro body runs in a sandboxed Python interpreter (monty), compiled into the binary. No Python installation required.
+See:
 
-The tradeoff: code produced inside scripted macros cannot be mapped back by
-`wb-query trace`. Use them for isolated calculations or string manipulation,
-not as a primary structuring mechanism.
+* link:https://github.com/giannifer7/reweave[Reweave repository]
+* link:https://github.com/giannifer7/reweave/blob/main/docs/literate-programming-lessons.md[Literate programming lessons from Weaveback]
 
----
+== Historical Material
 
-== Agent and IDE integration
+The rest of this repository is kept for reference.  It contains experiments in:
 
-Weaveback exposes a set of operations via MCP:
+* macro language design;
+* chunk syntax;
+* source tracing;
+* database-backed provenance;
+* MCP and LSP integrations;
+* generated documentation;
+* agent-oriented editing workflows.
 
-- *Source Tracing*: trace a generated line to its exact source chunk.
-- *Semantic Intelligence*: "Go to Definition" and "Find References" using LSP (Rust, Nim, Python).
-- *Literate Diagnostics*: see compiler errors and hover info directly in the source document.
-- *Contextual Understanding*: retrieve full chunk context (code, prose, dependencies).
-- *Verified Editing*: apply surgical, oracle-verified edits to source files.
+These are historical artifacts, not recommended starting points for new work.
 
-This enables a workflow closer to:
+If you want the practical successor, start with Reweave:
 
-trace → understand → modify → verify
-
-rather than blind generation.
-
----
-
-== Live documentation server
-
-`wb-serve` starts a local HTTP server with live reload, inline chunk
-editing, and an AI assistant panel that receives full chunk context: source
-body, surrounding prose and design notes, dependency bodies.
-
-image::../ai-panel.png[AI assistant panel,width=700]
-
----
-
-== Install
-
-*Installer script* (Linux, macOS, Windows):
-
-[source,sh]
-----
-python3 scripts/install.py             # core
-python3 scripts/install.py --diagrams  # + D2 and PlantUML support
-----
-
-*Arch Linux:* `paru -S weaveback-bin`
-
-*Nix:* `nix profile install github:giannifer7/weaveback`
-
-*Quick split binaries (musl, any Linux):*
-
-[source,sh]
-----
-base=https://github.com/giannifer7/weaveback/releases/latest/download
-for bin in wb-tangle wb-query wb-serve wb-mcp; do
-  curl -sL "$base/$bin-musl" -o "$HOME/.local/bin/$bin" && chmod +x "$HOME/.local/bin/$bin"
-done
-----
-
-→ link:docs/install.adoc[Full installation guide]
-
----
-
-== Quick start
-
-[source,sh]
-----
-cd examples/events
-wb-tangle events.adoc --gen .
-----
-
----
-
-== Status
-
-Experimental. This is an ongoing exploration of bidirectional literate
-programming and structured agent integration.
-
-Not production-ready. The focus is on the design, not completeness.
-
----
-
-== Documentation
-
-[cols="1,3",options="header"]
-|===
-| Document | Contents
-
-| link:docs/cli.adoc[CLI reference]
-| Focused command map and common workflows
-
-| link:docs/macros.adoc[Macro language]
-| `%def`, `%redef`, `%if`, `%pydef`, verbatim blocks
-
-| link:docs/noweb.adoc[Chunk syntax]
-| `@file`, named chunks, composition
-
-| link:docs/tracing.adoc[Source tracing]
-| `trace`, `apply-back`, MCP workflow
-
-| link:docs/architecture.adoc[Architecture]
-| Pipeline, source maps, server design
-
-| link:project/agent-python.adoc[Python Agent Bridge]
-| PyO3 + Pydantic agent design and scaffold
-
-| link:docs/install.adoc[Installation]
-| Platforms and binaries
-|===
-
----
-
-== License
-
-0BSD OR MIT OR Apache-2.0
+link:https://github.com/giannifer7/reweave[]
